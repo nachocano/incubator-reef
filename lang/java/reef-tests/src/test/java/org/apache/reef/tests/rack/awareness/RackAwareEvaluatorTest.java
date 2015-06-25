@@ -20,9 +20,11 @@ package org.apache.reef.tests.rack.awareness;
 
 import org.apache.reef.client.DriverConfiguration;
 import org.apache.reef.client.LauncherStatus;
+import org.apache.reef.runtime.local.client.parameters.RackNames;
 import org.apache.reef.tang.Configuration;
+import org.apache.reef.tang.Tang;
+import org.apache.reef.tests.LocalTestEnvironment;
 import org.apache.reef.tests.TestEnvironment;
-import org.apache.reef.tests.TestEnvironmentFactory;
 import org.apache.reef.tests.library.driver.OnDriverStartedAllocateOne;
 import org.apache.reef.util.EnvironmentUtils;
 import org.junit.After;
@@ -30,17 +32,15 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.logging.Logger;
-
 /**
- * Tests whether an Evaluator receives its rack information. For now, the rack name is hardcoded to "/default-rack".
- * In the future, when the user can specify which racks to execute on, this test will make more sense
+ * Tests whether an Evaluator receives its rack information.
+ * The available racks can be configured in the local runtime.
  */
 public final class RackAwareEvaluatorTest {
 
-  private static final Logger LOG = Logger.getLogger(RackAwareEvaluatorTest.class.getName());
-  private final TestEnvironment testEnvironment = TestEnvironmentFactory.getNewTestEnvironment();
-
+  private static final String RACK1 = "rack1";
+  // runs on the local runtime
+  private final TestEnvironment testEnvironment = new LocalTestEnvironment();
 
   @Before
   public void setUp() throws Exception {
@@ -52,7 +52,6 @@ public final class RackAwareEvaluatorTest {
     this.testEnvironment.tearDown();
   }
 
-  @Test
   public void testRackAwareEvaluatorRunningOnDefaultRack() {
     //Given
     final Configuration driverConfiguration = DriverConfiguration.CONF
@@ -66,7 +65,30 @@ public final class RackAwareEvaluatorTest {
     final LauncherStatus status = this.testEnvironment.run(driverConfiguration);
     // Then
     Assert.assertTrue("Job state after execution: " + status, status.isSuccess());
-    LOG.info("Success!!!");
   }
+
+  @Test
+  public void testRackAwareEvaluatorRunningOnRack1() {
+    //Given
+    final Configuration driverConfiguration = DriverConfiguration.CONF
+        .set(DriverConfiguration.DRIVER_IDENTIFIER, "TEST_RackAwareEvaluator")
+        .set(DriverConfiguration.GLOBAL_LIBRARIES, EnvironmentUtils.getClassLocation(RackAwareEvaluatorTestDriver.class))
+        .set(DriverConfiguration.ON_DRIVER_STARTED, OnDriverStartedAllocateOne.class)
+        .set(DriverConfiguration.ON_EVALUATOR_ALLOCATED, RackAwareEvaluatorTestDriver.EvaluatorAllocatedHandler.class)
+        .build();
+
+    // update the drive config with the rack to assert on
+    final Configuration testDriverConfig = Tang.Factory.getTang().newConfigurationBuilder(driverConfiguration).bindNamedParameter(RackNameParameter.class, RACK1).build();
+
+    // update the runtime config with the rack available using the config module
+    final Configuration testRuntimeConfig = Tang.Factory.getTang().newConfigurationBuilder(this.testEnvironment.getRuntimeConfiguration()).bindSetEntry(RackNames.class, RACK1).build();
+
+    // When
+    final LauncherStatus status = this.testEnvironment.run(testRuntimeConfig, testDriverConfig);
+    // Then
+    Assert.assertTrue("Job state after execution: " + status, status.isSuccess());
+  }
+
+
 
 }

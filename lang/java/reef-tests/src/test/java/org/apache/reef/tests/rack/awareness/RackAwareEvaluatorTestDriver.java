@@ -19,25 +19,23 @@
 package org.apache.reef.tests.rack.awareness;
 
 import org.apache.reef.driver.evaluator.AllocatedEvaluator;
+import org.apache.reef.tang.annotations.Parameter;
 import org.apache.reef.tang.annotations.Unit;
 import org.apache.reef.wake.EventHandler;
 import org.junit.Assert;
 
 import javax.inject.Inject;
 
-import java.util.logging.Logger;
-
 @Unit
 final class RackAwareEvaluatorTestDriver {
 
-  private static final Logger LOG = Logger.getLogger(RackAwareEvaluatorTestDriver.class.getName());
 
-  // hardcoded not to use the constant in ResourceCatalogImpl, which is local runtime dependent
-  // TODO future iterations so change this
-  private final String DEFAULT_RACK = "/default-rack";
+
+  private final String expectedRackName;
 
   @Inject
-  RackAwareEvaluatorTestDriver() {
+  RackAwareEvaluatorTestDriver(@Parameter(RackNameParameter.class) final String rackName) {
+    this.expectedRackName = rackName;
   }
 
   /**
@@ -49,8 +47,7 @@ final class RackAwareEvaluatorTestDriver {
     public void onNext(final AllocatedEvaluator allocatedEvaluator) {
 
       final String actual = allocatedEvaluator.getEvaluatorDescriptor().getNodeDescriptor().getRackDescriptor().getName();
-      LOG.info("Received rack name " + actual);
-      Assert.assertEquals(DEFAULT_RACK, actual);
+      Assert.assertEquals(expectedRackName, actual);
       allocatedEvaluator.close();
     }
   }
