@@ -61,7 +61,7 @@ public final class DriverConfigurationProvider {
         .set(LocalDriverConfiguration.CLIENT_REMOTE_IDENTIFIER, clientRemoteId)
         .set(LocalDriverConfiguration.JOB_IDENTIFIER, jobId);
     for (final String rackName : rackNames) {
-      configModule = configModule.set(LocalDriverConfiguration.MAX_NUMBER_OF_EVALUATORS, rackName);
+      configModule = configModule.set(LocalDriverConfiguration.RACK_NAMES, rackName);
     }
     return configModule.build();
   }
