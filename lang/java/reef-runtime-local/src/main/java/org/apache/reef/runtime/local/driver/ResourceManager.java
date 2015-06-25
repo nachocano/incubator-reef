@@ -219,6 +219,7 @@ public final class ResourceManager {
   }
 
   /**
+  /**
    * Checks the allocation queue for new allocations and if there are any
    * satisfies them.
    */
@@ -275,7 +276,6 @@ public final class ResourceManager {
       }
       // update REEF
       this.sendRuntimeStatus();
-
       if (allocated) {
         // Check whether we can satisfy another one.
         this.checkRequestQueue();

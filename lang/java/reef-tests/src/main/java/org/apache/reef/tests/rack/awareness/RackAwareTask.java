@@ -16,14 +16,33 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 package org.apache.reef.tests.rack.awareness;
-import org.apache.reef.runtime.local.client.parameters.RackNames;
-import org.apache.reef.tang.annotations.Name;
-import org.apache.reef.tang.annotations.NamedParameter;
 
-@NamedParameter(default_value = RackNames.DEFAULT_RACK_NAME, short_name = "rack")
-public class RackNameParameter implements Name<String> {
-}
-public final class RackNameParameter implements Name<String> {
+import org.apache.commons.lang.Validate;
+import org.apache.reef.tang.annotations.Parameter;
+import org.apache.reef.task.Task;
+import java.util.logging.Logger;
+
+import javax.inject.Inject;
+
+/**
+ * A simple task that receives the rack it is executed on
+ */
+public final class RackAwareTask implements Task {
+
+  private static final Logger LOG = Logger.getLogger(RackAwareTask.class.getName());
+
+  private final String rackName;
+
+  @Inject
+  RackAwareTask(@Parameter(RackNameParameter.class) final String rackName) {
+    Validate.notEmpty(rackName);
+    this.rackName = rackName;
+  }
+
+  @Override
+  public final byte[] call(final byte[] memento) {
+    LOG.info("Evaluator executing in " + rackName);
+    return null;
+  }
 }

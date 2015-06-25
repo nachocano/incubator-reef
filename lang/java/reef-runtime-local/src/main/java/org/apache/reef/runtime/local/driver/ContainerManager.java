@@ -133,6 +133,17 @@ final class ContainerManager implements AutoCloseable {
 
     init(capacity, rackNames);
 
+    int missing = capacity % rackNames.size();
+    // initialize the freeNodesPerRackList and the capacityPerRack
+    for (final String rackName : rackNames) {
+      this.freeNodesPerRack.put(rackName, new ArrayList<String>());
+      this.capacityPerRack.put(rackName, capacityPerRack);
+      if (missing > 0) {
+        this.capacityPerRack.put(rackName, this.capacityPerRack.get(rackName) + 1);
+        missing--;
+      }
+    }
+
     LOG.log(Level.FINE, "Initialized Container Manager with {0} containers", capacity);
   }
 
