@@ -29,8 +29,6 @@ import javax.inject.Inject;
 @Unit
 final class RackAwareEvaluatorTestDriver {
 
-
-
   private final String expectedRackName;
 
   @Inject
@@ -51,51 +49,4 @@ final class RackAwareEvaluatorTestDriver {
       allocatedEvaluator.close();
     }
   }
-}
-
-
-    @Override
-    public void onNext(final AllocatedEvaluator allocatedEvaluator) {
-
-      final String actual = allocatedEvaluator.getEvaluatorDescriptor().getNodeDescriptor().getRackDescriptor().getName();
-      Assert.assertEquals(DEFAULT_RACK, actual);
-
-      LOG.info("Received rack name " + actual);
-
-      final Configuration configuration =
-          Tang.Factory.getTang().newConfigurationBuilder(
-              TaskConfiguration.CONF
-                .set(TaskConfiguration.IDENTIFIER, "RackAwareEvaluatorTask")
-                .set(TaskConfiguration.TASK, RackAwareTask.class)
-                .build())
-              .bindNamedParameter(RackNameParameter.class, actual)
-              .build();
-      allocatedEvaluator.submitTask(configuration);
-    }
-  }
-
-  final class EvaluatorCompleteHandler implements EventHandler<CompletedEvaluator> {
-
-    @Override
-    public void onNext(final CompletedEvaluator completedEvaluator) {
-      LOG.log(Level.INFO, "Received a CompletedEvaluator for Evaluator {0}", completedEvaluator.getId());
-      completedEvaluatorReceived.set(true);
-    }
-  }
-
-  final class StopHandler implements EventHandler<StopTime> {
-
-    @Override
-    public void onNext(final StopTime stopTime) {
-      synchronized (completedEvaluatorReceived) {
-        if (completedEvaluatorReceived.get()) {
-          LOG.info("Received an expected CompletedEvaluator. All good.");
-        } else {
-          LOG.info("Did not receive an expected CompletedEvaluator.");
-          throw new DriverSideFailure("Did not receive an expected CompletedEvaluator.");
-        }
-      }
-    }
-  }
-
 }
