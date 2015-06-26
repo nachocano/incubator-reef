@@ -19,8 +19,6 @@
 
 using System;
 using System.Collections.Generic;
-using Org.Apache.REEF.Network.Examples.GroupCommunication;
-using Org.Apache.REEF.Wake.Remote.Parameters;
 
 namespace Org.Apache.REEF.Network.Examples.Client
 {
@@ -30,11 +28,7 @@ namespace Org.Apache.REEF.Network.Examples.Client
         {
             Console.WriteLine("start running client: " + DateTime.Now);
             bool runOnYarn = false;
-            int numNodes = 9;
-            int startPort = 8900;
-            int portRange = 1000;
-            string testToRun = "RunBroadcastAndReduce";
-            
+            List<string> testToRun = new List<string>();
             if (args != null)
             {
                 if (args.Length > 0)
@@ -42,46 +36,21 @@ namespace Org.Apache.REEF.Network.Examples.Client
                     runOnYarn = bool.Parse(args[0].ToLower());
                 }
 
-                if (args.Length > 1)
+                for (int i = 1; i < args.Length; i++)
                 {
-                    numNodes = int.Parse(args[1]);
-                }
-
-                if (args.Length > 2)
-                {
-                    startPort = int.Parse(args[2]);
-                }
-
-                if (args.Length > 3)
-                {
-                    portRange = int.Parse(args[3]);
-                }
-
-                if (args.Length > 4)
-                {
-                    testToRun = args[4].ToLower();
+                    testToRun.Add(args[i].ToLower());
                 }
             }
 
-            if (testToRun.Equals("RunPipelineBroadcastAndReduce".ToLower()) || testToRun.Equals("all"))
+            if (testToRun.Contains("RunPipelineBroadcastAndReduce".ToLower()) || testToRun.Contains("all") || testToRun.Count == 0)
             {
-                int arraySize = GroupTestConstants.ArrayLength;
-                int chunkSize = GroupTestConstants.ChunkSize;
-
-                if (args.Length > 5)
-                {
-                    arraySize = int.Parse(args[5]);
-                    chunkSize = int.Parse(args[6]);
-                }
-
-                new PipelineBroadcastAndReduceClient().RunPipelineBroadcastAndReduce(runOnYarn, numNodes, startPort,
-                    portRange, arraySize, chunkSize);
+                new PipelineBroadcastAndReduceClient().RunPipelineBroadcastAndReduce(runOnYarn, 9);
                 Console.WriteLine("RunPipelineBroadcastAndReduce completed!!!");
             }
 
-            if (testToRun.Equals("RunBroadcastAndReduce".ToLower()) || testToRun.Equals("all"))
+            if (testToRun.Contains("RunBroadcastAndReduce".ToLower()) || testToRun.Contains("all") || testToRun.Count == 0)
             {
-                new BroadcastAndReduceClient().RunBroadcastAndReduce(runOnYarn, numNodes, startPort, portRange);
+                new BroadcastAndReduceClient().RunBroadcastAndReduce(runOnYarn, 9);
                 Console.WriteLine("RunBroadcastAndReduce completed!!!");
             }           
         }
