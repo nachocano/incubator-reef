@@ -52,6 +52,7 @@ public final class RackAwareEvaluatorTest {
     this.testEnvironment.tearDown();
   }
 
+  @Test
   public void testRackAwareEvaluatorRunningOnDefaultRack() {
     //Given
     final Configuration driverConfiguration = DriverConfiguration.CONF

@@ -209,7 +209,8 @@ public final class ResourceManager {
   private void validateRackNames(final List<String> rackNames) {
     for (final String rackName : rackNames) {
       if (!availableRacks.contains(rackName)) {
-        throw new IllegalArgumentException("Rack requested for Evaluators does not exist in the local runtime: " + rackName);
+        throw new IllegalArgumentException("Rack requested for Evaluators does not exist in the local runtime: "
+            + rackName + ", available racks are: " + availableRacks.toString());
       }
     }
   }
@@ -262,7 +263,7 @@ public final class ResourceManager {
         } else {
           // if relax locality constraint is disabled, don't try on the other racks
           if (Boolean.FALSE.equals(requestEvent.getRelaxLocality().get())) {
-            LOG.log(Level.FINEST, "Could not allocate on rack {0}, but relax locality constraint is false, breaking",
+            LOG.log(Level.FINEST, "Could not allocate on rack {0}, but relax locality constraint is disabled, breaking",
                 rackName);
             break;
           } else {
