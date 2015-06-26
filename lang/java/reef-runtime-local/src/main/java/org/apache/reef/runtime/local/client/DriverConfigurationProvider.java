@@ -48,6 +48,7 @@ public final class DriverConfigurationProvider {
     this.maxEvaluators = maxEvaluators;
     this.jvmHeapSlack = jvmHeapSlack;
     this.rackNames = rackNames;
+
   }
 
   private Configuration getDriverConfiguration(final File jobFolder,

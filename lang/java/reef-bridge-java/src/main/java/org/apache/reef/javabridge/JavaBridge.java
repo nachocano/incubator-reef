@@ -25,7 +25,6 @@ public class JavaBridge {
     try {
       System.loadLibrary(CPP_BRIDGE);
     } catch (UnsatisfiedLinkError e) {
-      // TODO[JIRA REEF-383] Document/Refactor JavaBridge
     }
   }
 }

@@ -28,8 +28,6 @@ import javax.inject.Inject;
 @Unit
 final class RackAwareEvaluatorTestDriver {
 
-
-
   private final String expectedRackName;
 
   @Inject
@@ -54,5 +52,3 @@ final class RackAwareEvaluatorTestDriver {
     }
   }
 }
-
-
