@@ -19,7 +19,6 @@
 package org.apache.reef.driver.catalog;
 
 import org.apache.reef.annotations.Unstable;
-import org.apache.reef.driver.evaluator.EvaluatorRequest;
 
 import java.util.Collection;
 
