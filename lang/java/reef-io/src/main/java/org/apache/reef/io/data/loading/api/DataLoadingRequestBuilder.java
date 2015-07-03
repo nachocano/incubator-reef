@@ -35,6 +35,11 @@ import org.apache.reef.tang.annotations.NamedParameter;
 import org.apache.reef.tang.exceptions.BindException;
 import org.apache.reef.tang.formats.ConfigurationModule;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Set;
+
 /**
  * Builder to create a request to the DataLoadingService.
  */
@@ -44,7 +49,7 @@ public final class DataLoadingRequestBuilder
   private int memoryMB = -1;
   private int numberOfCores = -1;
   private int numberOfDesiredSplits = -1;
-  private EvaluatorRequest computeRequest = null;
+  private List<EvaluatorRequest> computeRequests = new ArrayList<>();
   private boolean inMemory = false;
   private boolean renewFailedEvaluators = true;
   private ConfigurationModule driverConfigurationModule = null;
@@ -78,8 +83,20 @@ public final class DataLoadingRequestBuilder
     return this;
   }
 
+  public DataLoadingRequestBuilder addComputeRequests(final List<EvaluatorRequest> computeRequests) {
+    for (final EvaluatorRequest computeRequest : computeRequests) {
+      this.computeRequests.add(computeRequest);
+    }
+    return this;
+  }
+
+  public DataLoadingRequestBuilder addComputeRequest(final EvaluatorRequest computeRequest) {
+    this.computeRequests.add(computeRequest);
+    return this;
+  }
+
   public DataLoadingRequestBuilder setComputeRequest(final EvaluatorRequest computeRequest) {
-    this.computeRequest = computeRequest;
+    this.computeRequests = new ArrayList<>(Arrays.asList(computeRequest));
     return this;
   }
 
@@ -153,9 +170,10 @@ public final class DataLoadingRequestBuilder
       jcb.bindNamedParameter(DataLoadingEvaluatorNumberOfCores.class, "" + this.numberOfCores);
     }
 
-    if (this.computeRequest != null) {
-      jcb.bindNamedParameter(DataLoadingComputeRequest.class,
-          EvaluatorRequestSerializer.serialize(this.computeRequest));
+    if (!this.computeRequests.isEmpty()) {
+      for (final EvaluatorRequest request : this.computeRequests) {
+        jcb.bindSetEntry(DataLoadingComputeRequest.class, EvaluatorRequestSerializer.serialize(request));
+      }
     }
 
     return jcb
@@ -180,8 +198,11 @@ public final class DataLoadingRequestBuilder
   public static final class DataLoadingEvaluatorNumberOfCores implements Name<Integer> {
   }
 
-  @NamedParameter(default_value = "NULL")
-  public static final class DataLoadingComputeRequest implements Name<String> {
+  // TODO if serialized to an empty set by default, then we are done, test it
+  //@NamedParameter(default_values = {DataLoadingComputeRequest.DEFAULT_COMPUTE_REQUEST})
+  @NamedParameter
+  public static final class DataLoadingComputeRequest implements Name<Set<String>> {
+    //public static final String DEFAULT_COMPUTE_REQUEST = "NULL";
   }
 
   @NamedParameter(default_value = "false")

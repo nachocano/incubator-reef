@@ -37,6 +37,8 @@ import org.apache.reef.wake.time.event.Alarm;
 import org.apache.reef.wake.time.event.StartTime;
 
 import javax.inject.Inject;
+
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -71,11 +73,8 @@ public class DataLoader {
   private final DataLoadingService dataLoadingService;
   private final int dataEvalMemoryMB;
   private final int dataEvalCore;
-  private final EvaluatorRequest computeRequest;
   private final SingleThreadStage<EvaluatorRequest> resourceRequestStage;
   private final ResourceRequestHandler resourceRequestHandler;
-  private final int computeEvalMemoryMB;
-  private final int computeEvalCore;
   private final EvaluatorRequestor requestor;
 
   @Inject
@@ -85,7 +84,7 @@ public class DataLoader {
       final DataLoadingService dataLoadingService,
       @Parameter(DataLoadingRequestBuilder.DataLoadingEvaluatorMemoryMB.class) final int dataEvalMemoryMB,
       @Parameter(DataLoadingRequestBuilder.DataLoadingEvaluatorNumberOfCores.class) final int dataEvalCore,
-      @Parameter(DataLoadingRequestBuilder.DataLoadingComputeRequest.class) final String serializedComputeRequest) {
+      @Parameter(DataLoadingRequestBuilder.DataLoadingComputeRequest.class) final Set<String> serializedComputeRequests) {
 
     // FIXME: Issue #855: We need this alarm to look busy for REEF.
     clock.scheduleAlarm(30000, new EventHandler<Alarm>() {
@@ -102,17 +101,15 @@ public class DataLoader {
     this.resourceRequestHandler = new ResourceRequestHandler(requestor);
     this.resourceRequestStage = new SingleThreadStage<>(this.resourceRequestHandler, 2);
 
-    if (serializedComputeRequest.equals("NULL")) {
-      this.computeRequest = null;
+    if (serializedComputeRequests.isEmpty()) {
       this.computeEvalMemoryMB = -1;
       computeEvalCore = 1;
     } else {
-      this.computeRequest = EvaluatorRequestSerializer.deserialize(serializedComputeRequest);
-      this.computeEvalMemoryMB = this.computeRequest.getMegaBytes();
-      this.computeEvalCore = this.computeRequest.getNumberOfCores();
-      this.numComputeRequestsToSubmit.set(this.computeRequest.getNumber());
-
-      this.resourceRequestStage.onNext(this.computeRequest);
+      for (final String serializedComputeRequest : serializedComputeRequests) {
+        final EvaluatorRequest computeRequest = EvaluatorRequestSerializer.deserialize(serializedComputeRequest);
+        this.numComputeRequestsToSubmit.addAndGet(computeRequest.getNumber());
+        this.resourceRequestStage.onNext(computeRequest);
+      }
     }
 
     this.resourceRequestStage.onNext(getDataLoadingRequest());
