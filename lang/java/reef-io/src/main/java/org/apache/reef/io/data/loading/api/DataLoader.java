@@ -75,6 +75,8 @@ public class DataLoader {
   private final int dataEvalCore;
   private final SingleThreadStage<EvaluatorRequest> resourceRequestStage;
   private final ResourceRequestHandler resourceRequestHandler;
+  private int computeEvalMemoryMB;
+  private int computeEvalCore;
   private final EvaluatorRequestor requestor;
 
   @Inject
@@ -102,12 +104,20 @@ public class DataLoader {
     this.resourceRequestStage = new SingleThreadStage<>(this.resourceRequestHandler, 2);
 
     if (serializedComputeRequests.isEmpty()) {
-      this.computeEvalMemoryMB = -1;
+      computeEvalMemoryMB = -1;
       computeEvalCore = 1;
     } else {
+      boolean setComputeMetrics = true;
       for (final String serializedComputeRequest : serializedComputeRequests) {
         final EvaluatorRequest computeRequest = EvaluatorRequestSerializer.deserialize(serializedComputeRequest);
         this.numComputeRequestsToSubmit.addAndGet(computeRequest.getNumber());
+        // Just setting the request properties based on the first request.
+        // TODO think if we can take the maximums instead
+        if (setComputeMetrics) {
+          computeEvalMemoryMB = computeRequest.getMegaBytes();
+          computeEvalCore = computeRequest.getNumberOfCores();
+          setComputeMetrics = false;
+        }
         this.resourceRequestStage.onNext(computeRequest);
       }
     }
