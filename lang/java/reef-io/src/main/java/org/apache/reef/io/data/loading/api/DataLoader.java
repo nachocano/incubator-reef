@@ -101,7 +101,8 @@ public class DataLoader {
     this.dataEvalMemoryMB = dataEvalMemoryMB;
     this.dataEvalCore = dataEvalCore;
     this.resourceRequestHandler = new ResourceRequestHandler(requestor);
-    this.resourceRequestStage = new SingleThreadStage<>(this.resourceRequestHandler, 2);
+    this.resourceRequestStage = new SingleThreadStage<>(
+        this.resourceRequestHandler, serializedComputeRequests.size() + 1);
 
     if (serializedComputeRequests.isEmpty()) {
       computeEvalMemoryMB = -1;
