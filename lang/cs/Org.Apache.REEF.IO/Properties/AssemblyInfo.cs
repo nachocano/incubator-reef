@@ -1,4 +1,4 @@
-/*
+﻿/**
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,18 +16,19 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.reef.runtime.local.client.parameters;
 
-import org.apache.reef.tang.annotations.Name;
-import org.apache.reef.tang.annotations.NamedParameter;
+using System.Reflection;
+using System.Runtime.InteropServices;
 
-import java.util.Set;
-
-/**
- * The name of the default racks available in the local runtime.
- */
-@NamedParameter(short_name = "racks", doc = "The name of the racks the containers will be placed on", default_values = {RackNames.DEFAULT_RACK_NAME})
-public final class RackNames implements Name<Set<String>> {
-  private RackNames() {}
-  public static final String DEFAULT_RACK_NAME = "/default-rack";
-}
+[assembly: AssemblyTitle("Org.Apache.REEF.IO")]
+[assembly: AssemblyDescription("IO Library for REEF")]
+[assembly: AssemblyConfiguration("")]
+[assembly: AssemblyCompany("The Apache Software Foundation.")]
+[assembly: AssemblyProduct("Org.Apache.REEF.IO")]
+[assembly: AssemblyCopyright("The Apache Software Foundation")]
+[assembly: AssemblyTrademark("The Apache Software Foundation")]
+[assembly: AssemblyCulture("")]
+[assembly: ComVisible(false)]
+[assembly: Guid("58c49df4-8dc0-4f58-9a7e-a341d33e40ee")]
+[assembly: AssemblyVersion("0.12.0.0")]
+[assembly: AssemblyFileVersion("0.12.0.0")]
