@@ -39,6 +39,8 @@ import org.apache.reef.wake.time.event.StartTime;
 
 import javax.inject.Inject;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -81,7 +83,7 @@ public class DataLoader {
   private int computeEvalCore;
   private final EvaluatorRequestor requestor;
 
-/*  @Inject
+  @Inject
   public DataLoader(
       final Clock clock,
       final EvaluatorRequestor requestor,
@@ -93,7 +95,7 @@ public class DataLoader {
         new HashSet<String>(Arrays.asList(EvaluatorRequestSerializer.serialize(EvaluatorRequest.newBuilder()
             .setMemory(dataEvalMemoryMB).setNumberOfCores(dataEvalCore).build()))));
   }
-*/
+
   @Inject
   public DataLoader(
       final Clock clock,
@@ -120,10 +122,11 @@ public class DataLoader {
         + serializedDataRequests.size());
 
     // check for both conditions, in case a client used the default compute request
-    if (serializedComputeRequests.isEmpty() || (serializedComputeRequests.size() == 1 &&
-        DataLoadingRequestBuilder.DataLoadingComputeRequest.DEFAULT_COMPUTE_REQUEST.equals(serializedComputeRequests.iterator().next()))) {
-      computeEvalMemoryMB = -1;
-      computeEvalCore = 1;
+    if (serializedComputeRequests.isEmpty()
+        || (serializedComputeRequests.size() == 1 && DataLoadingRequestBuilder.DataLoadingComputeRequest.DEFAULT_COMPUTE_REQUEST
+            .equals(serializedComputeRequests.iterator().next()))) {
+      this.computeEvalMemoryMB = -1;
+      this.computeEvalCore = 1;
     } else {
       for (final String serializedComputeRequest : serializedComputeRequests) {
         final EvaluatorRequest computeRequest = EvaluatorRequestSerializer.deserialize(serializedComputeRequest);
@@ -134,6 +137,8 @@ public class DataLoader {
       }
     }
 
+    // distribute the partitions evenly accross the DCs
+    // TODO this will probably change.
     final int dcs = serializedDataRequests.size();
     final int partitionsPerDataCenter = this.dataLoadingService.getNumberOfPartitions() / dcs;
     int missing = this.dataLoadingService.getNumberOfPartitions() % dcs;
