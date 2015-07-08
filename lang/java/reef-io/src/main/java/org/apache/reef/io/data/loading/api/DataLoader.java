@@ -39,8 +39,6 @@ import org.apache.reef.wake.time.event.StartTime;
 
 import javax.inject.Inject;
 
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -83,7 +81,7 @@ public class DataLoader {
   private int computeEvalCore;
   private final EvaluatorRequestor requestor;
 
-  @Inject
+/*  @Inject
   public DataLoader(
       final Clock clock,
       final EvaluatorRequestor requestor,
@@ -95,9 +93,9 @@ public class DataLoader {
         new HashSet<String>(Arrays.asList(EvaluatorRequestSerializer.serialize(EvaluatorRequest.newBuilder()
             .setMemory(dataEvalMemoryMB).setNumberOfCores(dataEvalCore).build()))));
   }
-
+*/
   @Inject
-  private DataLoader(
+  public DataLoader(
       final Clock clock,
       final EvaluatorRequestor requestor,
       final DataLoadingService dataLoadingService,
@@ -194,9 +192,9 @@ public class DataLoader {
       }
 
       final int evaluatorsForComputeRequest = numComputeRequestsToSubmit.decrementAndGet();
-      LOG.log(Level.FINE, "Evaluators for compute request: {0}", evaluatorsForComputeRequest);
 
       if (evaluatorsForComputeRequest >= 0) {
+        LOG.log(Level.FINE, "Evaluators for compute request: {0}", evaluatorsForComputeRequest);
         try {
           final Configuration idConfiguration = ContextConfiguration.CONF
               .set(ContextConfiguration.IDENTIFIER,
