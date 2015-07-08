@@ -18,6 +18,7 @@
  */
 package org.apache.reef.io.data.loading.api;
 
+import org.apache.commons.lang.Validate;
 import org.apache.hadoop.mapred.InputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TextInputFormat;
@@ -46,10 +47,13 @@ import java.util.Set;
 public final class DataLoadingRequestBuilder
     implements org.apache.reef.util.Builder<Configuration> {
 
-  private int memoryMB = -1;
-  private int numberOfCores = -1;
-  private int numberOfDesiredSplits = -1;
+  private static final int UNINITIALIZED = -1;
+
+  private int memoryMB = UNINITIALIZED;
+  private int numberOfCores = UNINITIALIZED;
+  private int numberOfDesiredSplits = UNINITIALIZED;
   private List<EvaluatorRequest> computeRequests = new ArrayList<>();
+  private final List<EvaluatorRequest> dataRequests = new ArrayList<>();
   private boolean inMemory = false;
   private boolean renewFailedEvaluators = true;
   private ConfigurationModule driverConfigurationModule = null;
@@ -85,13 +89,25 @@ public final class DataLoadingRequestBuilder
 
   public DataLoadingRequestBuilder addComputeRequests(final List<EvaluatorRequest> computeRequests) {
     for (final EvaluatorRequest computeRequest : computeRequests) {
-      this.computeRequests.add(computeRequest);
+      addComputeRequest(computeRequest);
+    }
+    return this;
+  }
+
+  public DataLoadingRequestBuilder addDataRequests(final List<EvaluatorRequest> dataRequests) {
+    for (final EvaluatorRequest dataRequest : dataRequests) {
+      addDataRequest(dataRequest);
     }
     return this;
   }
 
   public DataLoadingRequestBuilder addComputeRequest(final EvaluatorRequest computeRequest) {
     this.computeRequests.add(computeRequest);
+    return this;
+  }
+
+  public DataLoadingRequestBuilder addDataRequest(final EvaluatorRequest dataRequest) {
+    this.dataRequests.add(dataRequest);
     return this;
   }
 
@@ -162,17 +178,31 @@ public final class DataLoadingRequestBuilder
       jcb.bindNamedParameter(NumberOfDesiredSplits.class, "" + this.numberOfDesiredSplits);
     }
 
-    if (this.memoryMB > 0) {
-      jcb.bindNamedParameter(DataLoadingEvaluatorMemoryMB.class, "" + this.memoryMB);
+    // if empty, then we create a dataLoadRequest object
+    if (this.dataRequests.isEmpty()) {
+      final int dataMemoryMB = this.memoryMB > 0 ? this.memoryMB : Integer
+          .valueOf(DataLoadingEvaluatorMemoryMB.DEFAULT_DATA_MEMORY);
+      final int dataCores = this.numberOfCores > 0 ? this.numberOfCores : Integer
+          .valueOf(DataLoadingEvaluatorNumberOfCores.DEFAULT_DATA_CORES);
+      final EvaluatorRequest defaultDataRequest = EvaluatorRequest.newBuilder().setMemory(dataMemoryMB)
+          .setNumberOfCores(dataCores).build();
+      this.dataRequests.add(defaultDataRequest);
+    } else {
+      // if there are dataRequests, make sure the user did not configure the
+      // memory or the number of cores, as they will be discarded
+      Validate.isTrue(this.numberOfCores == UNINITIALIZED && this.memoryMB == UNINITIALIZED,
+          "Should not set number of cores or memory if you added specific data requests");
     }
 
-    if (this.numberOfCores > 0) {
-      jcb.bindNamedParameter(DataLoadingEvaluatorNumberOfCores.class, "" + this.numberOfCores);
+    // at this point data requests cannot be empty, either we use the default
+    // one or the ones passed by the user
+    for (final EvaluatorRequest request : this.dataRequests) {
+      jcb.bindSetEntry(DataLoadingDataRequests.class, EvaluatorRequestSerializer.serialize(request));
     }
 
     if (!this.computeRequests.isEmpty()) {
       for (final EvaluatorRequest request : this.computeRequests) {
-        jcb.bindSetEntry(DataLoadingComputeRequest.class, EvaluatorRequestSerializer.serialize(request));
+        jcb.bindSetEntry(DataLoadingComputeRequests.class, EvaluatorRequestSerializer.serialize(request));
       }
     }
 
@@ -190,19 +220,31 @@ public final class DataLoadingRequestBuilder
   public static final class NumberOfDesiredSplits implements Name<Integer> {
   }
 
-  @NamedParameter(short_name = "dataLoadingEvaluatorMemoryMB", default_value = "4096")
+  @NamedParameter(short_name = "dataLoadingEvaluatorMemoryMB", default_value = DataLoadingEvaluatorMemoryMB.DEFAULT_DATA_MEMORY)
   public static final class DataLoadingEvaluatorMemoryMB implements Name<Integer> {
+    static final String DEFAULT_DATA_MEMORY = "4096";
   }
 
-  @NamedParameter(short_name = "dataLoadingEvaluatorCore", default_value = "1")
+  @NamedParameter(short_name = "dataLoadingEvaluatorCore", default_value = DataLoadingEvaluatorNumberOfCores.DEFAULT_DATA_CORES)
   public static final class DataLoadingEvaluatorNumberOfCores implements Name<Integer> {
+    static final String DEFAULT_DATA_CORES = "1";
   }
 
-  // TODO if serialized to an empty set by default, then we are done, test it
-  //@NamedParameter(default_values = {DataLoadingComputeRequest.DEFAULT_COMPUTE_REQUEST})
+  /**
+   * @deprecated since 0.12. Should use instead DataLoadingComputeRequests.
+   */
+  @Deprecated
+  @NamedParameter(default_value = DataLoadingComputeRequest.DEFAULT_COMPUTE_REQUEST)
+  public static final class DataLoadingComputeRequest implements Name<String> {
+    public static final String DEFAULT_COMPUTE_REQUEST = "NULL";
+  }
+
   @NamedParameter
-  public static final class DataLoadingComputeRequest implements Name<Set<String>> {
-    //public static final String DEFAULT_COMPUTE_REQUEST = "NULL";
+  public static final class DataLoadingComputeRequests implements Name<Set<String>> {
+  }
+
+  @NamedParameter
+  public static final class DataLoadingDataRequests implements Name<Set<String>> {
   }
 
   @NamedParameter(default_value = "false")
