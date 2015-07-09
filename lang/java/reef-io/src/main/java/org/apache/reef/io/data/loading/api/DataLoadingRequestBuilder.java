@@ -47,6 +47,7 @@ import java.util.Set;
 public final class DataLoadingRequestBuilder
     implements org.apache.reef.util.Builder<Configuration> {
 
+  // constant used in several places
   private static final int UNINITIALIZED = -1;
 
   private int memoryMB = UNINITIALIZED;
@@ -87,6 +88,13 @@ public final class DataLoadingRequestBuilder
     return this;
   }
 
+  /**
+   * Adds the requests to the compute requests list
+   *
+   * @param computeRequests
+   *          the compute requests to add
+   * @return this
+   */
   public DataLoadingRequestBuilder addComputeRequests(final List<EvaluatorRequest> computeRequests) {
     for (final EvaluatorRequest computeRequest : computeRequests) {
       addComputeRequest(computeRequest);
@@ -94,6 +102,13 @@ public final class DataLoadingRequestBuilder
     return this;
   }
 
+  /**
+   * Adds the requests to the data requests list
+   *
+   * @param dataRequests
+   *          the data requests to add
+   * @return this
+   */
   public DataLoadingRequestBuilder addDataRequests(final List<EvaluatorRequest> dataRequests) {
     for (final EvaluatorRequest dataRequest : dataRequests) {
       addDataRequest(dataRequest);
@@ -101,16 +116,41 @@ public final class DataLoadingRequestBuilder
     return this;
   }
 
+  /**
+   * Adds a single request to the compute requests list
+   *
+   * @param computeRequest
+   *          the compute request to add
+   * @return this
+   */
   public DataLoadingRequestBuilder addComputeRequest(final EvaluatorRequest computeRequest) {
     this.computeRequests.add(computeRequest);
     return this;
   }
 
+  /**
+   * Adds a single request to the data requests list
+   *
+   * @param dataRequest
+   *          the data request to add
+   * @return this
+   */
   public DataLoadingRequestBuilder addDataRequest(final EvaluatorRequest dataRequest) {
     this.dataRequests.add(dataRequest);
     return this;
   }
 
+  /**
+   * Sets the compute request.
+   *
+   * @deprecated since 0.12. Should use instead
+   *             {@link DataLoadingRequestBuilder#addComputeRequest(EvaluatorRequest)}
+   *             or {@link DataLoadingRequestBuilder#addComputeRequests(List)}
+   * @param computeRequest
+   *          the compute request
+   * @return this
+   */
+  @Deprecated
   public DataLoadingRequestBuilder setComputeRequest(final EvaluatorRequest computeRequest) {
     this.computeRequests = new ArrayList<>(Arrays.asList(computeRequest));
     return this;
@@ -178,7 +218,8 @@ public final class DataLoadingRequestBuilder
       jcb.bindNamedParameter(NumberOfDesiredSplits.class, "" + this.numberOfDesiredSplits);
     }
 
-    // if empty, then we create a dataLoadRequest object
+    // if empty, then the user code still uses the deprecated fields.
+    // we create a dataLoadRequest object based on them (or their default values)
     if (this.dataRequests.isEmpty()) {
       final int dataMemoryMB = this.memoryMB > 0 ? this.memoryMB : Integer
           .valueOf(DataLoadingEvaluatorMemoryMB.DEFAULT_DATA_MEMORY);
@@ -189,17 +230,18 @@ public final class DataLoadingRequestBuilder
       this.dataRequests.add(defaultDataRequest);
     } else {
       // if there are dataRequests, make sure the user did not configure the
-      // memory or the number of cores, as they will be discarded
+      // memory or the number of cores (deprecated API), as they will be discarded
       Validate.isTrue(this.numberOfCores == UNINITIALIZED && this.memoryMB == UNINITIALIZED,
           "Should not set number of cores or memory if you added specific data requests");
     }
 
-    // at this point data requests cannot be empty, either we use the default
-    // one or the ones passed by the user
+    // at this point data requests cannot be empty, either we use the one we created based on the
+    // deprecated fields, or the ones created by the user
     for (final EvaluatorRequest request : this.dataRequests) {
       jcb.bindSetEntry(DataLoadingDataRequests.class, EvaluatorRequestSerializer.serialize(request));
     }
 
+    // compute requests can be empty to maintain compatibility with previous code.
     if (!this.computeRequests.isEmpty()) {
       for (final EvaluatorRequest request : this.computeRequests) {
         jcb.bindSetEntry(DataLoadingComputeRequests.class, EvaluatorRequestSerializer.serialize(request));
@@ -231,12 +273,13 @@ public final class DataLoadingRequestBuilder
   }
 
   /**
-   * @deprecated since 0.12. Should use instead DataLoadingComputeRequests.
+   * @deprecated since 0.12. Should use instead DataLoadingComputeRequests. No
+   *             need for the default value anymore, it is handled in the
+   *             DataLoader side in order to disambiguate constructors
    */
   @Deprecated
-  @NamedParameter(default_value = DataLoadingComputeRequest.DEFAULT_COMPUTE_REQUEST)
+  @NamedParameter
   public static final class DataLoadingComputeRequest implements Name<String> {
-    public static final String DEFAULT_COMPUTE_REQUEST = "NULL";
   }
 
   @NamedParameter
