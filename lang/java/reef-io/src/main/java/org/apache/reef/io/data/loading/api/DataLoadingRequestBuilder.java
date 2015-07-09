@@ -27,7 +27,12 @@ import org.apache.reef.driver.evaluator.EvaluatorRequest;
 import org.apache.reef.io.data.loading.impl.EvaluatorRequestSerializer;
 import org.apache.reef.io.data.loading.impl.InputFormatExternalConstructor;
 import org.apache.reef.io.data.loading.impl.InputFormatLoadingService;
+import org.apache.reef.io.data.loading.impl.InputFormats;
+import org.apache.reef.io.data.loading.impl.InputFormatsExternalConstructor;
+import org.apache.reef.io.data.loading.impl.InputFormatsLoadingService;
 import org.apache.reef.io.data.loading.impl.JobConfExternalConstructor;
+import org.apache.reef.io.data.loading.impl.JobConfs;
+import org.apache.reef.io.data.loading.impl.JobConfsExternalConstructor;
 import org.apache.reef.tang.Configuration;
 import org.apache.reef.tang.JavaConfigurationBuilder;
 import org.apache.reef.tang.Tang;
@@ -69,7 +74,7 @@ public final class DataLoadingRequestBuilder
   private boolean renewFailedEvaluators = true;
   private ConfigurationModule driverConfigurationModule = null;
   private String inputFormatClass;
-  private String inputPath;
+  private List<String> inputPaths = new ArrayList<>();
 
   public DataLoadingRequestBuilder setNumberOfDesiredSplits(final int numberOfDesiredSplits) {
     this.numberOfDesiredSplits = numberOfDesiredSplits;
@@ -188,8 +193,45 @@ public final class DataLoadingRequestBuilder
     return this;
   }
 
+  /**
+   * Sets the input path.
+   *
+   * @deprecated since 0.12. Should use instead
+   *             {@link DataLoadingRequestBuilder#addInputPath(String)}
+   *             or {@link DataLoadingRequestBuilder#addInputPaths(List)}
+   * @param inputPath
+   *          the input path
+   * @return this
+   */
+  @Deprecated
   public DataLoadingRequestBuilder setInputPath(final String inputPath) {
-    this.inputPath = inputPath;
+    this.inputPaths = new ArrayList<>(Arrays.asList(inputPath));
+    return this;
+  }
+
+  /**
+   * Adds the input paths to the input paths list.
+   *
+   * @param inputPaths
+   *          the input paths to add
+   * @return this
+   */
+  public DataLoadingRequestBuilder addInputPaths(final List<String> inputPaths) {
+    for (final String inputPath : inputPaths) {
+      addInputPath(inputPath);
+    }
+    return this;
+  }
+
+  /**
+   * Adds a single input path to the input paths list.
+   *
+   * @param inputPath
+   *          the input path to add
+   * @return this
+   */
+  public DataLoadingRequestBuilder addInputPath(final String inputPath) {
+    this.inputPaths.add(inputPath);
     return this;
   }
 
@@ -199,7 +241,7 @@ public final class DataLoadingRequestBuilder
       throw new BindException("Driver Configuration Module is a required parameter.");
     }
 
-    if (this.inputPath == null) {
+    if (this.inputPaths.isEmpty()) {
       throw new BindException("InputPath is a required parameter.");
     }
 
@@ -258,14 +300,26 @@ public final class DataLoadingRequestBuilder
       }
     }
 
-    return jcb
-        .bindNamedParameter(LoadDataIntoMemory.class, Boolean.toString(this.inMemory))
-        .bindConstructor(InputFormat.class, InputFormatExternalConstructor.class)
-        .bindConstructor(JobConf.class, JobConfExternalConstructor.class)
-        .bindNamedParameter(JobConfExternalConstructor.InputFormatClass.class, inputFormatClass)
-        .bindNamedParameter(JobConfExternalConstructor.InputPath.class, inputPath)
-        .bindImplementation(DataLoadingService.class, InputFormatLoadingService.class)
-        .build();
+    jcb.bindNamedParameter(LoadDataIntoMemory.class, Boolean.toString(this.inMemory))
+       .bindNamedParameter(JobConfExternalConstructor.InputFormatClass.class, inputFormatClass);
+
+    if (inputPaths.size() == 1) {
+      return jcb
+          .bindConstructor(InputFormat.class, InputFormatExternalConstructor.class)
+          .bindConstructor(JobConf.class, JobConfExternalConstructor.class)
+          .bindNamedParameter(JobConfExternalConstructor.InputPath.class, inputPaths.get(0))
+          .bindImplementation(DataLoadingService.class, InputFormatLoadingService.class)
+          .build();
+    } else {
+      jcb.bindConstructor(InputFormats.class, InputFormatsExternalConstructor.class)
+         .bindConstructor(JobConfs.class, JobConfsExternalConstructor.class);
+      for (final String inputPath : inputPaths) {
+        jcb.bindSetEntry(JobConfsExternalConstructor.InputPaths.class, inputPath);
+      }
+      return jcb.bindImplementation(DataLoadingService.class, InputFormatsLoadingService.class)
+          .build();
+    }
+
   }
 
   @NamedParameter(short_name = "num_splits", default_value = "0")
