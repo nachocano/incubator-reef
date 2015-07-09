@@ -165,7 +165,7 @@ public final class EvaluatorRequest {
 
     private Builder() {
     }
-
+    // setting builder to the values passed in the request
     private Builder(final EvaluatorRequest request) {
       setNumber(request.getNumber());
       fromDescriptor(request.getDescriptor());
