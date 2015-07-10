@@ -45,6 +45,10 @@ public final class NumberedSplit<E> implements Comparable<NumberedSplit<E>> {
     return folder.getPath();
   }
 
+  public String getLocation() {
+    return folder.getLocation();
+  }
+
   public E getEntry() {
     return entry;
   }

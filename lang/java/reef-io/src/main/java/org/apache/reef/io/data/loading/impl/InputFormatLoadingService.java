@@ -77,7 +77,7 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
   /**
    * @deprecated since 0.12. Should use the other constructor instead, which
    *             allows to specify the strategy on how to assign partitions to
-   *             evaluators
+   *             evaluators. This one by default uses {@link GreedyEvaluatorToPartitionStrategy}
    *
    */
   @Deprecated

@@ -29,6 +29,7 @@ import org.apache.reef.io.data.loading.impl.InputFolder;
 import org.apache.reef.io.data.loading.impl.InputFolderSerializer;
 import org.apache.reef.io.data.loading.impl.InputFormatLoadingService;
 import org.apache.reef.io.data.loading.impl.JobConfExternalConstructor;
+import org.apache.reef.io.data.loading.impl.LocationAwareEvaluatorToPartitionStrategy;
 import org.apache.reef.io.data.loading.impl.LocationAwareJobConfs;
 import org.apache.reef.io.data.loading.impl.JobConfsExternalConstructor;
 import org.apache.reef.tang.Configuration;
@@ -314,7 +315,7 @@ public final class DataLoadingRequestBuilder
     } else {
       // otherwise, we bind the strategy that will allow the user to specify
       // which evaluator can load the different chunks of data
-      jcb.bindImplementation(EvaluatorToPartitionStrategy.class, null);
+      jcb.bindImplementation(EvaluatorToPartitionStrategy.class, LocationAwareEvaluatorToPartitionStrategy.class);
     }
 
     return jcb.bindImplementation(DataLoadingService.class, InputFormatLoadingService.class).build();
