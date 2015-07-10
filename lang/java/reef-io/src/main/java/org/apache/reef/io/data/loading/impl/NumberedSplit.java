@@ -31,22 +31,22 @@ import org.apache.reef.io.data.loading.api.EvaluatorToPartitionStrategy;
 public final class NumberedSplit<E> implements Comparable<NumberedSplit<E>> {
   private final E entry;
   private final int index;
-  private final InputFolder folder;
+  private final DataPartition partition;
 
-  public NumberedSplit(final E entry, final int index, final InputFolder folder) {
+  public NumberedSplit(final E entry, final int index, final DataPartition partition) {
     Validate.notNull(entry, "Entry cannot be null");
-    Validate.notNull(folder, "Folder cannot be null");
+    Validate.notNull(partition, "Partition cannot be null");
     this.entry = entry;
     this.index = index;
-    this.folder = folder;
+    this.partition = partition;
   }
 
   public String getPath() {
-    return folder.getPath();
+    return partition.getPath();
   }
 
   public String getLocation() {
-    return folder.getLocation();
+    return partition.getLocation();
   }
 
   public E getEntry() {
@@ -59,7 +59,7 @@ public final class NumberedSplit<E> implements Comparable<NumberedSplit<E>> {
 
   @Override
   public String toString() {
-    return "InputSplit-" + index;
+    return "InputSplit-" + partition + "-" + index;
   }
 
   @Override

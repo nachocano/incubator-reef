@@ -63,7 +63,7 @@ public final class GreedyEvaluatorToPartitionStrategy extends AbstractEvaluatorT
 
   @Override
   protected NumberedSplit<InputSplit> tryAllocate(final NodeDescriptor nodeDescriptor, final String evaluatorId) {
-    LOG.fine("Picking a random partition from the unallocated ones");
+    LOG.fine("Picking a random split from the unallocated ones");
     return allocateSplit(evaluatorId, unallocatedSplits);
   }
 

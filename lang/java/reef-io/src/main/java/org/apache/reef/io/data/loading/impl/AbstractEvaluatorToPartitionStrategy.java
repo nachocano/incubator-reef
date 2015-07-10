@@ -43,7 +43,7 @@ import javax.inject.Inject;
  * implementations. Contains some template methods that should be implemented by
  * subclasses. If you implementation does not need this logic, you should just
  * implement the {@link EvaluatorToPartitionStrategy} interface and do not
- * extend this class
+ * extend this class.
  */
 @DriverSide
 public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorToPartitionStrategy<InputSplit> {
@@ -61,21 +61,22 @@ public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorT
   }
 
   /**
-   * Initializes the locations of splits mapping.
+   * Initializes the locations of the splits where we'd like to be loaded into.
+   * Sets all the splits to unallocated
    *
-   * @param splitsPerFolder
-   *          a map containing the input splits per input folder
+   * @param splitsPerPartition
+   *          a map containing the input splits per data partition
    */
   @Override
-  public void init(final Map<InputFolder, InputSplit[]> splitsPerFolder) {
-    final Pair<InputSplit[], InputFolder[]> splitsAndFolders = getSplitsAndFolders(splitsPerFolder);
-    final InputSplit[] splits = splitsAndFolders.getFirst();
-    final InputFolder[] folders = splitsAndFolders.getSecond();
-    Validate.isTrue(splits.length == folders.length);
+  public void init(final Map<DataPartition, InputSplit[]> splitsPerPartition) {
+    final Pair<InputSplit[], DataPartition[]> splitsAndPartitions = getSplitsAndPartitions(splitsPerPartition);
+    final InputSplit[] splits = splitsAndPartitions.getFirst();
+    final DataPartition[] partitions = splitsAndPartitions.getSecond();
+    Validate.isTrue(splits.length == partitions.length);
     for (int splitNum = 0; splitNum < splits.length; splitNum++) {
       LOG.log(Level.FINE, "Processing split: " + splitNum);
       final InputSplit split = splits[splitNum];
-      final NumberedSplit<InputSplit> numberedSplit = new NumberedSplit<InputSplit>(split, splitNum, folders[splitNum]);
+      final NumberedSplit<InputSplit> numberedSplit = new NumberedSplit<InputSplit>(split, splitNum, partitions[splitNum]);
       unallocatedSplits.add(numberedSplit);
       updateLocations(split, numberedSplit);
     }
@@ -84,7 +85,28 @@ public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorT
     }
   }
 
+  /**
+   * Each strategy should update the locations where they want the split to be
+   * loaded into. For example, the split physical location, certain node,
+   * certain rack
+   *
+   * @param split
+   *          the inputSplit
+   * @param numberedSplit
+   *          the numberedSplit
+   */
   protected abstract void updateLocations(final InputSplit split, final NumberedSplit<InputSplit> numberedSplit);
+
+  /**
+   * Tries to allocate a split in an evaluator based on some particular rule.
+   * For example, based on the rack name, randomly, etc.
+   *
+   * @param nodeDescriptor
+   *          the node descriptor to extract information from
+   * @param evaluatorId
+   *          the evaluator id where we want to allocate the numberedSplit
+   * @return a numberedSplit or null if couldn't allocate one
+   */
   protected abstract NumberedSplit<InputSplit> tryAllocate(NodeDescriptor nodeDescriptor, String evaluatorId);
 
   /**
@@ -94,55 +116,65 @@ public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorT
    * Allocates one if its not already allocated
    *
    * @param evaluatorId
-   * @return
+   * @return a numberedSplit
+   * @throws RuntimeException if couldn't find any split
    */
   @Override
   public NumberedSplit<InputSplit> getInputSplit(final NodeDescriptor nodeDescriptor, final String evaluatorId) {
     synchronized (evaluatorToSplits) {
       if (evaluatorToSplits.containsKey(evaluatorId)) {
-        LOG.log(Level.FINE, "Found an already allocated partition");
+        LOG.log(Level.FINE, "Found an already allocated split");
         LOG.log(Level.FINE, evaluatorToSplits.toString());
         return evaluatorToSplits.get(evaluatorId);
       }
     }
-    // first try to allocate based on the hostName
+    // always first try to allocate based on the hostName
     final String hostName = nodeDescriptor.getName();
-    LOG.log(Level.FINE, "Allocated partition not found, trying on {0}", hostName);
+    LOG.log(Level.FINE, "Allocated split not found, trying on {0}", hostName);
     if (locationToSplits.containsKey(hostName)) {
-      LOG.log(Level.FINE, "Found partitions possibly hosted for {0} at {1}", new Object[]{ evaluatorId, hostName});
+      LOG.log(Level.FINE, "Found splits possibly hosted for {0} at {1}", new Object[]{ evaluatorId, hostName});
       final NumberedSplit<InputSplit> split = allocateSplit(evaluatorId, locationToSplits.get(hostName));
       if (split != null) {
         return split;
       }
     }
     LOG.log(Level.FINE,
-        "{0} does not host any partitions or someone else took partitions hosted here. Picking other ones", hostName);
+        "{0} does not host any splits or someone else took splits hosted here. Picking other ones", hostName);
     final NumberedSplit<InputSplit> split = tryAllocate(nodeDescriptor, evaluatorId);
     if (split == null) {
-      throw new RuntimeException("Unable to find an input partition to evaluator " + evaluatorId);
+      throw new RuntimeException("Unable to find an input split to evaluator " + evaluatorId);
     } else {
       LOG.log(Level.FINE, evaluatorToSplits.toString());
     }
     return split;
   }
 
-  private Pair<InputSplit[], InputFolder[]> getSplitsAndFolders(
-      final Map<InputFolder, InputSplit[]> splitsPerFolder) {
+  private Pair<InputSplit[], DataPartition[]> getSplitsAndPartitions(
+      final Map<DataPartition, InputSplit[]> splitsPerPartition) {
     final List<InputSplit> inputSplits = new ArrayList<>();
-    final List<InputFolder> inputFolder = new ArrayList<>();
-    for (final Entry<InputFolder, InputSplit[]> entry : splitsPerFolder
+    final List<DataPartition> partitions = new ArrayList<>();
+    for (final Entry<DataPartition, InputSplit[]> entry : splitsPerPartition
         .entrySet()) {
-      final InputFolder inFolder = entry.getKey();
+      final DataPartition partition = entry.getKey();
       final InputSplit[] splits = entry.getValue();
       for (final InputSplit split : splits) {
         inputSplits.add(split);
-        inputFolder.add(inFolder);
+        partitions.add(partition);
       }
     }
     return new Pair<>(inputSplits.toArray(new InputSplit[inputSplits.size()]),
-        inputFolder.toArray(new InputFolder[inputFolder.size()]));
+        partitions.toArray(new DataPartition[partitions.size()]));
   }
 
+  /**
+   * Allocates the first available split into the evaluator
+   * @param evaluatorId
+   *    the evaluator id
+   * @param value
+   *    the queue of splits
+   * @return
+   *    a numberedSplit or null if it cannot find one
+   */
   protected NumberedSplit<InputSplit> allocateSplit(final String evaluatorId,
                                          final BlockingQueue<NumberedSplit<InputSplit>> value) {
     if (value == null) {
@@ -158,7 +190,7 @@ public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorT
         LOG.log(Level.FINE, "Found split-" + split.getIndex() + " in the queue");
         final NumberedSplit<InputSplit> old = evaluatorToSplits.putIfAbsent(evaluatorId, split);
         if (old != null) {
-          throw new RuntimeException("Trying to assign different partitions to the same evaluator is not supported");
+          throw new RuntimeException("Trying to assign different splits to the same evaluator is not supported");
         } else {
           LOG.log(Level.FINE, "Returning " + split.getIndex());
           return split;

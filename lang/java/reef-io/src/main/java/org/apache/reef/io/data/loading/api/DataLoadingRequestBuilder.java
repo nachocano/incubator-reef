@@ -25,8 +25,8 @@ import org.apache.reef.client.DriverConfiguration;
 import org.apache.reef.driver.evaluator.EvaluatorRequest;
 import org.apache.reef.io.data.loading.impl.EvaluatorRequestSerializer;
 import org.apache.reef.io.data.loading.impl.GreedyEvaluatorToPartitionStrategy;
-import org.apache.reef.io.data.loading.impl.InputFolder;
-import org.apache.reef.io.data.loading.impl.InputFolderSerializer;
+import org.apache.reef.io.data.loading.impl.DataPartition;
+import org.apache.reef.io.data.loading.impl.DataPartitionSerializer;
 import org.apache.reef.io.data.loading.impl.InputFormatLoadingService;
 import org.apache.reef.io.data.loading.impl.JobConfExternalConstructor;
 import org.apache.reef.io.data.loading.impl.LocationAwareEvaluatorToPartitionStrategy;
@@ -73,7 +73,11 @@ public final class DataLoadingRequestBuilder
   private boolean renewFailedEvaluators = true;
   private ConfigurationModule driverConfigurationModule = null;
   private String inputFormatClass;
-  private List<InputFolder> inputFolders = new ArrayList<>();
+  /**
+   * Partitions in the data. Can be thought as folders. Each folder or partition
+   * can contain several files.
+   */
+  private List<DataPartition> partitions = new ArrayList<>();
 
   public DataLoadingRequestBuilder setNumberOfDesiredSplits(final int numberOfDesiredSplits) {
     this.numberOfDesiredSplits = numberOfDesiredSplits;
@@ -197,41 +201,41 @@ public final class DataLoadingRequestBuilder
    * Set to ANY the evaluator that will be able to load this data.
    *
    * @deprecated since 0.12. Should use instead
-   *             {@link DataLoadingRequestBuilder#addInputFolder(InputFolder)}
-   *             or {@link DataLoadingRequestBuilder#addInputFolders(List)}
+   *             {@link DataLoadingRequestBuilder#addDataPartition(DataPartition)}
+   *             or {@link DataLoadingRequestBuilder#addDataPartitions(List)}
    * @param inputPath
    *          the input path
    * @return this
    */
   @Deprecated
   public DataLoadingRequestBuilder setInputPath(final String inputPath) {
-    this.inputFolders = new ArrayList<>(Arrays.asList(new InputFolder(inputPath, InputFolder.ANY)));
+    this.partitions = new ArrayList<>(Arrays.asList(new DataPartition(inputPath, DataPartition.ANY)));
     return this;
   }
 
   /**
-   * Adds the input folders to the input folders list.
+   * Adds the data partitions to the partitions list.
    *
-   * @param inputFolders
-   *          the input folders to add
+   * @param dataPartitions
+   *          the data partitions to add
    * @return this
    */
-  public DataLoadingRequestBuilder addInputFolders(final List<InputFolder> inputFolders) {
-    for (final InputFolder inputFolder : inputFolders) {
-      addInputFolder(inputFolder);
+  public DataLoadingRequestBuilder addDataPartitions(final List<DataPartition> dataPartitions) {
+    for (final DataPartition dataPartition : dataPartitions) {
+      addDataPartition(dataPartition);
     }
     return this;
   }
 
   /**
-   * Adds a single input folder to the input folders list.
+   * Adds a single data partition (folder) to the partitions list.
    *
-   * @param inputFolder
-   *          the input folder to add
+   * @param dataPartition
+   *          the data partition to add
    * @return this
    */
-  public DataLoadingRequestBuilder addInputFolder(final InputFolder inputFolder) {
-    this.inputFolders.add(inputFolder);
+  public DataLoadingRequestBuilder addDataPartition(final DataPartition dataPartition) {
+    this.partitions.add(dataPartition);
     return this;
   }
 
@@ -241,7 +245,7 @@ public final class DataLoadingRequestBuilder
       throw new BindException("Driver Configuration Module is a required parameter.");
     }
 
-    if (this.inputFolders.isEmpty()) {
+    if (this.partitions.isEmpty()) {
       throw new BindException("InputPath is a required parameter.");
     }
 
@@ -304,17 +308,17 @@ public final class DataLoadingRequestBuilder
        .bindNamedParameter(JobConfExternalConstructor.InputFormatClass.class, inputFormatClass)
        .bindConstructor(LocationAwareJobConfs.class, JobConfsExternalConstructor.class);
 
-    for (final InputFolder inputFolder : inputFolders) {
-      jcb.bindSetEntry(JobConfsExternalConstructor.InputFolders.class, InputFolderSerializer.serialize(inputFolder));
+    for (final DataPartition partition : partitions) {
+      jcb.bindSetEntry(JobConfsExternalConstructor.DataPartitions.class, DataPartitionSerializer.serialize(partition));
     }
 
-    // we do this check for backwards compatibility, if there's a single folder, we just use the
-    // current strategy
-    if (inputFolders.size() == 1 && InputFolder.ANY.equals(inputFolders.get(0).getLocation())) {
+    // we do this check for backwards compatibility, if there's a single partition, we just use the
+    // previous available strategy (renamed to greedy now)
+    if (partitions.size() == 1 && DataPartition.ANY.equals(partitions.get(0).getLocation())) {
       jcb.bindImplementation(EvaluatorToPartitionStrategy.class, GreedyEvaluatorToPartitionStrategy.class);
     } else {
       // otherwise, we bind the strategy that will allow the user to specify
-      // which evaluator can load the different chunks of data
+      // which evaluators can load the different partitions
       jcb.bindImplementation(EvaluatorToPartitionStrategy.class, LocationAwareEvaluatorToPartitionStrategy.class);
     }
 

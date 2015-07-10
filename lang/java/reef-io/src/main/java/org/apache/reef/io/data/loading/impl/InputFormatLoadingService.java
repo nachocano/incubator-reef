@@ -68,7 +68,11 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
       "ComputeContext-" + new Random(3381).nextInt(1 << 20) + "-";
 
   private final EvaluatorToPartitionStrategy<InputSplit> evaluatorToPartitionStrategy;
-  private int numberOfPartitions;
+  /**
+   * We have partitions (which are data folders) and splits within those partitions (how hadoop thinks it should divide the input).
+   * We are interested in saving the total number of splits for now
+   */
+  private int numberOfSplits;
   private final boolean inMemory;
   private final String inputFormatClass;
 
@@ -88,7 +92,7 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
       @Parameter(DataLoadingRequestBuilder.LoadDataIntoMemory.class) final boolean inMemory,
       @Parameter(JobConfExternalConstructor.InputFormatClass.class) final String inputFormatClass,
       @Parameter(JobConfExternalConstructor.InputPath.class) final String inputPath) {
-    this(new LocationAwareJobConfs(Arrays.asList(new LocationAwareJobConf(jobConf, new InputFolder(inputPath, InputFolder.ANY)))), new GreedyEvaluatorToPartitionStrategy(), numberOfDesiredSplits, inMemory, inputFormatClass);
+    this(new LocationAwareJobConfs(Arrays.asList(new LocationAwareJobConf(jobConf, new DataPartition(inputPath, DataPartition.ANY)))), new GreedyEvaluatorToPartitionStrategy(), numberOfDesiredSplits, inMemory, inputFormatClass);
   }
 
   @SuppressWarnings("rawtypes")
@@ -105,35 +109,39 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
     this.evaluatorToPartitionStrategy = evaluatorToPartitionStrategy;
 
     final Iterator<LocationAwareJobConf> it = locAwareJobConfs.iterator();
-    final Map<InputFolder, InputSplit[]> splitsPerFolder = new HashMap<>();
+    final Map<DataPartition, InputSplit[]> splitsPerPartition = new HashMap<>();
     while (it.hasNext()) {
       final LocationAwareJobConf locAwareJobConf = it.next();
       try {
         final JobConf jobConf = locAwareJobConf.getJobConf();
-        final InputFolder inFolder = locAwareJobConf.getInputFolder();
+        final DataPartition partition = locAwareJobConf.getDataPartition();
         final InputFormat inputFormat = jobConf.getInputFormat();
         final InputSplit[] inputSplits = inputFormat.getSplits(jobConf, numberOfDesiredSplits);
-        splitsPerFolder.put(inFolder, inputSplits);
+        splitsPerPartition.put(partition, inputSplits);
         if (LOG.isLoggable(Level.FINEST)) {
-          LOG.log(Level.FINEST, "Splits for path: {0} {1}", new Object[]{inFolder.getPath(), Arrays.toString(inputSplits)});
+          LOG.log(Level.FINEST, "Splits for partition: {0} {1}", new Object[]{partition, Arrays.toString(inputSplits)});
         }
         // for now we just keep the total number of partitions
         // and not group them based on their locations
         // clients of this service, e.g. DataLoader, might better allocate resources if we provide
         // the latter information. Something to keep in mind
-        this.numberOfPartitions += inputSplits.length;
+        this.numberOfSplits += inputSplits.length;
 
       } catch (final IOException e) {
         throw new RuntimeException("Unable to get InputSplits using the specified InputFormat", e);
       }
     }
-    this.evaluatorToPartitionStrategy.init(splitsPerFolder);
-    LOG.log(Level.FINE, "Number of partitions: {0}", this.numberOfPartitions);
+    this.evaluatorToPartitionStrategy.init(splitsPerPartition);
+    LOG.log(Level.FINE, "Number of partitions: {0}", this.numberOfSplits);
   }
 
+  /**
+   * This method actually returns the number of splits in all partition of the data.
+   * We should probably need to rename it in the future
+   */
   @Override
   public int getNumberOfPartitions() {
-    return this.numberOfPartitions;
+    return this.numberOfSplits;
   }
 
   @Override

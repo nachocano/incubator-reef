@@ -21,7 +21,7 @@ package org.apache.reef.io.data.loading.api;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.driver.catalog.NodeDescriptor;
-import org.apache.reef.io.data.loading.impl.InputFolder;
+import org.apache.reef.io.data.loading.impl.DataPartition;
 import org.apache.reef.io.data.loading.impl.NumberedSplit;
 
 import java.util.Map;
@@ -36,8 +36,23 @@ import java.util.Map;
 @DriverSide
 public interface EvaluatorToPartitionStrategy<V extends InputSplit> {
 
-  void init(Map<InputFolder, V[]> splitsPerFolder);
+  /**
+   * Initializes the mapping between partitions and splits.
+   * @param splitsPerPartition
+   *    the splits per partition
+   */
+  void init(Map<DataPartition, V[]> splitsPerPartition);
 
+  /**
+   * Returns an input split for the given evaluator
+   * @param nodeDescriptor
+   *      the node descriptor where the evaluator is running on
+   * @param evalId
+   *      the evaluator id
+   * @return
+   *      the numberedSplit
+   * @throws RuntimeException if no split could be allocated
+   */
   NumberedSplit<V> getInputSplit(NodeDescriptor nodeDescriptor, String evalId);
 
 }

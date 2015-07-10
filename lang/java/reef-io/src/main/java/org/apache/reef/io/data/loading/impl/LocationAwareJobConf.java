@@ -24,21 +24,21 @@ import org.apache.hadoop.mapred.JobConf;
 public final class LocationAwareJobConf {
 
   private final JobConf jobConf;
-  private final InputFolder inputFolder;
+  private final DataPartition dataPartition;
 
-  public LocationAwareJobConf(final JobConf jobConf, final InputFolder inputFolder) {
+  public LocationAwareJobConf(final JobConf jobConf, final DataPartition dataPartition) {
     Validate.notNull(jobConf);
-    Validate.notNull(inputFolder);
+    Validate.notNull(dataPartition);
     this.jobConf = jobConf;
-    this.inputFolder = inputFolder;
+    this.dataPartition = dataPartition;
   }
 
   public JobConf getJobConf() {
     return jobConf;
   }
 
-  public InputFolder getInputFolder() {
-    return inputFolder;
+  public DataPartition getDataPartition() {
+    return dataPartition;
   }
 
 }

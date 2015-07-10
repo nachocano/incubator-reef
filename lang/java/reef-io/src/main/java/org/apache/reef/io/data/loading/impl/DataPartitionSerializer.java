@@ -22,37 +22,37 @@ import org.apache.commons.codec.binary.Base64;
 import java.io.*;
 
 /**
- * Serialize and deserialize InputFolder objects.
+ * Serialize and deserialize DataPartition objects.
  */
-public final class InputFolderSerializer {
+public final class DataPartitionSerializer {
 
-  public static String serialize(final InputFolder inputFolder) {
+  public static String serialize(final DataPartition partition) {
     try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
       try (DataOutputStream daos = new DataOutputStream(baos)) {
-        daos.writeUTF(inputFolder.getPath());
-        daos.writeUTF(inputFolder.getLocation());
+        daos.writeUTF(partition.getPath());
+        daos.writeUTF(partition.getLocation());
       } catch (final IOException e) {
         throw e;
       }
       return Base64.encodeBase64String(baos.toByteArray());
     } catch (final IOException e1) {
-      throw new RuntimeException("Unable to serialize input folder", e1);
+      throw new RuntimeException("Unable to serialize data partition", e1);
     }
   }
 
-  public static InputFolder deserialize(final String serializedInputFolder) {
-    try (ByteArrayInputStream bais = new ByteArrayInputStream(Base64.decodeBase64(serializedInputFolder))) {
+  public static DataPartition deserialize(final String serializedPartition) {
+    try (ByteArrayInputStream bais = new ByteArrayInputStream(Base64.decodeBase64(serializedPartition))) {
       try (DataInputStream dais = new DataInputStream(bais)) {
-        return new InputFolder(dais.readUTF(), dais.readUTF());
+        return new DataPartition(dais.readUTF(), dais.readUTF());
       }
     } catch (final IOException e) {
-      throw new RuntimeException("Unable to de-serialize input folder", e);
+      throw new RuntimeException("Unable to de-serialize data partition", e);
     }
   }
 
   /**
    * Empty private constructor to prohibit instantiation of utility class.
    */
-  private InputFolderSerializer() {
+  private DataPartitionSerializer() {
   }
 }

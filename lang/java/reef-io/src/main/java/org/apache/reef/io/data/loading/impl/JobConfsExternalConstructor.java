@@ -34,33 +34,33 @@ import java.util.Set;
 public class JobConfsExternalConstructor implements ExternalConstructor<LocationAwareJobConfs> {
 
   private final String inputFormatClassName;
-  private final List<InputFolder> inputFolders;
+  private final List<DataPartition> dataPartitions;
 
   @Inject
   public JobConfsExternalConstructor(
       @Parameter(JobConfExternalConstructor.InputFormatClass.class) final String inputFormatClassName,
-      @Parameter(InputFolders.class) final Set<String> serializedInputFolders) {
+      @Parameter(DataPartitions.class) final Set<String> serializedDataPartitions) {
     this.inputFormatClassName = inputFormatClassName;
-    this.inputFolders = new ArrayList<>(serializedInputFolders.size());
-    for (final String serializedInputFolder : serializedInputFolders) {
-      this.inputFolders.add(InputFolderSerializer.deserialize(serializedInputFolder));
+    this.dataPartitions = new ArrayList<>(serializedDataPartitions.size());
+    for (final String serializedDataPartition : serializedDataPartitions) {
+      this.dataPartitions.add(DataPartitionSerializer.deserialize(serializedDataPartition));
     }
   }
 
   @Override
   public LocationAwareJobConfs newInstance() {
-    final List<LocationAwareJobConf> locationAwareJobConfs = new ArrayList<>(inputFolders.size());
-    final Iterator<InputFolder> it = inputFolders.iterator();
+    final List<LocationAwareJobConf> locationAwareJobConfs = new ArrayList<>(dataPartitions.size());
+    final Iterator<DataPartition> it = dataPartitions.iterator();
     while (it.hasNext()) {
-      final InputFolder inputFolder = it.next();
+      final DataPartition dataPartition = it.next();
       final ExternalConstructor<JobConf> jobConf = new JobConfExternalConstructor(inputFormatClassName,
-          inputFolder.getPath());
-      locationAwareJobConfs.add(new LocationAwareJobConf(jobConf.newInstance(), inputFolder));
+          dataPartition.getPath());
+      locationAwareJobConfs.add(new LocationAwareJobConf(jobConf.newInstance(), dataPartition));
     }
     return new LocationAwareJobConfs(locationAwareJobConfs);
   }
 
   @NamedParameter
-  public static final class InputFolders implements Name<Set<String>> {
+  public static final class DataPartitions implements Name<Set<String>> {
   }
 }
