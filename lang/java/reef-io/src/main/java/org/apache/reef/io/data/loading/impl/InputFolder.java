@@ -18,6 +18,9 @@
  */
 package org.apache.reef.io.data.loading.impl;
 
+import org.apache.commons.lang.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
+
 /**
  * POJO that represents an input folder that contains data.
  *
@@ -48,5 +51,24 @@ public final class InputFolder {
 
   public String getLocation() {
     return location;
+  }
+
+  @Override
+  public boolean equals(final Object obj) {
+    if (obj == this) {
+      return true;
+    }
+    if (!(obj instanceof InputFolder)) {
+      return false;
+    }
+    final InputFolder that = (InputFolder) obj;
+    return new EqualsBuilder().append(this.path, that.path)
+        .append(this.location, that.location).isEquals();
+  }
+
+  @Override
+  public int hashCode() {
+    return new HashCodeBuilder(17, 37).append(this.path).append(this.location)
+        .toHashCode();
   }
 }

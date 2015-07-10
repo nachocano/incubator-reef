@@ -23,11 +23,13 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
-public final class LocationAwareJobConfs implements Iterable<LocationAwareJobConf> {
+public final class LocationAwareJobConfs implements
+    Iterable<LocationAwareJobConf> {
 
   private final List<LocationAwareJobConf> locationAwareJobConfs;
 
-  public LocationAwareJobConfs(final List<LocationAwareJobConf> locationAwareJobConfs) {
+  public LocationAwareJobConfs(
+      final List<LocationAwareJobConf> locationAwareJobConfs) {
     Validate.notEmpty(locationAwareJobConfs);
     this.locationAwareJobConfs = locationAwareJobConfs;
   }
@@ -41,13 +43,16 @@ public final class LocationAwareJobConfs implements Iterable<LocationAwareJobCon
     return new LocationAwareJobConfsIterator(locationAwareJobConfs);
   }
 
-  static final class LocationAwareJobConfsIterator implements Iterator<LocationAwareJobConf> {
+  static final class LocationAwareJobConfsIterator implements
+      Iterator<LocationAwareJobConf> {
 
     private final List<LocationAwareJobConf> locationAwareJobConfs;
     private int position;
 
-    public LocationAwareJobConfsIterator(final List<LocationAwareJobConf> locationAwareJobConfs) {
-      this.locationAwareJobConfs = new LinkedList<LocationAwareJobConf>(locationAwareJobConfs);
+    public LocationAwareJobConfsIterator(
+        final List<LocationAwareJobConf> locationAwareJobConfs) {
+      this.locationAwareJobConfs = new LinkedList<LocationAwareJobConf>(
+          locationAwareJobConfs);
       position = 0;
     }
 
@@ -58,9 +63,16 @@ public final class LocationAwareJobConfs implements Iterable<LocationAwareJobCon
 
     @Override
     public LocationAwareJobConf next() {
-      final LocationAwareJobConf locationAwareJobConf = locationAwareJobConfs.get(position);
+      final LocationAwareJobConf locationAwareJobConf = locationAwareJobConfs
+          .get(position);
       position++;
       return locationAwareJobConf;
+    }
+
+    @Override
+    public void remove() {
+      throw new UnsupportedOperationException(
+          "Remove method has not been implemented in this iterator");
     }
   }
 

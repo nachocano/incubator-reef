@@ -39,12 +39,9 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -109,6 +106,7 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
     this.numberOfPartitionsPerLocation = new HashMap<>();
 
     final Iterator<LocationAwareJobConf> it = locAwareJobConfs.iterator();
+    final Map<InputFolder, InputSplit[]> splitsPerFolder = new HashMap<>();
     while (it.hasNext()) {
       final LocationAwareJobConf locAwareJobConf = it.next();
       try {
@@ -116,6 +114,7 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
         final InputFolder inFolder = locAwareJobConf.getInputFolder();
         final InputFormat inputFormat = jobConf.getInputFormat();
         final InputSplit[] inputSplits = inputFormat.getSplits(jobConf, numberOfDesiredSplits);
+        splitsPerFolder.put(inFolder, inputSplits);
         if (LOG.isLoggable(Level.FINEST)) {
           LOG.log(Level.FINEST, "Splits for path: {0} {1}", new Object[]{inFolder.getPath(), Arrays.toString(inputSplits)});
         }
@@ -125,7 +124,7 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
         throw new RuntimeException("Unable to get InputSplits using the specified InputFormat", e);
       }
     }
-    this.evaluatorToPartitionStrategy.init();
+    this.evaluatorToPartitionStrategy.init(splitsPerFolder);
     LOG.log(Level.FINE, "Number of partitions: {0}", this.numberOfPartitions);
   }
 
@@ -177,7 +176,7 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
               DataSet.class,
               this.inMemory ? InMemoryInputFormatDataSet.class : InputFormatDataSet.class)
           .bindNamedParameter(JobConfExternalConstructor.InputFormatClass.class, inputFormatClass)
-          .bindNamedParameter(JobConfExternalConstructor.InputPath.class, inputPath)
+          .bindNamedParameter(JobConfExternalConstructor.InputPath.class, numberedSplit.getPath())
           .bindNamedParameter(
               InputSplitExternalConstructor.SerializedInputSplit.class,
               WritableSerializer.serialize(numberedSplit.getEntry()))

@@ -82,12 +82,6 @@ public class JobConfExternalConstructor implements ExternalConstructor<JobConf> 
   public static final class InputFormatClass implements Name<String> {
   }
 
-  /**
-   * @deprecated since 0.12. Should use JobConfsExternalConstructor.InputFolders
-   *
-   *
-   */
-  @Deprecated
   @NamedParameter(default_value = "NULL")
   public static final class InputPath implements Name<String> {
   }

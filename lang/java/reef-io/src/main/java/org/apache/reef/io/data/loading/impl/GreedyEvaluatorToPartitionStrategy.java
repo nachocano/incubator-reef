@@ -18,6 +18,8 @@
  */
 package org.apache.reef.io.data.loading.impl;
 
+import org.apache.commons.lang.Validate;
+import org.apache.commons.math3.util.Pair;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.driver.catalog.NodeDescriptor;
@@ -26,6 +28,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -67,14 +70,18 @@ public class GreedyEvaluatorToPartitionStrategy implements EvaluatorToPartitionS
    *
    * @param splits
    */
+  @Override
   public void init(final Map<InputFolder, InputSplit[]> splitsPerFolder) {
-    final InputSplit[] splits = getSplits(splitsPerFolder);
+    final Pair<InputSplit[],InputFolder[]> splitsAndFolders = getSplitsAndFolders(splitsPerFolder);
+    final InputSplit[] splits = splitsAndFolders.getFirst();
+    final InputFolder[] folders = splitsAndFolders.getSecond();
+    Validate.isTrue(splits.length == folders.length);
     try {
-      for (int splitNum = 0; splitNum < splits.length; splitNum++) {
+      for (int splitNum = 0; splitNum < splitsAndFolders.getFirst().length; splitNum++) {
         LOG.log(Level.FINE, "Processing split: " + splitNum);
         final InputSplit split = splits[splitNum];
         final String[] locations = split.getLocations();
-        final NumberedSplit<InputSplit> numberedSplit = new NumberedSplit<InputSplit>(split, splitNum);
+        final NumberedSplit<InputSplit> numberedSplit = new NumberedSplit<InputSplit>(split, splitNum, folders[splitNum]);
         unallocatedSplits.add(numberedSplit);
         for (final String location : locations) {
           BlockingQueue<NumberedSplit<InputSplit>> newSplitQue = new LinkedBlockingQueue<NumberedSplit<InputSplit>>();
@@ -95,14 +102,21 @@ public class GreedyEvaluatorToPartitionStrategy implements EvaluatorToPartitionS
     }
   }
 
-  private InputSplit[] getSplits(final Map<InputFolder, InputSplit[]> splitsPerFolder) {
+  private Pair<InputSplit[], InputFolder[]> getSplitsAndFolders(
+      final Map<InputFolder, InputSplit[]> splitsPerFolder) {
     final List<InputSplit> inputSplits = new ArrayList<>();
-    for (final InputSplit[] splits : splitsPerFolder.values()) {
+    final List<InputFolder> inputFolder = new ArrayList<>();
+    for (final Entry<InputFolder, InputSplit[]> entry : splitsPerFolder
+        .entrySet()) {
+      final InputFolder inFolder = entry.getKey();
+      final InputSplit[] splits = entry.getValue();
       for (final InputSplit split : splits) {
         inputSplits.add(split);
+        inputFolder.add(inFolder);
       }
     }
-    return inputSplits.toArray(new InputSplit[inputSplits.size()]);
+    return new Pair<>(inputSplits.toArray(new InputSplit[inputSplits.size()]),
+        inputFolder.toArray(new InputFolder[inputFolder.size()]));
   }
 
   /**
@@ -114,6 +128,7 @@ public class GreedyEvaluatorToPartitionStrategy implements EvaluatorToPartitionS
    * @param evaluatorId
    * @return
    */
+  @Override
   public NumberedSplit<InputSplit> getInputSplit(final NodeDescriptor nodeDescriptor, final String evaluatorId) {
     final String hostName = nodeDescriptor.getName();
     synchronized (evaluatorToSplits) {

@@ -18,6 +18,8 @@
  */
 package org.apache.reef.io.data.loading.impl;
 
+import org.apache.commons.lang.Validate;
+
 /**
  * A tuple of an object of type E and an integer index.
  * Used inside {@link EvaluatorToPartitionStrategy} implementations to
@@ -28,14 +30,18 @@ package org.apache.reef.io.data.loading.impl;
 final class NumberedSplit<E> implements Comparable<NumberedSplit<E>> {
   private final E entry;
   private final int index;
+  private final InputFolder folder;
 
-  public NumberedSplit(final E entry, final int index) {
-    super();
-    if (entry == null) {
-      throw new IllegalArgumentException("Entry cannot be null");
-    }
+  public NumberedSplit(final E entry, final int index, final InputFolder folder) {
+    Validate.notNull(entry, "Entry cannot be null");
+    Validate.notNull(folder, "Folder cannot be null");
     this.entry = entry;
     this.index = index;
+    this.folder = folder;
+  }
+
+  public String getPath() {
+    return folder.getPath();
   }
 
   public E getEntry() {
