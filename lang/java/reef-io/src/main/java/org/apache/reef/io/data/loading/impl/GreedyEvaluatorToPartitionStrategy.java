@@ -31,6 +31,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.inject.Inject;
+
 /**
  * Class that tracks the mapping between
  * evaluators & the data partition assigned
@@ -54,12 +56,17 @@ public class GreedyEvaluatorToPartitionStrategy implements EvaluatorToPartitionS
   private final ConcurrentMap<String, NumberedSplit<InputSplit>> evaluatorToSplits = new ConcurrentHashMap<>();
   private final BlockingQueue<NumberedSplit<InputSplit>> unallocatedSplits = new LinkedBlockingQueue<>();
 
+
+  @Inject
+  GreedyEvaluatorToPartitionStrategy() {
+  }
+
   /**
    * Initializes the locations of splits mapping.
    *
    * @param splits
    */
-  public GreedyEvaluatorToPartitionStrategy(final InputSplit[] splits) {
+  public void init(final InputSplit[] splits) {
     try {
       for (int splitNum = 0; splitNum < splits.length; splitNum++) {
         LOG.log(Level.FINE, "Processing split: " + splitNum);
@@ -151,9 +158,5 @@ public class GreedyEvaluatorToPartitionStrategy implements EvaluatorToPartitionS
         }
       }
     }
-  }
-
-  @Override
-  public void init() {
   }
 }

@@ -38,9 +38,11 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.logging.Level;
@@ -68,7 +70,8 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
       "ComputeContext-" + new Random(3381).nextInt(1 << 20) + "-";
 
   private final EvaluatorToPartitionStrategy<InputSplit> evaluatorToPartitionStrategy;
-  private final int numberOfPartitions;
+  private int numberOfPartitions;
+  private final Map<String, Integer> numberOfPartitionsPerLocation;
   private final boolean inMemory;
   private final String inputFormatClass;
 
@@ -88,7 +91,7 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
       @Parameter(DataLoadingRequestBuilder.LoadDataIntoMemory.class) final boolean inMemory,
       @Parameter(JobConfExternalConstructor.InputFormatClass.class) final String inputFormatClass,
       @Parameter(JobConfExternalConstructor.InputPath.class) final String inputPath) {
-    this(new LocationAwareJobConfs(Arrays.asList(new LocationAwareJobConf(jobConf, new InputFolder(inputPath, InputFolder.ANY)))), null, numberOfDesiredSplits, inMemory, inputFormatClass);
+    this(new LocationAwareJobConfs(Arrays.asList(new LocationAwareJobConf(jobConf, new InputFolder(inputPath, InputFolder.ANY)))), new GreedyEvaluatorToPartitionStrategy(), numberOfDesiredSplits, inMemory, inputFormatClass);
   }
 
   @SuppressWarnings("rawtypes")
@@ -103,7 +106,7 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
     this.inMemory = inMemory;
     this.inputFormatClass = inputFormatClass;
     this.evaluatorToPartitionStrategy = evaluatorToPartitionStrategy;
-    this.numberOfPartitions = 0;
+    this.numberOfPartitionsPerLocation = new HashMap<>();
 
     final Iterator<LocationAwareJobConf> it = locAwareJobConfs.iterator();
     while (it.hasNext()) {
@@ -116,21 +119,30 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
         if (LOG.isLoggable(Level.FINEST)) {
           LOG.log(Level.FINEST, "Splits for path: {0} {1}", new Object[]{inFolder.getPath(), Arrays.toString(inputSplits)});
         }
-        //this.numberOfPartitions = inputSplits.length;
-        LOG.log(Level.FINE, "Number of partitions: {0}", this.numberOfPartitions);
-
+        this.numberOfPartitions += inputSplits.length;
 
       } catch (final IOException e) {
         throw new RuntimeException("Unable to get InputSplits using the specified InputFormat", e);
       }
     }
     this.evaluatorToPartitionStrategy.init();
+    LOG.log(Level.FINE, "Number of partitions: {0}", this.numberOfPartitions);
   }
 
   @Override
   public int getNumberOfPartitions() {
     return this.numberOfPartitions;
   }
+
+  @Override
+  public int getNumberOfPartitionsPerLocation(final String location) {
+    int result = 0;
+    if (this.numberOfPartitionsPerLocation.containsKey(location)) {
+      result = this.numberOfPartitionsPerLocation.get(location);
+    }
+    return result;
+  }
+
 
   @Override
   public Configuration getContextConfiguration(final AllocatedEvaluator allocatedEvaluator) {
@@ -195,4 +207,5 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
   public boolean isDataLoadedContext(final ActiveContext context) {
     return context.getId().startsWith(DATA_LOAD_CONTEXT_PREFIX);
   }
+
 }

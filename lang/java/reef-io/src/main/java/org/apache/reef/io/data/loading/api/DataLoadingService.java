@@ -30,11 +30,19 @@ import org.apache.reef.tang.Configuration;
 public interface DataLoadingService {
 
   /**
-   * Access to the number of partitions suggested by this DataSource.
+   * Access to the total number of partitions suggested by this DataSource.
    *
-   * @return the number of partitions suggested by this DataSource.
+   * @return the total number of partitions suggested by this DataSource.
    */
   int getNumberOfPartitions();
+
+  /**
+   * Access to the number of partitions per location suggested by this DataSource.
+   * If the location does not exists, it returns zero
+   *
+   * @return the number of per location partitions suggested by this DataSource.
+   */
+  int getNumberOfPartitionsPerLocation(String location);
 
   /**
    * @return the context configuration for the given Evaluator.

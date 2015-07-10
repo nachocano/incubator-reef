@@ -25,7 +25,7 @@ import org.apache.reef.driver.catalog.NodeDescriptor;
 @DriverSide
 public interface EvaluatorToPartitionStrategy<V extends InputSplit> {
 
-  void init();
+  void init(V[] splits);
 
   NumberedSplit<V> getInputSplit(NodeDescriptor nodeDescriptor, String evalId);
 
