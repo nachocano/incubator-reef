@@ -38,7 +38,7 @@ public final class DataPartition {
 
   /**
    * The location (either a rackName or a nodeName) where we want the data
-   * in this partition to be loaded into
+   * in this partition to be loaded into.
    */
   private final String location;
 

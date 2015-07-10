@@ -69,8 +69,9 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
 
   private final EvaluatorToPartitionStrategy<InputSplit> evaluatorToPartitionStrategy;
   /**
-   * We have partitions (which are data folders) and splits within those partitions (how hadoop thinks it should divide the input).
-   * We are interested in saving the total number of splits for now
+   * We have partitions (which are data folders) and splits within those
+   * partitions (how hadoop thinks it should divide the input). Just saving the
+   * total number of splits for now.
    */
   private int numberOfSplits;
   private final boolean inMemory;
@@ -92,7 +93,9 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
       @Parameter(DataLoadingRequestBuilder.LoadDataIntoMemory.class) final boolean inMemory,
       @Parameter(JobConfExternalConstructor.InputFormatClass.class) final String inputFormatClass,
       @Parameter(JobConfExternalConstructor.InputPath.class) final String inputPath) {
-    this(new LocationAwareJobConfs(Arrays.asList(new LocationAwareJobConf(jobConf, new DataPartition(inputPath, DataPartition.ANY)))), new GreedyEvaluatorToPartitionStrategy(), numberOfDesiredSplits, inMemory, inputFormatClass);
+    this(new LocationAwareJobConfs(Arrays.asList(new LocationAwareJobConf(jobConf, new DataPartition(inputPath,
+        DataPartition.ANY)))), new GreedyEvaluatorToPartitionStrategy(), numberOfDesiredSplits, inMemory,
+        inputFormatClass);
   }
 
   @SuppressWarnings("rawtypes")

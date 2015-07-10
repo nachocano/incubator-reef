@@ -50,16 +50,18 @@ public final class LocationAwareEvaluatorToPartitionStrategy extends AbstractEva
    * Sorted set in reverse order, to keep track of the locations from most to
    * least specific. For example: [/dc1/room1, /dc1].
    */
-  private final Set<String> normalizedLocations = new TreeSet<>(Collections.reverseOrder());
+  private final Set<String> normalizedLocations;
   /**
    * Partial locations where we want to allocate, in case exact match does not work.
    */
-  private final ConcurrentMap<String, BlockingQueue<NumberedSplit<InputSplit>>> partialLocationsToSplits = new ConcurrentHashMap<>();
+  private final ConcurrentMap<String, BlockingQueue<NumberedSplit<InputSplit>>> partialLocationsToSplits;
 
 
   @Inject
   LocationAwareEvaluatorToPartitionStrategy() {
     LOG.fine("LocationAwareEvaluatorStrategy injected");
+    normalizedLocations = new TreeSet<>(Collections.reverseOrder());
+    partialLocationsToSplits = new ConcurrentHashMap<>();
   }
 
   /**
@@ -84,7 +86,7 @@ public final class LocationAwareEvaluatorToPartitionStrategy extends AbstractEva
     final String rackName = nodeDescriptor.getRackDescriptor().getName();
     LOG.log(Level.FINE, "Trying an exact match on rack name {0}", rackName);
     if (locationToSplits.containsKey(rackName)) {
-      LOG.log(Level.FINE, "Found splits possibly hosted for " + evaluatorId + " at " + rackName);
+      LOG.log(Level.FINE, "Found splits possibly hosted for {0} at {1}", new Object[] {evaluatorId, rackName});
       final NumberedSplit<InputSplit> split = allocateSplit(evaluatorId, locationToSplits.get(rackName));
       if (split != null) {
         return split;
@@ -96,8 +98,8 @@ public final class LocationAwareEvaluatorToPartitionStrategy extends AbstractEva
       final String possibleLocation = it.next();
       LOG.log(Level.FINE, "Trying on possible location {0}", possibleLocation);
       if (rackName.startsWith(possibleLocation)) {
-        LOG.log(Level.FINE, "Found splits possibly hosted for {0} at {1} for rack {2}", new Object[] { evaluatorId,
-            possibleLocation, rackName });
+        LOG.log(Level.FINE, "Found splits possibly hosted for {0} at {1} for rack {2}", new Object[] {evaluatorId,
+            possibleLocation, rackName});
         final NumberedSplit<InputSplit> split = allocateSplit(evaluatorId,
             partialLocationsToSplits.get(possibleLocation));
         if (split != null) {
@@ -109,10 +111,11 @@ public final class LocationAwareEvaluatorToPartitionStrategy extends AbstractEva
     return null;
   }
 
-  private void addLocationMapping(final ConcurrentMap<String, BlockingQueue<NumberedSplit<InputSplit>>> concurrentMap,
+  private void addLocationMapping(final ConcurrentMap<String,
+      BlockingQueue<NumberedSplit<InputSplit>>> concurrentMap,
       final NumberedSplit<InputSplit> numberedSplit, final String location) {
     if (!concurrentMap.containsKey(location)) {
-      final BlockingQueue<NumberedSplit<InputSplit>> newSplitQueue = new LinkedBlockingQueue<NumberedSplit<InputSplit>>();
+      final BlockingQueue<NumberedSplit<InputSplit>> newSplitQueue = new LinkedBlockingQueue<>();
       concurrentMap.put(location, newSplitQueue);
     }
     concurrentMap.get(location).add(numberedSplit);

@@ -19,7 +19,6 @@
 package org.apache.reef.io.data.loading.impl;
 
 import org.apache.commons.lang.Validate;
-import org.apache.reef.io.data.loading.api.EvaluatorToPartitionStrategy;
 
 /**
  * A tuple of an object of type E and an integer index.

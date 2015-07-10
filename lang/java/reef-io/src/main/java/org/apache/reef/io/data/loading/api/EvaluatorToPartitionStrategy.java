@@ -27,10 +27,12 @@ import org.apache.reef.io.data.loading.impl.NumberedSplit;
 import java.util.Map;
 
 /**
- * Interface that tracks the mapping between evaluators & the data partition assigned
- * to those evaluators. Its part of the implementation of a {@link org.apache.reef.io.data.loading.api.DataLoadingService}
- * that uses the Hadoop {@link org.apache.hadoop.mapred.InputFormat} to partition the data and request resources
- * accordingly
+ * Interface that tracks the mapping between evaluators & the data partition
+ * assigned to those evaluators. Its part of the implementation of a
+ * {@link org.apache.reef.io.data.loading.api.DataLoadingService} that uses the
+ * Hadoop {@link org.apache.hadoop.mapred.InputFormat} to partition the data and
+ * request resources accordingly
+ *
  * @param <V>
  */
 @DriverSide
@@ -44,7 +46,7 @@ public interface EvaluatorToPartitionStrategy<V extends InputSplit> {
   void init(Map<DataPartition, V[]> splitsPerPartition);
 
   /**
-   * Returns an input split for the given evaluator
+   * Returns an input split for the given evaluator.
    * @param nodeDescriptor
    *      the node descriptor where the evaluator is running on
    * @param evalId

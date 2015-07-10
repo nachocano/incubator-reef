@@ -50,14 +50,17 @@ public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorT
   private static final Logger LOG = Logger
       .getLogger(AbstractEvaluatorToPartitionStrategy.class.getName());
 
-  protected final ConcurrentMap<String, BlockingQueue<NumberedSplit<InputSplit>>> locationToSplits = new ConcurrentHashMap<>();
-  protected final ConcurrentMap<String, NumberedSplit<InputSplit>> evaluatorToSplits = new ConcurrentHashMap<>();
-  protected final BlockingQueue<NumberedSplit<InputSplit>> unallocatedSplits = new LinkedBlockingQueue<>();
+  protected final ConcurrentMap<String, BlockingQueue<NumberedSplit<InputSplit>>> locationToSplits;;
+  protected final ConcurrentMap<String, NumberedSplit<InputSplit>> evaluatorToSplits;
+  protected final BlockingQueue<NumberedSplit<InputSplit>> unallocatedSplits;
 
 
   @Inject
   AbstractEvaluatorToPartitionStrategy() {
     LOG.fine("AbstractEvaluatorToPartitionStrategy injected");
+    locationToSplits = new ConcurrentHashMap<>();
+    evaluatorToSplits =  new ConcurrentHashMap<>();
+    unallocatedSplits = new LinkedBlockingQueue<>();
   }
 
   /**
@@ -76,7 +79,8 @@ public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorT
     for (int splitNum = 0; splitNum < splits.length; splitNum++) {
       LOG.log(Level.FINE, "Processing split: " + splitNum);
       final InputSplit split = splits[splitNum];
-      final NumberedSplit<InputSplit> numberedSplit = new NumberedSplit<InputSplit>(split, splitNum, partitions[splitNum]);
+      final NumberedSplit<InputSplit> numberedSplit = new NumberedSplit<InputSplit>(split, splitNum,
+          partitions[splitNum]);
       unallocatedSplits.add(numberedSplit);
       updateLocations(split, numberedSplit);
     }
@@ -132,7 +136,7 @@ public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorT
     final String hostName = nodeDescriptor.getName();
     LOG.log(Level.FINE, "Allocated split not found, trying on {0}", hostName);
     if (locationToSplits.containsKey(hostName)) {
-      LOG.log(Level.FINE, "Found splits possibly hosted for {0} at {1}", new Object[]{ evaluatorId, hostName});
+      LOG.log(Level.FINE, "Found splits possibly hosted for {0} at {1}", new Object[] {evaluatorId, hostName});
       final NumberedSplit<InputSplit> split = allocateSplit(evaluatorId, locationToSplits.get(hostName));
       if (split != null) {
         return split;
@@ -167,7 +171,7 @@ public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorT
   }
 
   /**
-   * Allocates the first available split into the evaluator
+   * Allocates the first available split into the evaluator.
    * @param evaluatorId
    *    the evaluator id
    * @param value
