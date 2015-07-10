@@ -24,14 +24,14 @@ import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.reef.client.DriverConfiguration;
 import org.apache.reef.driver.evaluator.EvaluatorRequest;
 import org.apache.reef.io.data.loading.impl.EvaluatorRequestSerializer;
-import org.apache.reef.io.data.loading.impl.GreedyEvaluatorToPartitionStrategy;
+import org.apache.reef.io.data.loading.impl.GreedyEvaluatorToSplitStrategy;
 import org.apache.reef.io.data.loading.impl.DataPartition;
 import org.apache.reef.io.data.loading.impl.DataPartitionSerializer;
 import org.apache.reef.io.data.loading.impl.InputFormatLoadingService;
 import org.apache.reef.io.data.loading.impl.JobConfExternalConstructor;
-import org.apache.reef.io.data.loading.impl.LocationAwareEvaluatorToPartitionStrategy;
+import org.apache.reef.io.data.loading.impl.LocationAwareEvaluatorToSplitStrategy;
 import org.apache.reef.io.data.loading.impl.LocationAwareJobConfs;
-import org.apache.reef.io.data.loading.impl.JobConfsExternalConstructor;
+import org.apache.reef.io.data.loading.impl.LocationAwareJobConfsExternalConstructor;
 import org.apache.reef.tang.Configuration;
 import org.apache.reef.tang.JavaConfigurationBuilder;
 import org.apache.reef.tang.Tang;
@@ -305,21 +305,22 @@ public final class DataLoadingRequestBuilder
     }
 
     jcb.bindNamedParameter(LoadDataIntoMemory.class, Boolean.toString(this.inMemory))
-       .bindNamedParameter(JobConfExternalConstructor.InputFormatClass.class, inputFormatClass)
-       .bindConstructor(LocationAwareJobConfs.class, JobConfsExternalConstructor.class);
+       .bindConstructor(LocationAwareJobConfs.class, LocationAwareJobConfsExternalConstructor.class)
+       .bindNamedParameter(JobConfExternalConstructor.InputFormatClass.class, inputFormatClass);
+
 
     for (final DataPartition partition : partitions) {
-      jcb.bindSetEntry(JobConfsExternalConstructor.DataPartitions.class, DataPartitionSerializer.serialize(partition));
+      jcb.bindSetEntry(LocationAwareJobConfsExternalConstructor.DataPartitions.class, DataPartitionSerializer.serialize(partition));
     }
 
     // we do this check for backwards compatibility, if there's a single partition, we just use the
     // previous available strategy (renamed to greedy now)
     if (partitions.size() == 1 && DataPartition.ANY.equals(partitions.get(0).getLocation())) {
-      jcb.bindImplementation(EvaluatorToPartitionStrategy.class, GreedyEvaluatorToPartitionStrategy.class);
+      jcb.bindImplementation(EvaluatorToSplitStrategy.class, GreedyEvaluatorToSplitStrategy.class);
     } else {
       // otherwise, we bind the strategy that will allow the user to specify
       // which evaluators can load the different partitions
-      jcb.bindImplementation(EvaluatorToPartitionStrategy.class, LocationAwareEvaluatorToPartitionStrategy.class);
+      jcb.bindImplementation(EvaluatorToSplitStrategy.class, LocationAwareEvaluatorToSplitStrategy.class);
     }
 
     return jcb.bindImplementation(DataLoadingService.class, InputFormatLoadingService.class).build();

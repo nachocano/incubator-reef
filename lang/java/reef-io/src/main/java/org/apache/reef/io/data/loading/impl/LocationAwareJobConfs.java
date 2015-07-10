@@ -23,6 +23,10 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
+/**
+ * Has multiple {@link LocationAwareJobConf}. Allows to iterate over them via an
+ * Iterable interface.
+ */
 public final class LocationAwareJobConfs implements
     Iterable<LocationAwareJobConf> {
 
