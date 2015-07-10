@@ -16,11 +16,13 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.reef.io.data.loading.impl;
+package org.apache.reef.io.data.loading.api;
 
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.driver.catalog.NodeDescriptor;
+import org.apache.reef.io.data.loading.impl.InputFolder;
+import org.apache.reef.io.data.loading.impl.NumberedSplit;
 
 import java.util.Map;
 

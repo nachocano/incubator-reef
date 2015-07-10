@@ -23,6 +23,7 @@ import org.apache.commons.math3.util.Pair;
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.driver.catalog.NodeDescriptor;
+import org.apache.reef.io.data.loading.api.EvaluatorToPartitionStrategy;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -52,7 +53,7 @@ import javax.inject.Inject;
  *
  */
 @DriverSide
-public class GreedyEvaluatorToPartitionStrategy implements EvaluatorToPartitionStrategy<InputSplit> {
+public final class GreedyEvaluatorToPartitionStrategy implements EvaluatorToPartitionStrategy<InputSplit> {
   private static final Logger LOG = Logger
       .getLogger(GreedyEvaluatorToPartitionStrategy.class.getName());
 

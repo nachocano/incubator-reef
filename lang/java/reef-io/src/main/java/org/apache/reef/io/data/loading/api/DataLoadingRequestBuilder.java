@@ -24,7 +24,7 @@ import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.reef.client.DriverConfiguration;
 import org.apache.reef.driver.evaluator.EvaluatorRequest;
 import org.apache.reef.io.data.loading.impl.EvaluatorRequestSerializer;
-import org.apache.reef.io.data.loading.impl.EvaluatorToPartitionStrategy;
+import org.apache.reef.io.data.loading.impl.GreedyEvaluatorToPartitionStrategy;
 import org.apache.reef.io.data.loading.impl.InputFolder;
 import org.apache.reef.io.data.loading.impl.InputFolderSerializer;
 import org.apache.reef.io.data.loading.impl.InputFormatLoadingService;
@@ -310,7 +310,7 @@ public final class DataLoadingRequestBuilder
     // we do this check for backwards compatibility, if there's a single folder, we just use the
     // current strategy
     if (inputFolders.size() == 1 && InputFolder.ANY.equals(inputFolders.get(0).getLocation())) {
-      jcb.bindImplementation(EvaluatorToPartitionStrategy.class, null);
+      jcb.bindImplementation(EvaluatorToPartitionStrategy.class, GreedyEvaluatorToPartitionStrategy.class);
     } else {
       // otherwise, we bind the strategy that will allow the user to specify
       // which evaluator can load the different chunks of data
