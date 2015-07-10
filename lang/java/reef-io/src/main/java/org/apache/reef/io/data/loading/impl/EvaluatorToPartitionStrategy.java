@@ -22,12 +22,10 @@ import org.apache.hadoop.mapred.InputSplit;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.driver.catalog.NodeDescriptor;
 
-/**
- * Interface.
- */
 @DriverSide
 public interface EvaluatorToPartitionStrategy<V extends InputSplit> {
 
+  void init();
 
   NumberedSplit<V> getInputSplit(NodeDescriptor nodeDescriptor, String evalId);
 

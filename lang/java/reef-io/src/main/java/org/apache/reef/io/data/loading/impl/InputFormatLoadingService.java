@@ -51,10 +51,11 @@ import java.util.logging.Logger;
  * that uses the Hadoop {@link InputFormat} to find
  * partitions of data & request resources.
  * <p/>
- * The InputFormat is injected using a Tang external constructor
+ * The InputFormat is taken from the job configurations
  * <p/>
- * It also tries to obtain data locality in a greedy
- * fashion using {@link EvaluatorToPartitionMapper}
+ * The so called EvaluatorToPartitionStrategy is injected,
+ * in order to support different ways to achieve data locality
+ * @see {@link EvaluatorToPartitionStrategy}
  */
 @DriverSide
 public class InputFormatLoadingService<K, V> implements DataLoadingService {
@@ -102,6 +103,7 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
     this.inMemory = inMemory;
     this.inputFormatClass = inputFormatClass;
     this.evaluatorToPartitionStrategy = evaluatorToPartitionStrategy;
+    this.numberOfPartitions = 0;
 
     final Iterator<LocationAwareJobConf> it = locAwareJobConfs.iterator();
     while (it.hasNext()) {
@@ -114,7 +116,7 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
         if (LOG.isLoggable(Level.FINEST)) {
           LOG.log(Level.FINEST, "Splits for path: {0} {1}", new Object[]{inFolder.getPath(), Arrays.toString(inputSplits)});
         }
-        this.numberOfPartitions = inputSplits.length;
+        //this.numberOfPartitions = inputSplits.length;
         LOG.log(Level.FINE, "Number of partitions: {0}", this.numberOfPartitions);
 
 
@@ -122,6 +124,7 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
         throw new RuntimeException("Unable to get InputSplits using the specified InputFormat", e);
       }
     }
+    this.evaluatorToPartitionStrategy.init();
   }
 
   @Override
@@ -133,7 +136,7 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
   public Configuration getContextConfiguration(final AllocatedEvaluator allocatedEvaluator) {
 
     final NumberedSplit<InputSplit> numberedSplit =
-        this.evaluatorToPartitionMapper.getInputSplit(
+        this.evaluatorToPartitionStrategy.getInputSplit(
             allocatedEvaluator.getEvaluatorDescriptor().getNodeDescriptor(),
             allocatedEvaluator.getId());
 
@@ -148,8 +151,8 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
     try {
 
       final NumberedSplit<InputSplit> numberedSplit =
-          this.evaluatorToPartitionMapper.getInputSplit(
-              allocatedEvaluator.getEvaluatorDescriptor().getNodeDescriptor().getName(),
+          this.evaluatorToPartitionStrategy.getInputSplit(
+              allocatedEvaluator.getEvaluatorDescriptor().getNodeDescriptor(),
               allocatedEvaluator.getId());
 
       final Configuration serviceConfiguration = ServiceConfiguration.CONF

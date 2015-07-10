@@ -20,6 +20,7 @@ package org.apache.reef.io.data.loading.impl;
 
 import org.apache.hadoop.mapred.InputSplit;
 import org.apache.reef.annotations.audience.DriverSide;
+import org.apache.reef.driver.catalog.NodeDescriptor;
 
 import java.io.IOException;
 import java.util.Map;
@@ -45,30 +46,30 @@ import java.util.logging.Logger;
  * @param <V>
  */
 @DriverSide
-public class EvaluatorToPartitionMapper<V extends InputSplit> {
+public class GreedyEvaluatorToPartitionStrategy implements EvaluatorToPartitionStrategy<InputSplit> {
   private static final Logger LOG = Logger
-      .getLogger(EvaluatorToPartitionMapper.class.getName());
+      .getLogger(GreedyEvaluatorToPartitionStrategy.class.getName());
 
-  private final ConcurrentMap<String, BlockingQueue<NumberedSplit<V>>> locationToSplits = new ConcurrentHashMap<>();
-  private final ConcurrentMap<String, NumberedSplit<V>> evaluatorToSplits = new ConcurrentHashMap<>();
-  private final BlockingQueue<NumberedSplit<V>> unallocatedSplits = new LinkedBlockingQueue<>();
+  private final ConcurrentMap<String, BlockingQueue<NumberedSplit<InputSplit>>> locationToSplits = new ConcurrentHashMap<>();
+  private final ConcurrentMap<String, NumberedSplit<InputSplit>> evaluatorToSplits = new ConcurrentHashMap<>();
+  private final BlockingQueue<NumberedSplit<InputSplit>> unallocatedSplits = new LinkedBlockingQueue<>();
 
   /**
    * Initializes the locations of splits mapping.
    *
    * @param splits
    */
-  public EvaluatorToPartitionMapper(V[] splits) {
+  public GreedyEvaluatorToPartitionStrategy(final InputSplit[] splits) {
     try {
       for (int splitNum = 0; splitNum < splits.length; splitNum++) {
         LOG.log(Level.FINE, "Processing split: " + splitNum);
-        final V split = splits[splitNum];
+        final InputSplit split = splits[splitNum];
         final String[] locations = split.getLocations();
-        final NumberedSplit<V> numberedSplit = new NumberedSplit<V>(split, splitNum);
+        final NumberedSplit<InputSplit> numberedSplit = new NumberedSplit<InputSplit>(split, splitNum);
         unallocatedSplits.add(numberedSplit);
         for (final String location : locations) {
-          BlockingQueue<NumberedSplit<V>> newSplitQue = new LinkedBlockingQueue<NumberedSplit<V>>();
-          final BlockingQueue<NumberedSplit<V>> splitQue = locationToSplits.putIfAbsent(location,
+          BlockingQueue<NumberedSplit<InputSplit>> newSplitQue = new LinkedBlockingQueue<NumberedSplit<InputSplit>>();
+          final BlockingQueue<NumberedSplit<InputSplit>> splitQue = locationToSplits.putIfAbsent(location,
               newSplitQue);
           if (splitQue != null) {
             newSplitQue = splitQue;
@@ -76,10 +77,10 @@ public class EvaluatorToPartitionMapper<V extends InputSplit> {
           newSplitQue.add(numberedSplit);
         }
       }
-      for (Map.Entry<String, BlockingQueue<NumberedSplit<V>>> locSplit : locationToSplits.entrySet()) {
+      for (final Map.Entry<String, BlockingQueue<NumberedSplit<InputSplit>>> locSplit : locationToSplits.entrySet()) {
         LOG.log(Level.FINE, locSplit.getKey() + ": " + locSplit.getValue().toString());
       }
-    } catch (IOException e) {
+    } catch (final IOException e) {
       throw new RuntimeException(
           "Unable to get InputSplits using the specified InputFormat", e);
     }
@@ -94,7 +95,8 @@ public class EvaluatorToPartitionMapper<V extends InputSplit> {
    * @param evaluatorId
    * @return
    */
-  public NumberedSplit<V> getInputSplit(final String hostName, final String evaluatorId) {
+  public NumberedSplit<InputSplit> getInputSplit(final NodeDescriptor nodeDescriptor, final String evaluatorId) {
+    final String hostName = nodeDescriptor.getName();
     synchronized (evaluatorToSplits) {
       if (evaluatorToSplits.containsKey(evaluatorId)) {
         LOG.log(Level.FINE, "Found an already allocated partition");
@@ -105,7 +107,7 @@ public class EvaluatorToPartitionMapper<V extends InputSplit> {
     LOG.log(Level.FINE, "allocated partition not found");
     if (locationToSplits.containsKey(hostName)) {
       LOG.log(Level.FINE, "Found partitions possibly hosted for " + evaluatorId + " at " + hostName);
-      final NumberedSplit<V> split = allocateSplit(evaluatorId, locationToSplits.get(hostName));
+      final NumberedSplit<InputSplit> split = allocateSplit(evaluatorId, locationToSplits.get(hostName));
       LOG.log(Level.FINE, evaluatorToSplits.toString());
       if (split != null) {
         return split;
@@ -116,7 +118,7 @@ public class EvaluatorToPartitionMapper<V extends InputSplit> {
         Level.FINE,
         hostName
             + " does not host any partitions or someone else took partitions hosted here. Picking a random one");
-    final NumberedSplit<V> split = allocateSplit(evaluatorId, unallocatedSplits);
+    final NumberedSplit<InputSplit> split = allocateSplit(evaluatorId, unallocatedSplits);
     LOG.log(Level.FINE, evaluatorToSplits.toString());
     if (split != null) {
       return split;
@@ -124,20 +126,20 @@ public class EvaluatorToPartitionMapper<V extends InputSplit> {
     throw new RuntimeException("Unable to find an input partition to evaluator " + evaluatorId);
   }
 
-  private NumberedSplit<V> allocateSplit(final String evaluatorId,
-                                         final BlockingQueue<NumberedSplit<V>> value) {
+  private NumberedSplit<InputSplit> allocateSplit(final String evaluatorId,
+                                         final BlockingQueue<NumberedSplit<InputSplit>> value) {
     if (value == null) {
       LOG.log(Level.FINE, "Queue of splits can't be empty. Returning null");
       return null;
     }
     while (true) {
-      final NumberedSplit<V> split = value.poll();
+      final NumberedSplit<InputSplit> split = value.poll();
       if (split == null) {
         return null;
       }
       if (value == unallocatedSplits || unallocatedSplits.remove(split)) {
         LOG.log(Level.FINE, "Found split-" + split.getIndex() + " in the queue");
-        final NumberedSplit<V> old = evaluatorToSplits.putIfAbsent(evaluatorId, split);
+        final NumberedSplit<InputSplit> old = evaluatorToSplits.putIfAbsent(evaluatorId, split);
         if (old != null) {
           final String msg = "Trying to assign different partitions to the same evaluator " +
               "is not supported";
@@ -149,5 +151,9 @@ public class EvaluatorToPartitionMapper<V extends InputSplit> {
         }
       }
     }
+  }
+
+  @Override
+  public void init() {
   }
 }

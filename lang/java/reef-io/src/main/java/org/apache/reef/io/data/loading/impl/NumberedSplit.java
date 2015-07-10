@@ -20,7 +20,7 @@ package org.apache.reef.io.data.loading.impl;
 
 /**
  * A tuple of an object of type E and an integer index.
- * Used inside {@link EvaluatorToPartitionMapper} to
+ * Used inside {@link EvaluatorToPartitionStrategy} implementations to
  * mark the partitions associated with each {@link org.apache.hadoop.mapred.InputSplit}
  *
  * @param <E>
