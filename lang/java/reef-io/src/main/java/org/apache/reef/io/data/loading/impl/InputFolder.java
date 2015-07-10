@@ -18,33 +18,35 @@
  */
 package org.apache.reef.io.data.loading.impl;
 
-import org.apache.hadoop.mapred.InputFormat;
-import org.apache.hadoop.mapred.JobConf;
-import org.apache.reef.annotations.audience.DriverSide;
-import org.apache.reef.tang.ExternalConstructor;
-
-import javax.inject.Inject;
-
-
 /**
- * A Tang External Constructor to inject the required.
- * InputFormat
+ * POJO that represents an input folder that contains data.
+ *
  */
-@DriverSide
-public class InputFormatExternalConstructor implements ExternalConstructor<InputFormat<?, ?>> {
+public final class InputFolder {
 
-  private final JobConf jobConf;
-  private final InputFormat<?, ?> inputFormat;
+  public static final String ANY = "/*";
 
-  @Inject
-  public InputFormatExternalConstructor(final JobConf jobConf) {
-    this.jobConf = jobConf;
-    inputFormat = jobConf.getInputFormat();
+  /**
+   * The path of the folder.
+   */
+  private final String path;
+
+  /**
+   * The location (either a rackName or a nodeName) where this data will be
+   * loaded into
+   */
+  private final String location;
+
+  public InputFolder(final String path, final String location) {
+    this.path = path;
+    this.location = location;
   }
 
-  @Override
-  public InputFormat<?, ?> newInstance() {
-    return inputFormat;
+  public String getPath() {
+    return path;
   }
 
+  public String getLocation() {
+    return location;
+  }
 }

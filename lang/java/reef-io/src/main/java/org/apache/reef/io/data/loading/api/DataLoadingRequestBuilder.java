@@ -20,18 +20,16 @@ package org.apache.reef.io.data.loading.api;
 
 import org.apache.commons.lang.Validate;
 import org.apache.hadoop.mapred.InputFormat;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.reef.client.DriverConfiguration;
 import org.apache.reef.driver.evaluator.EvaluatorRequest;
 import org.apache.reef.io.data.loading.impl.EvaluatorRequestSerializer;
-import org.apache.reef.io.data.loading.impl.InputFormatExternalConstructor;
+import org.apache.reef.io.data.loading.impl.EvaluatorToPartitionStrategy;
+import org.apache.reef.io.data.loading.impl.InputFolder;
+import org.apache.reef.io.data.loading.impl.InputFolderSerializer;
 import org.apache.reef.io.data.loading.impl.InputFormatLoadingService;
-import org.apache.reef.io.data.loading.impl.InputFormats;
-import org.apache.reef.io.data.loading.impl.InputFormatsExternalConstructor;
-import org.apache.reef.io.data.loading.impl.InputFormatsLoadingService;
 import org.apache.reef.io.data.loading.impl.JobConfExternalConstructor;
-import org.apache.reef.io.data.loading.impl.JobConfs;
+import org.apache.reef.io.data.loading.impl.LocationAwareJobConfs;
 import org.apache.reef.io.data.loading.impl.JobConfsExternalConstructor;
 import org.apache.reef.tang.Configuration;
 import org.apache.reef.tang.JavaConfigurationBuilder;
@@ -74,7 +72,7 @@ public final class DataLoadingRequestBuilder
   private boolean renewFailedEvaluators = true;
   private ConfigurationModule driverConfigurationModule = null;
   private String inputFormatClass;
-  private List<String> inputPaths = new ArrayList<>();
+  private List<InputFolder> inputFolders = new ArrayList<>();
 
   public DataLoadingRequestBuilder setNumberOfDesiredSplits(final int numberOfDesiredSplits) {
     this.numberOfDesiredSplits = numberOfDesiredSplits;
@@ -194,44 +192,45 @@ public final class DataLoadingRequestBuilder
   }
 
   /**
-   * Sets the input path.
+   * Sets the path of the folder where the data is.
+   * Set to ANY the evaluator that will be able to load this data.
    *
    * @deprecated since 0.12. Should use instead
-   *             {@link DataLoadingRequestBuilder#addInputPath(String)}
-   *             or {@link DataLoadingRequestBuilder#addInputPaths(List)}
+   *             {@link DataLoadingRequestBuilder#addInputFolder(InputFolder)}
+   *             or {@link DataLoadingRequestBuilder#addInputFolders(List)}
    * @param inputPath
    *          the input path
    * @return this
    */
   @Deprecated
   public DataLoadingRequestBuilder setInputPath(final String inputPath) {
-    this.inputPaths = new ArrayList<>(Arrays.asList(inputPath));
+    this.inputFolders = new ArrayList<>(Arrays.asList(new InputFolder(inputPath, InputFolder.ANY)));
     return this;
   }
 
   /**
-   * Adds the input paths to the input paths list.
+   * Adds the input folders to the input folders list.
    *
-   * @param inputPaths
-   *          the input paths to add
+   * @param inputFolders
+   *          the input folders to add
    * @return this
    */
-  public DataLoadingRequestBuilder addInputPaths(final List<String> inputPaths) {
-    for (final String inputPath : inputPaths) {
-      addInputPath(inputPath);
+  public DataLoadingRequestBuilder addInputFolders(final List<InputFolder> inputFolders) {
+    for (final InputFolder inputFolder : inputFolders) {
+      addInputFolder(inputFolder);
     }
     return this;
   }
 
   /**
-   * Adds a single input path to the input paths list.
+   * Adds a single input folder to the input folders list.
    *
-   * @param inputPath
-   *          the input path to add
+   * @param inputFolder
+   *          the input folder to add
    * @return this
    */
-  public DataLoadingRequestBuilder addInputPath(final String inputPath) {
-    this.inputPaths.add(inputPath);
+  public DataLoadingRequestBuilder addInputFolder(final InputFolder inputFolder) {
+    this.inputFolders.add(inputFolder);
     return this;
   }
 
@@ -241,7 +240,7 @@ public final class DataLoadingRequestBuilder
       throw new BindException("Driver Configuration Module is a required parameter.");
     }
 
-    if (this.inputPaths.isEmpty()) {
+    if (this.inputFolders.isEmpty()) {
       throw new BindException("InputPath is a required parameter.");
     }
 
@@ -301,25 +300,24 @@ public final class DataLoadingRequestBuilder
     }
 
     jcb.bindNamedParameter(LoadDataIntoMemory.class, Boolean.toString(this.inMemory))
-       .bindNamedParameter(JobConfExternalConstructor.InputFormatClass.class, inputFormatClass);
+       .bindNamedParameter(JobConfExternalConstructor.InputFormatClass.class, inputFormatClass)
+       .bindConstructor(LocationAwareJobConfs.class, JobConfsExternalConstructor.class);
 
-    if (inputPaths.size() == 1) {
-      return jcb
-          .bindConstructor(InputFormat.class, InputFormatExternalConstructor.class)
-          .bindConstructor(JobConf.class, JobConfExternalConstructor.class)
-          .bindNamedParameter(JobConfExternalConstructor.InputPath.class, inputPaths.get(0))
-          .bindImplementation(DataLoadingService.class, InputFormatLoadingService.class)
-          .build();
-    } else {
-      jcb.bindConstructor(InputFormats.class, InputFormatsExternalConstructor.class)
-         .bindConstructor(JobConfs.class, JobConfsExternalConstructor.class);
-      for (final String inputPath : inputPaths) {
-        jcb.bindSetEntry(JobConfsExternalConstructor.InputPaths.class, inputPath);
-      }
-      return jcb.bindImplementation(DataLoadingService.class, InputFormatsLoadingService.class)
-          .build();
+    for (final InputFolder inputFolder : inputFolders) {
+      jcb.bindSetEntry(JobConfsExternalConstructor.InputFolders.class, InputFolderSerializer.serialize(inputFolder));
     }
 
+    // we do this check for backwards compatibility, if there's a single folder, we just use the
+    // current strategy
+    if (inputFolders.size() == 1 && InputFolder.ANY.equals(inputFolders.get(0).getLocation())) {
+      jcb.bindImplementation(EvaluatorToPartitionStrategy.class, null);
+    } else {
+      // otherwise, we bind the strategy that will allow the user to specify
+      // which evaluator can load the different chunks of data
+      jcb.bindImplementation(EvaluatorToPartitionStrategy.class, null);
+    }
+
+    return jcb.bindImplementation(DataLoadingService.class, InputFormatLoadingService.class).build();
   }
 
   @NamedParameter(short_name = "num_splits", default_value = "0")

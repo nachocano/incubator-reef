@@ -21,27 +21,24 @@ package org.apache.reef.io.data.loading.impl;
 import org.apache.commons.lang.Validate;
 import org.apache.hadoop.mapred.JobConf;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.logging.Logger;
+public final class LocationAwareJobConf {
 
-public class JobConfs {
+  private final JobConf jobConf;
+  private final InputFolder inputFolder;
 
-  private static final Logger LOG = Logger.getLogger(JobConfs.class.getName());
-
-  private final List<JobConf> jobConfs;
-
-  public JobConfs(final List<JobConf> jobConfs) {
-    Validate.notEmpty(jobConfs);
-    this.jobConfs = jobConfs;
+  public LocationAwareJobConf(final JobConf jobConf, final InputFolder inputFolder) {
+    Validate.notNull(jobConf);
+    Validate.notNull(inputFolder);
+    this.jobConf = jobConf;
+    this.inputFolder = inputFolder;
   }
 
-  List<JobConf> getJobConfs() {
-    return Collections.unmodifiableList(jobConfs);
+  public JobConf getJobConf() {
+    return jobConf;
   }
 
-  int size() {
-    return jobConfs.size();
+  public InputFolder getInputFolder() {
+    return inputFolder;
   }
 
 }

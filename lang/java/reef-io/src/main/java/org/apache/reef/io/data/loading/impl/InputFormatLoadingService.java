@@ -35,9 +35,14 @@ import org.apache.reef.tang.annotations.Parameter;
 import org.apache.reef.tang.exceptions.BindException;
 
 import javax.inject.Inject;
+
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -61,15 +66,19 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
   private static final String COMPUTE_CONTEXT_PREFIX =
       "ComputeContext-" + new Random(3381).nextInt(1 << 20) + "-";
 
-  private final EvaluatorToPartitionMapper<InputSplit> evaluatorToPartitionMapper;
+  private final EvaluatorToPartitionStrategy<InputSplit> evaluatorToPartitionStrategy;
   private final int numberOfPartitions;
-
   private final boolean inMemory;
-
   private final String inputFormatClass;
 
-  private final String inputPath;
 
+  /**
+   * @deprecated since 0.12. Should use the other constructor instead, which
+   *             allows to specify the strategy on how to assign partitions to
+   *             evaluators
+   *
+   */
+  @Deprecated
   @Inject
   public InputFormatLoadingService(
       final InputFormat<K, V> inputFormat,
@@ -78,26 +87,40 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
       @Parameter(DataLoadingRequestBuilder.LoadDataIntoMemory.class) final boolean inMemory,
       @Parameter(JobConfExternalConstructor.InputFormatClass.class) final String inputFormatClass,
       @Parameter(JobConfExternalConstructor.InputPath.class) final String inputPath) {
+    this(new LocationAwareJobConfs(Arrays.asList(new LocationAwareJobConf(jobConf, new InputFolder(inputPath, InputFolder.ANY)))), null, numberOfDesiredSplits, inMemory, inputFormatClass);
+  }
+
+  @SuppressWarnings("rawtypes")
+  @Inject
+  public InputFormatLoadingService(
+      final LocationAwareJobConfs locAwareJobConfs,
+      final EvaluatorToPartitionStrategy<InputSplit> evaluatorToPartitionStrategy,
+      @Parameter(DataLoadingRequestBuilder.NumberOfDesiredSplits.class) final int numberOfDesiredSplits,
+      @Parameter(DataLoadingRequestBuilder.LoadDataIntoMemory.class) final boolean inMemory,
+      @Parameter(JobConfExternalConstructor.InputFormatClass.class) final String inputFormatClass) {
 
     this.inMemory = inMemory;
     this.inputFormatClass = inputFormatClass;
-    this.inputPath = inputPath;
+    this.evaluatorToPartitionStrategy = evaluatorToPartitionStrategy;
+
+    final Iterator<LocationAwareJobConf> it = locAwareJobConfs.iterator();
+    while (it.hasNext()) {
+      final LocationAwareJobConf locAwareJobConf = it.next();
+      try {
+        final JobConf jobConf = locAwareJobConf.getJobConf();
+        final InputFolder inFolder = locAwareJobConf.getInputFolder();
+        final InputFormat inputFormat = jobConf.getInputFormat();
+        final InputSplit[] inputSplits = inputFormat.getSplits(jobConf, numberOfDesiredSplits);
+        if (LOG.isLoggable(Level.FINEST)) {
+          LOG.log(Level.FINEST, "Splits for path: {0} {1}", new Object[]{inFolder.getPath(), Arrays.toString(inputSplits)});
+        }
+        this.numberOfPartitions = inputSplits.length;
+        LOG.log(Level.FINE, "Number of partitions: {0}", this.numberOfPartitions);
 
 
-    try {
-
-      final InputSplit[] inputSplits = inputFormat.getSplits(jobConf, numberOfDesiredSplits);
-      if (LOG.isLoggable(Level.FINEST)) {
-        LOG.log(Level.FINEST, "Splits: {0}", Arrays.toString(inputSplits));
+      } catch (final IOException e) {
+        throw new RuntimeException("Unable to get InputSplits using the specified InputFormat", e);
       }
-
-      this.numberOfPartitions = inputSplits.length;
-      LOG.log(Level.FINE, "Number of partitions: {0}", this.numberOfPartitions);
-
-      this.evaluatorToPartitionMapper = new EvaluatorToPartitionMapper<>(inputSplits);
-
-    } catch (final IOException e) {
-      throw new RuntimeException("Unable to get InputSplits using the specified InputFormat", e);
     }
   }
 
@@ -111,7 +134,7 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
 
     final NumberedSplit<InputSplit> numberedSplit =
         this.evaluatorToPartitionMapper.getInputSplit(
-            allocatedEvaluator.getEvaluatorDescriptor().getNodeDescriptor().getName(),
+            allocatedEvaluator.getEvaluatorDescriptor().getNodeDescriptor(),
             allocatedEvaluator.getId());
 
     return ContextConfiguration.CONF

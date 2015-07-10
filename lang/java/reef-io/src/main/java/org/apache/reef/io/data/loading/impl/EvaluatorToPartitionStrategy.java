@@ -18,18 +18,17 @@
  */
 package org.apache.reef.io.data.loading.impl;
 
-import org.apache.hadoop.mapred.InputFormat;
-import java.util.List;
+import org.apache.hadoop.mapred.InputSplit;
+import org.apache.reef.annotations.audience.DriverSide;
+import org.apache.reef.driver.catalog.NodeDescriptor;
 
-import javax.inject.Inject;
+/**
+ * Interface.
+ */
+@DriverSide
+public interface EvaluatorToPartitionStrategy<V extends InputSplit> {
 
-public class InputFormats {
 
-  private final List<InputFormat<?,?>> inputFormats;
-
-  @Inject
-  public InputFormats(final List<InputFormat<?, ?>> inputFormats) {
-    this.inputFormats = inputFormats;
-  }
+  NumberedSplit<V> getInputSplit(NodeDescriptor nodeDescriptor, String evalId);
 
 }

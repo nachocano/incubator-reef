@@ -30,36 +30,37 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Logger;
 
-public class JobConfsExternalConstructor implements ExternalConstructor<JobConfs> {
-
-  private static final Logger LOG = Logger.getLogger(JobConfsExternalConstructor.class.getName());
+public class JobConfsExternalConstructor implements ExternalConstructor<LocationAwareJobConfs> {
 
   private final String inputFormatClassName;
-  private final Set<String> inputPaths;
+  private final List<InputFolder> inputFolders;
 
   @Inject
   public JobConfsExternalConstructor(
       @Parameter(JobConfExternalConstructor.InputFormatClass.class) final String inputFormatClassName,
-      @Parameter(InputPaths.class) final Set<String> inputPaths) {
+      @Parameter(InputFolders.class) final Set<String> serializedInputFolders) {
     this.inputFormatClassName = inputFormatClassName;
-    this.inputPaths = inputPaths;
+    this.inputFolders = new ArrayList<>(serializedInputFolders.size());
+    for (final String serializedInputFolder : serializedInputFolders) {
+      this.inputFolders.add(InputFolderSerializer.deserialize(serializedInputFolder));
+    }
   }
 
   @Override
-  public JobConfs newInstance() {
-    final List<JobConf> jobConfs = new ArrayList<JobConf>(inputPaths.size());
-
-    final Iterator<String> it = inputPaths.iterator();
+  public LocationAwareJobConfs newInstance() {
+    final List<LocationAwareJobConf> locationAwareJobConfs = new ArrayList<>(inputFolders.size());
+    final Iterator<InputFolder> it = inputFolders.iterator();
     while (it.hasNext()) {
-      final ExternalConstructor<JobConf> jobConf = new JobConfExternalConstructor(inputFormatClassName, it.next());
-      jobConfs.add(jobConf.newInstance());
+      final InputFolder inputFolder = it.next();
+      final ExternalConstructor<JobConf> jobConf = new JobConfExternalConstructor(inputFormatClassName,
+          inputFolder.getPath());
+      locationAwareJobConfs.add(new LocationAwareJobConf(jobConf.newInstance(), inputFolder));
     }
-    return new JobConfs(jobConfs);
+    return new LocationAwareJobConfs(locationAwareJobConfs);
   }
 
-  @NamedParameter(default_values = { "NULL" })
-  public static final class InputPaths implements Name<Set<String>> {
+  @NamedParameter
+  public static final class InputFolders implements Name<Set<String>> {
   }
 }
