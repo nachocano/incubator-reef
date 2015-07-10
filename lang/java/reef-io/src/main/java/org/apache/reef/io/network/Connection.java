@@ -20,6 +20,8 @@ package org.apache.reef.io.network;
 
 import org.apache.reef.exception.evaluator.NetworkException;
 
+import java.util.List;
+
 /**
  * Connection between two end-points named by identifiers.
  *
@@ -35,12 +37,18 @@ public interface Connection<T> extends AutoCloseable {
   void open() throws NetworkException;
 
   /**
-   * Writes an object to the connection.
+   * Writes a message to the connection.
    *
-   * @param obj
-   * @throws NetworkException
+   * @param message
    */
-  void write(T obj) throws NetworkException;
+  void write(T message);
+
+  /**
+   * Writes a list of messages to the connection.
+   *
+   * @param messages
+   */
+  void write(List<T> messages);
 
   /**
    * Closes the connection.

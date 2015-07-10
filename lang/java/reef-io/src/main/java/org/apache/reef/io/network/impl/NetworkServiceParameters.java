@@ -34,11 +34,12 @@ public class NetworkServiceParameters {
 
   }
 
-  @NamedParameter(doc = "identifier factory for the service", short_name = "factory", default_class = StringIdentifierFactory.class)
+  @NamedParameter(doc = "identifier factory for the service", short_name = "factory",
+      default_class = StringIdentifierFactory.class)
   public static class NetworkServiceIdentifierFactory implements Name<IdentifierFactory> {
   }
 
-  @NamedParameter(doc = "port for the network service", short_name = "nsport", default_value = "7070")
+  @NamedParameter(doc = "port for the network service", short_name = "nsport", default_value = "0")
   public static class NetworkServicePort implements Name<Integer> {
   }
 
@@ -46,7 +47,8 @@ public class NetworkServiceParameters {
   public static class NetworkServiceCodec implements Name<Codec<?>> {
   }
 
-  @NamedParameter(doc = "transport factory for the network service", short_name = "nstransportfactory", default_class = MessagingTransportFactory.class)
+  @NamedParameter(doc = "transport factory for the network service", short_name = "nstransportfactory",
+      default_class = MessagingTransportFactory.class)
   public static class NetworkServiceTransportFactory implements Name<TransportFactory> {
   }
 
