@@ -69,7 +69,6 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
 
   private final EvaluatorToPartitionStrategy<InputSplit> evaluatorToPartitionStrategy;
   private int numberOfPartitions;
-  private final Map<String, Integer> numberOfPartitionsPerLocation;
   private final boolean inMemory;
   private final String inputFormatClass;
 
@@ -104,7 +103,6 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
     this.inMemory = inMemory;
     this.inputFormatClass = inputFormatClass;
     this.evaluatorToPartitionStrategy = evaluatorToPartitionStrategy;
-    this.numberOfPartitionsPerLocation = new HashMap<>();
 
     final Iterator<LocationAwareJobConf> it = locAwareJobConfs.iterator();
     final Map<InputFolder, InputSplit[]> splitsPerFolder = new HashMap<>();
@@ -119,6 +117,10 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
         if (LOG.isLoggable(Level.FINEST)) {
           LOG.log(Level.FINEST, "Splits for path: {0} {1}", new Object[]{inFolder.getPath(), Arrays.toString(inputSplits)});
         }
+        // for now we just keep the total number of partitions
+        // and not group them based on their locations
+        // clients of this service, e.g. DataLoader, might better allocate resources if we provide
+        // the latter information. Something to keep in mind
         this.numberOfPartitions += inputSplits.length;
 
       } catch (final IOException e) {
@@ -133,16 +135,6 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
   public int getNumberOfPartitions() {
     return this.numberOfPartitions;
   }
-
-  @Override
-  public int getNumberOfPartitionsPerLocation(final String location) {
-    int result = 0;
-    if (this.numberOfPartitionsPerLocation.containsKey(location)) {
-      result = this.numberOfPartitionsPerLocation.get(location);
-    }
-    return result;
-  }
-
 
   @Override
   public Configuration getContextConfiguration(final AllocatedEvaluator allocatedEvaluator) {
