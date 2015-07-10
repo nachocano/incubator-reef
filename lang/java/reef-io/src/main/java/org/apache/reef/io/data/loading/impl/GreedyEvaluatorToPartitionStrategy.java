@@ -23,6 +23,8 @@ import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.driver.catalog.NodeDescriptor;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -45,7 +47,6 @@ import javax.inject.Inject;
  * This is an online version which satisfies
  * requests in a greedy way.
  *
- * @param <V>
  */
 @DriverSide
 public class GreedyEvaluatorToPartitionStrategy implements EvaluatorToPartitionStrategy<InputSplit> {
@@ -66,7 +67,8 @@ public class GreedyEvaluatorToPartitionStrategy implements EvaluatorToPartitionS
    *
    * @param splits
    */
-  public void init(final InputSplit[] splits) {
+  public void init(final Map<InputFolder, InputSplit[]> splitsPerFolder) {
+    final InputSplit[] splits = getSplits(splitsPerFolder);
     try {
       for (int splitNum = 0; splitNum < splits.length; splitNum++) {
         LOG.log(Level.FINE, "Processing split: " + splitNum);
@@ -91,6 +93,16 @@ public class GreedyEvaluatorToPartitionStrategy implements EvaluatorToPartitionS
       throw new RuntimeException(
           "Unable to get InputSplits using the specified InputFormat", e);
     }
+  }
+
+  private InputSplit[] getSplits(final Map<InputFolder, InputSplit[]> splitsPerFolder) {
+    final List<InputSplit> inputSplits = new ArrayList<>();
+    for (final InputSplit[] splits : splitsPerFolder.values()) {
+      for (final InputSplit split : splits) {
+        inputSplits.add(split);
+      }
+    }
+    return inputSplits.toArray(new InputSplit[inputSplits.size()]);
   }
 
   /**
