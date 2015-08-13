@@ -100,8 +100,8 @@ public final class EvaluatorManagerFactory {
       LOG.log(Level.WARNING, "Node descriptor not found for node {0}", resourceAllocationEvent.getNodeId());
 
       // HOT FIX for YARN with FEDERATION
-      // See JIRA https://issues.apache.org/jira/browse/REEF-568
-      // Should be removed once the corresponding YARN issue is fixed
+      // See JIRA REEF-568
+      // Should be removed once the YARN-2915 is fixed
       if (resourceAllocationEvent.getRackName().isPresent()) {
         final String federationAsStr = resourceAllocationEvent.getRackName().get();
         final boolean federation = Boolean.valueOf(federationAsStr);

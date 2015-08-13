@@ -404,8 +404,8 @@ final class YarnContainerManager
             .setResourceMemory(container.getResource().getMemory())
             .setVirtualCores(container.getResource().getVirtualCores())
             // send the flag of federation here, not to change any
-            // APIs, dirty fix for JIRA https://issues.apache.org/jira/browse/REEF-568
-            // until the linked YARN issue is fixed
+            // APIs, dirty fix for JIRA REEF-568
+            // until the linked YARN issue is fixed YARN-2915
             .setRackName(Boolean.toString(yarnFederation))
             .build());
         this.updateRuntimeStatus();
@@ -455,7 +455,7 @@ final class YarnContainerManager
     final boolean rackCondition = request.getRacks() == null
         || request.getRacks().contains(this.nodeIdToRackName.get(container.getNodeId().toString()));
 
-    return resourceCondition && (request.getRelaxLocality() || (rackCondition && nodeCondition));
+    return resourceCondition && (request.getRelaxLocality() || rackCondition && nodeCondition);
   }
 
   /**
