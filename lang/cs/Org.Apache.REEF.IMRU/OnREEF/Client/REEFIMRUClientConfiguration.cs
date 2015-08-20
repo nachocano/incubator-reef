@@ -17,28 +17,25 @@
  * under the License.
  */
 
-using System;
-using Org.Apache.REEF.Tang.Annotations;
+using Org.Apache.REEF.Client.API;
+using Org.Apache.REEF.IMRU.API;
+using Org.Apache.REEF.Tang.Formats;
+using Org.Apache.REEF.Tang.Util;
 
-namespace Org.Apache.REEF.Common.Evaluator
+namespace Org.Apache.REEF.IMRU.OnREEF.Client
 {
-    public class DefaultYarnClusterHttpDriverConnection : IDriverConnection
+    /// <summary>
+    /// A configuration module for specifying REEFIMRUClient
+    /// </summary>
+    public sealed class REEFIMRUClientConfiguration<TMapInput, TMapOutput, TResult> : ConfigurationModuleBuilder
     {
-        [Inject]
-        public DefaultYarnClusterHttpDriverConnection()
-        {
-        }
-
-        public DriverInformation GetDriverInformation(string applicationId)
-        {
-            // e.g., http://headnodehost:9014/proxy/application_1407519727821_0012/reef/v1/driver
-            Uri queryUri = new Uri(
-                string.Concat(
-                Constants.HDInsightClusterHttpEndpointBaseUri,
-                applicationId + "/",
-                Constants.HttpReefUriSpecification,
-                Constants.HttpDriverUriTarget));
-            return DriverInformation.GetDriverInformationFromHttp(queryUri);
-        }
+        /// <summary>
+        /// Configuration module
+        /// </summary>
+        public static ConfigurationModule ConfigurationModule =
+            new REEFIMRUClientConfiguration<TMapInput, TMapOutput, TResult>()
+                .BindImplementation(GenericType<IIMRUClient<TMapInput, TMapOutput, TResult>>.Class,
+                    GenericType<REEFIMRUClient<TMapInput, TMapOutput, TResult>>.Class)
+                .Build();
     }
 }
