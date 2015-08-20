@@ -83,11 +83,6 @@ public final class DataLoadingRequestBuilder
    */
   private DistributedDataSet distributedDataSet;
 
-  /**
-   * The input path of the data to be loaded
-   */
-  private String inputPath;
-
   public DataLoadingRequestBuilder setNumberOfDesiredSplits(final int numberOfDesiredSplits) {
     this.numberOfDesiredSplits = numberOfDesiredSplits;
     return this;
@@ -210,7 +205,9 @@ public final class DataLoadingRequestBuilder
   }
 
   /**
-   * Sets the path of the folder where the data is.
+   * Sets the path of the folder where the data is. Internally it constructs a
+   * distributed data set with one partition, no splits and the data can be
+   * loaded from anywhere.
    *
    * @deprecated since 0.12. Should use instead
    *             {@link DataLoadingRequestBuilder#setDistributedDataSet(DistributedDataSet)}
@@ -220,8 +217,12 @@ public final class DataLoadingRequestBuilder
    */
   @Deprecated
   public DataLoadingRequestBuilder setInputPath(final String inputPath) {
-    this.inputPath = inputPath;
+    final DistributedDataSet dds = new DistributedDataSet();
+    dds.addPartition(DistributedDataSetPartition.newBuilder().setPath(inputPath)
+        .setLocation(DistributedDataSetPartition.LOAD_INTO_ANY_LOCATION)
+        .setDesiredSplits(Integer.valueOf(NumberOfDesiredSplits.DEFAULT_DESIRED_SPLITS)).build());
     this.singleDataCenterStrategy = true;
+    this.distributedDataSet = dds;
     return this;
   }
 
@@ -242,25 +243,6 @@ public final class DataLoadingRequestBuilder
   public Configuration build() throws BindException {
     if (this.driverConfigurationModule == null) {
       throw new BindException("Driver Configuration Module is a required parameter.");
-    }
-
-    // need to create the distributed data set
-    if (this.singleDataCenterStrategy) {
-      if (this.inputPath == null) {
-        throw new BindException("Should specify an input path.");
-      }
-      // Create a distributed data set with one partition, the splits defined by
-      // the user if greater than 0 or no splits, and data to be loaded from
-      // anywhere.
-      final DistributedDataSet dds = new DistributedDataSet();
-      dds.addPartition(DistributedDataSetPartition
-          .newBuilder()
-          .setPath(inputPath)
-          .setLocation(DistributedDataSetPartition.LOAD_INTO_ANY_LOCATION)
-          .setDesiredSplits(
-              numberOfDesiredSplits > 0 ? numberOfDesiredSplits : Integer
-                  .valueOf(NumberOfDesiredSplits.DEFAULT_DESIRED_SPLITS)).build());
-      this.distributedDataSet = dds;
     }
 
     if (this.distributedDataSet == null || this.distributedDataSet.isEmpty()) {
@@ -287,6 +269,10 @@ public final class DataLoadingRequestBuilder
 
     final JavaConfigurationBuilder jcb =
         Tang.Factory.getTang().newConfigurationBuilder(driverConfiguration);
+
+    if (this.numberOfDesiredSplits > 0) {
+      jcb.bindNamedParameter(NumberOfDesiredSplits.class, "" + this.numberOfDesiredSplits);
+    }
 
     // if empty, then the user code still uses the deprecated fields.
     // we create a dataLoadRequest object based on them (or their default values)
