@@ -84,7 +84,7 @@ public final class DataLoadingRequestBuilder
   private DistributedDataSet distributedDataSet;
 
   /**
-   * The input path of the data to be loaded
+   * The input path of the data to be loaded.
    */
   private String inputPath;
 
