@@ -16,31 +16,26 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.reef.driver.restart;
+package org.apache.reef.runtime.yarn.driver;
 
-import org.apache.reef.annotations.Unstable;
+import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.reef.annotations.audience.DriverSide;
-import org.apache.reef.annotations.audience.Private;
+import org.apache.reef.annotations.audience.Public;
+import org.apache.reef.annotations.audience.RuntimeAuthor;
+import org.apache.reef.tang.annotations.DefaultImplementation;
 
 /**
- * A static utilities class for simplifying calls to driver restart manager.
- * Functions here should always call driverRestartManager.canRestart() before performing any
- * actual options.
+ * Provides a method to retrieve the rack name from a container, which
+ * may be dependent on the Hadoop distribution.
  */
-@Private
+@Public
+@RuntimeAuthor
 @DriverSide
-@Unstable
-public final class DriverRestartUtilities {
+@DefaultImplementation(DefaultRackNameFormatter.class)
+public interface RackNameFormatter {
 
   /**
-   * Helper function for driver restart to determine whether an evaluator ID is from an evaluator from the
-   * previous application attempt.
+   * The rack name of the Container.
    */
-  public static boolean isRestartAndIsPreviousEvaluator(final DriverRestartManager driverRestartManager,
-                                                        final String evaluatorId) {
-    return driverRestartManager.isRestart() && driverRestartManager.getPreviousEvaluatorIds().contains(evaluatorId);
-  }
-
-  private DriverRestartUtilities() {
-  }
+  String getRackName(final Container container);
 }

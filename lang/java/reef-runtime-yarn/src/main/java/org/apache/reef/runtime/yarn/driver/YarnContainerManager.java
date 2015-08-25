@@ -75,6 +75,7 @@ final class YarnContainerManager
   private final ContainerRequestCounter containerRequestCounter;
   private final DriverStatusManager driverStatusManager;
   private final TrackingURLProvider trackingURLProvider;
+  private final RackNameFormatter rackNameFormatter;
 
   @Inject
   YarnContainerManager(
@@ -85,7 +86,8 @@ final class YarnContainerManager
       final ApplicationMasterRegistration registration,
       final ContainerRequestCounter containerRequestCounter,
       final DriverStatusManager driverStatusManager,
-      final TrackingURLProvider trackingURLProvider) throws IOException {
+      final TrackingURLProvider trackingURLProvider,
+      final RackNameFormatter rackNameFormatter) throws IOException {
 
     this.reefEventHandlers = reefEventHandlers;
     this.driverStatusManager = driverStatusManager;
@@ -95,6 +97,7 @@ final class YarnContainerManager
     this.containerRequestCounter = containerRequestCounter;
     this.yarnConf = yarnConf;
     this.trackingURLProvider = trackingURLProvider;
+    this.rackNameFormatter = rackNameFormatter;
 
 
     this.yarnClient.init(this.yarnConf);
@@ -103,6 +106,7 @@ final class YarnContainerManager
     this.nodeManager = new NMClientAsyncImpl(this);
     LOG.log(Level.FINEST, "Instantiated YarnContainerManager");
   }
+
 
   @Override
   public void onContainersCompleted(final List<ContainerStatus> containerStatuses) {
@@ -196,6 +200,16 @@ final class YarnContainerManager
   public void onStopContainerError(
       final ContainerId containerId, final Throwable throwable) {
     handleContainerError(containerId, throwable);
+  }
+
+  /**
+   * Called by {@link YarnDriverRuntimeRestartManager} to record recovered containers
+   * such that containers can be released properly on unrecoverable containers.
+   */
+  public void onContainersRecovered(final Set<Container> recoveredContainers) {
+    for (final Container container : recoveredContainers) {
+      containers.add(container);
+    }
   }
 
   /**
@@ -392,20 +406,6 @@ final class YarnContainerManager
         this.requestsAfterSentToRM.remove();
         doHomogeneousRequests();
 
-        // the rack name comes as part of the host name, e.g.
-        // <rackName>-<hostNumber>
-        // we perform some checks just in case it doesn't
-        final String hostName = container.getNodeId().getHost();
-        String rackName = null;
-        if (hostName != null) {
-          final String[] rackNameAndNumber = hostName.split("-");
-          if (rackNameAndNumber.length == 2) {
-            rackName = rackNameAndNumber[0];
-          } else {
-            LOG.log(Level.WARNING, "Could not get information from the rack name, should use the default");
-          }
-        }
-
         LOG.log(Level.FINEST, "Allocated Container: memory = {0}, core number = {1}",
             new Object[]{container.getResource().getMemory(), container.getResource().getVirtualCores()});
         this.reefEventHandlers.onResourceAllocation(ResourceAllocationEventImpl.newBuilder()
@@ -413,7 +413,7 @@ final class YarnContainerManager
             .setNodeId(container.getNodeId().toString())
             .setResourceMemory(container.getResource().getMemory())
             .setVirtualCores(container.getResource().getVirtualCores())
-            .setRackName(rackName)
+            .setRackName(rackNameFormatter.getRackName(container))
             .build());
         this.updateRuntimeStatus();
       } else {
