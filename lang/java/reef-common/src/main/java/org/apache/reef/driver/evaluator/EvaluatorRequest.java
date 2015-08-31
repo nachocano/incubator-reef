@@ -181,8 +181,8 @@ public final class EvaluatorRequest {
       return this;
     }
 
-    public Builder addNodeNames(final List<String> nodeNames) {
-      this.nodeNames.addAll(nodeNames);
+    public Builder addNodeNames(final List<String> thatNodeNames) {
+      this.nodeNames.addAll(thatNodeNames);
       return this;
     }
 
