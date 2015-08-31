@@ -47,13 +47,13 @@ public class ResourceRequestHandler implements EventHandler<EvaluatorRequest> {
   public void onNext(final EvaluatorRequest request) {
     try {
 
-      LOG.log(Level.FINE,
+      LOG.log(Level.INFO,
           "Processing a request with count: {0} - Waiting for gate to be released",
           request.getNumber());
 
       this.resourceRequestGate.await();
 
-      LOG.log(Level.FINE, "Gate released. Submitting request: {0}", request);
+      LOG.log(Level.INFO, "Gate released. Submitting request: {0}", request);
       this.resourceRequestGate = new CountDownLatch(1);
       this.requestor.submit(request);
 

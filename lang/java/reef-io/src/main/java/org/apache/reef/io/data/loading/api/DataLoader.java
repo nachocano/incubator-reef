@@ -112,7 +112,7 @@ public class DataLoader {
     clock.scheduleAlarm(30000, new EventHandler<Alarm>() {
       @Override
       public void onNext(final Alarm time) {
-        LOG.log(Level.FINE, "Received Alarm: {0}", time);
+        LOG.log(Level.INFO, "Received Alarm: {0}", time);
       }
     });
 
@@ -176,13 +176,13 @@ public class DataLoader {
     public void onNext(final AllocatedEvaluator allocatedEvaluator) {
 
       final String evalId = allocatedEvaluator.getId();
-      LOG.log(Level.FINEST, "Allocated evaluator: {0}", evalId);
+      LOG.log(Level.INFO, "Allocated evaluator: {0}", evalId);
 
       if (!failedComputeEvalConfigs.isEmpty()) {
-        LOG.log(Level.FINE, "Failed Compute requests need to be satisfied for {0}", evalId);
+        LOG.log(Level.INFO, "Failed Compute requests need to be satisfied for {0}", evalId);
         final Configuration conf = failedComputeEvalConfigs.poll();
         if (conf != null) {
-          LOG.log(Level.FINE, "Satisfying failed configuration for {0}", evalId);
+          LOG.log(Level.INFO, "Satisfying failed configuration for {0}", evalId);
           allocatedEvaluator.submitContext(conf);
           submittedComputeEvalConfigs.put(evalId, conf);
           return;
@@ -190,10 +190,10 @@ public class DataLoader {
       }
 
       if (!failedDataEvalConfigs.isEmpty()) {
-        LOG.log(Level.FINE, "Failed Data requests need to be satisfied for {0}", evalId);
+        LOG.log(Level.INFO, "Failed Data requests need to be satisfied for {0}", evalId);
         final Pair<Configuration, Configuration> confPair = failedDataEvalConfigs.poll();
         if (confPair != null) {
-          LOG.log(Level.FINE, "Satisfying failed configuration for {0}", evalId);
+          LOG.log(Level.INFO, "Satisfying failed configuration for {0}", evalId);
           allocatedEvaluator.submitContextAndService(confPair.getFirst(), confPair.getSecond());
           submittedDataEvalConfigs.put(evalId, confPair);
           return;
@@ -203,20 +203,20 @@ public class DataLoader {
       final int evaluatorsForComputeRequest = numComputeRequestsToSubmit.decrementAndGet();
 
       if (evaluatorsForComputeRequest >= 0) {
-        LOG.log(Level.FINE, "Evaluators for compute request: {0}", evaluatorsForComputeRequest);
+        LOG.log(Level.INFO, "Evaluators for compute request: {0}", evaluatorsForComputeRequest);
         try {
           final Configuration idConfiguration = ContextConfiguration.CONF.set(
               ContextConfiguration.IDENTIFIER,
               dataLoadingService.getComputeContextIdPrefix()
                   + evaluatorsForComputeRequest).build();
-          LOG.log(Level.FINE, "Submitting Compute Context to {0}", evalId);
+          LOG.log(Level.INFO, "Submitting Compute Context to {0}", evalId);
           allocatedEvaluator.submitContext(idConfiguration);
           submittedComputeEvalConfigs.put(allocatedEvaluator.getId(),
               idConfiguration);
           // should release the request gate when there are >= 0 compute
           // requests (now that we can have more than 1)
           LOG.log(
-              Level.FINE,
+              Level.INFO,
               evaluatorsForComputeRequest > 0 ? "More Compute requests need to be satisfied"
                   : "All Compute requests satisfied." + " Releasing gate");
           resourceRequestHandler.releaseResourceRequestGate();
@@ -228,23 +228,23 @@ public class DataLoader {
       } else {
 
         final int evaluatorsForDataRequest = numDataRequestsToSubmit.decrementAndGet();
-        LOG.log(Level.FINE, "Evaluators for data request: {0}", evaluatorsForDataRequest);
+        LOG.log(Level.INFO, "Evaluators for data request: {0}", evaluatorsForDataRequest);
 
         final Pair<Configuration, Configuration> confPair = new Pair<>(
             dataLoadingService.getContextConfiguration(allocatedEvaluator),
             dataLoadingService.getServiceConfiguration(allocatedEvaluator));
 
-        LOG.log(Level.FINE, "Submitting data loading context to {0}", evalId);
+        LOG.log(Level.INFO, "Submitting data loading context to {0}", evalId);
         allocatedEvaluator.submitContextAndService(confPair.getFirst(), confPair.getSecond());
         submittedDataEvalConfigs.put(allocatedEvaluator.getId(), confPair);
 
         // release the gate to keep on asking for more "data" evaluators.
         if (evaluatorsForDataRequest > 0) {
-          LOG.log(Level.FINE, "More Data requests need to be satisfied. Releasing gate");
+          LOG.log(Level.INFO, "More Data requests need to be satisfied. Releasing gate");
           resourceRequestHandler.releaseResourceRequestGate();
         // don't need to release if it's 0
         } else if (evaluatorsForDataRequest == 0) {
-          LOG.log(Level.FINE, "All Data requests satisfied");
+          LOG.log(Level.INFO, "All Data requests satisfied");
         }
       }
     }

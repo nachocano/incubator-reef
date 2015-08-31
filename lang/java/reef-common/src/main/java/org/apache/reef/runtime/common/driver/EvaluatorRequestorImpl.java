@@ -100,7 +100,7 @@ public final class EvaluatorRequestorImpl implements EvaluatorRequestor {
           .setMemorySize(req.getMegaBytes())
           .addNodeNames(req.getNodeNames())
           .addRackNames(req.getRackNames())
-          .setRelaxLocality(relaxLocality)
+          .setRelaxLocality(false)
           .build();
       this.resourceRequestHandler.onNext(request);
     }

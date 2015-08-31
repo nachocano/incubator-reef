@@ -21,7 +21,9 @@ package org.apache.reef.driver.evaluator;
 import org.apache.reef.annotations.Provided;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.annotations.audience.Public;
+
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -49,6 +51,11 @@ public final class EvaluatorRequest {
     this.cores = cores;
     this.nodeNames = nodeNames;
     this.rackNames = rackNames;
+  }
+
+  public String toString() {
+    return "number= " + number + " mb= " + megaBytes + " cores= " + cores + " nodeNames= "
+        + Arrays.toString(nodeNames.toArray()) + " rackNames=" + Arrays.toString(rackNames.toArray());
   }
 
   /**

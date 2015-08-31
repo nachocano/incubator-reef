@@ -104,7 +104,7 @@ final class YarnContainerManager
 
     this.resourceManager = AMRMClientAsync.createAMRMClientAsync(yarnRMHeartbeatPeriod, this);
     this.nodeManager = new NMClientAsyncImpl(this);
-    LOG.log(Level.FINEST, "Instantiated YarnContainerManager");
+    LOG.log(Level.INFO, "Instantiated YarnContainerManager");
   }
 
 
@@ -123,14 +123,14 @@ final class YarnContainerManager
     final String id = String.format("%s:%d",
         Thread.currentThread().getName().replace(' ', '_'), System.currentTimeMillis());
 
-    LOG.log(Level.FINE, "TIME: Allocated Containers {0} {1} of {2}",
+    LOG.log(Level.INFO, "TIME: Allocated Containers {0} {1} of {2}",
         new Object[]{id, containers.size(), this.containerRequestCounter.get()});
 
     for (final Container container : containers) {
       handleNewContainer(container);
     }
 
-    LOG.log(Level.FINE, "TIME: Processed Containers {0}", id);
+    LOG.log(Level.INFO, "TIME: Processed Containers {0}", id);
   }
 
   @Override
@@ -223,7 +223,7 @@ final class YarnContainerManager
    * Release the given container.
    */
   void release(final String containerId) {
-    LOG.log(Level.FINE, "Release container: {0}", containerId);
+    LOG.log(Level.INFO, "Release container: {0}", containerId);
     final Container container = this.containers.removeAndGet(containerId);
     this.resourceManager.releaseAssignedContainer(container.getId());
     updateRuntimeStatus();
@@ -249,7 +249,7 @@ final class YarnContainerManager
     try {
       this.registration.setRegistration(this.resourceManager.registerApplicationMaster(
           "", 0, this.trackingURLProvider.getTrackingUrl()));
-      LOG.log(Level.FINE, "YARN registration: {0}", registration);
+      LOG.log(Level.INFO, "YARN registration: {0}", registration);
 
     } catch (final YarnException | IOException e) {
       LOG.log(Level.WARNING, "Unable to register application master.", e);
@@ -259,7 +259,7 @@ final class YarnContainerManager
 
   void onStop(final Throwable exception) {
 
-    LOG.log(Level.FINE, "Stop Runtime: RM status {0}", this.resourceManager.getServiceState());
+    LOG.log(Level.INFO, "Stop Runtime: RM status {0}", this.resourceManager.getServiceState());
 
     if (this.resourceManager.getServiceState() == Service.STATE.STARTED) {
       // invariant: if RM is still running then we declare success.
@@ -292,7 +292,7 @@ final class YarnContainerManager
   // HELPER METHODS
 
   private void onNodeReport(final NodeReport nodeReport) {
-    LOG.log(Level.FINE, "Send node descriptor: {0}", nodeReport);
+    LOG.log(Level.INFO, "Send node descriptor: {0}", nodeReport);
     this.reefEventHandlers.onNodeDescriptor(NodeDescriptorEventImpl.newBuilder()
         .setIdentifier(nodeReport.getNodeId().toString())
         .setHostName(nodeReport.getNodeId().getHost())
@@ -324,14 +324,14 @@ final class YarnContainerManager
     final boolean hasContainer = this.containers.hasContainer(containerId);
 
     if (hasContainer) {
-      LOG.log(Level.FINE, "Received container status: {0}", containerId);
+      LOG.log(Level.INFO, "Received container status: {0}", containerId);
 
       final ResourceStatusEventImpl.Builder status =
           ResourceStatusEventImpl.newBuilder().setIdentifier(containerId);
 
       switch (value.getState()) {
       case COMPLETE:
-        LOG.log(Level.FINE, "Container completed: status {0}", value.getExitStatus());
+        LOG.log(Level.INFO, "Container completed: status {0}", value.getExitStatus());
         switch (value.getExitStatus()) {
         case 0:
           status.setState(ReefServiceProtos.State.DONE);
@@ -352,7 +352,7 @@ final class YarnContainerManager
       }
 
       if (value.getDiagnostics() != null) {
-        LOG.log(Level.FINE, "Container diagnostics: {0}", value.getDiagnostics());
+        LOG.log(Level.INFO, "Container diagnostics: {0}", value.getDiagnostics());
         status.setDiagnostics(value.getDiagnostics());
       }
 
@@ -424,12 +424,15 @@ final class YarnContainerManager
   }
 
   private synchronized void doHomogeneousRequests() {
+    LOG.log(Level.INFO, "Doing homogeneous requests before {0}", Arrays.toString(requestsBeforeSentToRM.toArray()));
+    LOG.log(Level.INFO, "Doing homogeneous requests after {0}", Arrays.toString(requestsAfterSentToRM.toArray()));
     if (this.requestsAfterSentToRM.isEmpty()) {
       final AMRMClient.ContainerRequest firstRequest = this.requestsBeforeSentToRM.peek();
-
+      LOG.log(Level.INFO, "Doing homogeneous requests, first request {0}", firstRequest);
       while (!this.requestsBeforeSentToRM.isEmpty() &&
              isSameKindOfRequest(firstRequest, this.requestsBeforeSentToRM.peek())) {
         final AMRMClient.ContainerRequest homogeneousRequest = this.requestsBeforeSentToRM.remove();
+        LOG.log(Level.INFO, "Then do the homogeneous request, {0}", homogeneousRequest);
         this.resourceManager.addContainerRequest(homogeneousRequest);
         this.requestsAfterSentToRM.add(homogeneousRequest);
       }
@@ -437,11 +440,13 @@ final class YarnContainerManager
   }
 
   private boolean isSameKindOfRequest(final AMRMClient.ContainerRequest r1, final AMRMClient.ContainerRequest r2) {
-    return r1.getPriority().compareTo(r2.getPriority()) == 0
+    final boolean sameKind = r1.getPriority().compareTo(r2.getPriority()) == 0
         && r1.getCapability().compareTo(r2.getCapability()) == 0
         && r1.getRelaxLocality() == r2.getRelaxLocality()
         && ListUtils.isEqualList(r1.getNodes(), r2.getNodes())
         && ListUtils.isEqualList(r1.getRacks(), r2.getRacks());
+    LOG.log(Level.INFO, "Are same kind? {0}", sameKind);
+    return sameKind;
   }
 
   /**
