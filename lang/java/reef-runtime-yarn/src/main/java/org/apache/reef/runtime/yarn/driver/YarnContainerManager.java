@@ -378,14 +378,14 @@ final class YarnContainerManager
    */
   private void handleNewContainer(final Container container) {
 
-    LOG.log(Level.FINE, "allocated container: id[ {0} ]", container.getId());
+    LOG.log(Level.INFO, "allocated container: id[ {0} ]", container.getId());
     synchronized (this) {
       if (matchContainerWithPendingRequest(container)) {
         final AMRMClient.ContainerRequest matchedRequest = this.requestsAfterSentToRM.peek();
         this.containerRequestCounter.decrement();
         this.containers.add(container);
 
-        LOG.log(Level.FINEST, "{0} matched with {1}", new Object[]{container.toString(), matchedRequest.toString()});
+        LOG.log(Level.INFO, "{0} matched with {1}", new Object[]{container.toString(), matchedRequest.toString()});
 
         // Due to the bug YARN-314 and the workings of AMRMCClientAsync, when x-priority m-capacity zero-container
         // request and x-priority n-capacity nonzero-container request are sent together, where m > n, RM ignores
@@ -406,7 +406,7 @@ final class YarnContainerManager
         this.requestsAfterSentToRM.remove();
         doHomogeneousRequests();
 
-        LOG.log(Level.FINEST, "Allocated Container: memory = {0}, core number = {1}",
+        LOG.log(Level.INFO, "Allocated Container: memory = {0}, core number = {1}",
             new Object[]{container.getResource().getMemory(), container.getResource().getVirtualCores()});
         this.reefEventHandlers.onResourceAllocation(ResourceEventImpl.newAllocationBuilder()
             .setIdentifier(container.getId().toString())

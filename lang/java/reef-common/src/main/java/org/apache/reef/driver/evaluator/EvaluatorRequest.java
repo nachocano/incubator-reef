@@ -181,6 +181,11 @@ public final class EvaluatorRequest {
       return this;
     }
 
+    public Builder addNodeNames(final List<String> nodeNames) {
+      this.nodeNames.addAll(nodeNames);
+      return this;
+    }
+
     /**
      * Adds a rack name. It is the preferred location where the evaluator should
      * run on. If the rack is available, the RM will try to allocate the

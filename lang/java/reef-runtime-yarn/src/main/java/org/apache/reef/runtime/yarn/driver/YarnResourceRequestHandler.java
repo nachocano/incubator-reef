@@ -63,7 +63,7 @@ public final class YarnResourceRequestHandler implements ResourceRequestHandler 
     // set the priority for the request
     final Priority pri = getPriority(resourceRequestEvent);
     final Resource resource = getResource(resourceRequestEvent);
-    final boolean relaxLocality = resourceRequestEvent.getRelaxLocality().orElse(true);
+    final boolean relaxLocality = resourceRequestEvent.getRelaxLocality().orElse(false);
 
     final AMRMClient.ContainerRequest[] containerRequests =
         new AMRMClient.ContainerRequest[resourceRequestEvent.getResourceCount()];
