@@ -21,7 +21,16 @@ package org.apache.reef.driver.restart;
 import org.apache.reef.annotations.Unstable;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.annotations.audience.Private;
+import org.apache.reef.driver.parameters.DriverRestartCompletedHandlers;
+import org.apache.reef.driver.parameters.DriverRestartEvaluatorRecoverySeconds;
+import org.apache.reef.driver.parameters.ServiceDriverRestartCompletedHandlers;
 import org.apache.reef.exception.DriverFatalRuntimeException;
+import org.apache.reef.runtime.common.DriverRestartCompleted;
+import org.apache.reef.runtime.common.driver.idle.DriverIdlenessSource;
+import org.apache.reef.runtime.common.driver.idle.IdleMessage;
+import org.apache.reef.tang.annotations.Parameter;
+import org.apache.reef.wake.EventHandler;
+import org.apache.reef.runtime.common.driver.resourcemanager.ResourceRecoverEvent;
 
 import javax.inject.Inject;
 import java.util.*;
@@ -35,16 +44,35 @@ import java.util.logging.Logger;
 @DriverSide
 @Private
 @Unstable
-public final class DriverRestartManager {
-  private static final Logger LOG = Logger.getLogger(DriverRestartManager.class.getName());
+public final class DriverRestartManager implements DriverIdlenessSource {
+  private static final String CLASS_NAME = DriverRestartManager.class.getName();
+  private static final Logger LOG = Logger.getLogger(CLASS_NAME);
+
   private final DriverRuntimeRestartManager driverRuntimeRestartManager;
+  private final Set<EventHandler<DriverRestartCompleted>> driverRestartCompletedHandlers;
+  private final Set<EventHandler<DriverRestartCompleted>> serviceDriverRestartCompletedHandlers;
+  private final int driverRestartEvaluatorRecoverySeconds;
+  private final Timer restartCompletedTimer = new Timer();
 
   private RestartEvaluators restartEvaluators;
   private DriverRestartState state = DriverRestartState.NOT_RESTARTED;
 
   @Inject
-  private DriverRestartManager(final DriverRuntimeRestartManager driverRuntimeRestartManager) {
+  private DriverRestartManager(final DriverRuntimeRestartManager driverRuntimeRestartManager,
+                               @Parameter(DriverRestartEvaluatorRecoverySeconds.class)
+                               final int driverRestartEvaluatorRecoverySeconds,
+                               @Parameter(DriverRestartCompletedHandlers.class)
+                               final Set<EventHandler<DriverRestartCompleted>> driverRestartCompletedHandlers,
+                               @Parameter(ServiceDriverRestartCompletedHandlers.class)
+                               final Set<EventHandler<DriverRestartCompleted>> serviceDriverRestartCompletedHandlers) {
     this.driverRuntimeRestartManager = driverRuntimeRestartManager;
+    this.driverRestartCompletedHandlers = driverRestartCompletedHandlers;
+    this.serviceDriverRestartCompletedHandlers = serviceDriverRestartCompletedHandlers;
+    if (driverRestartEvaluatorRecoverySeconds < 0) {
+      throw new IllegalArgumentException("driverRestartEvaluatorRecoverySeconds must be greater than 0.");
+    }
+
+    this.driverRestartEvaluatorRecoverySeconds = driverRestartEvaluatorRecoverySeconds;
   }
 
   /**
@@ -58,14 +86,6 @@ public final class DriverRestartManager {
       this.state = DriverRestartState.BEGAN;
     }
 
-    return this.state.hasRestarted();
-  }
-
-  /**
-   * @return true if the application is a restart instance.
-   * Can be already done with restart or in the process of restart.
-   */
-  public synchronized boolean hasRestarted() {
     return this.state.hasRestarted();
   }
 
@@ -93,7 +113,16 @@ public final class DriverRestartManager {
 
     driverRuntimeRestartManager.informAboutEvaluatorFailures(getFailedEvaluators());
 
-    // TODO[REEF-560]: Call onDriverRestartCompleted() (to do in REEF-617) on a Timer.
+    if (driverRestartEvaluatorRecoverySeconds != Integer.MAX_VALUE) {
+      // Don't use Clock here because if there is an event scheduled, the driver will not be idle, even if
+      // driver restart has already completed, and we cannot cancel the event.
+      restartCompletedTimer.schedule(new TimerTask() {
+        @Override
+        public void run() {
+          onDriverRestartCompleted();
+        }
+      }, driverRestartEvaluatorRecoverySeconds * 1000L);
+    }
   }
 
   /**
@@ -109,12 +138,24 @@ public final class DriverRestartManager {
   }
 
   /**
-   * Indicate that this Driver has re-established the connection with one more Evaluator of a previous run.
-   * Calls the restart complete action if the latest evaluator is the last evaluator to recover.
-   * @return true if the driver restart is completed.
+   * @return The ResourceRecoverEvent of the specified evaluator. Throws a {@link DriverFatalRuntimeException} if
+   * the evaluator does not exist in the set of known evaluators.
    */
-  public synchronized boolean onRecoverEvaluatorIsRestartComplete(final String evaluatorId) {
-    if (getStateOfPreviousEvaluator(evaluatorId) == EvaluatorRestartState.NOT_EXPECTED) {
+  public synchronized ResourceRecoverEvent getResourceRecoverEvent(final String evaluatorId) {
+    if (!this.restartEvaluators.contains(evaluatorId)) {
+      throw new DriverFatalRuntimeException("Unexpected evaluator [" + evaluatorId + "], should " +
+          "not have been recorded.");
+    }
+
+    return this.restartEvaluators.get(evaluatorId).getResourceRecoverEvent();
+  }
+
+  /**
+   * Indicate that this Driver has re-established the connection with one more Evaluator of a previous run.
+   * @return true if the evaluator has been newly recovered.
+   */
+  public synchronized boolean onRecoverEvaluator(final String evaluatorId) {
+    if (getStateOfPreviousEvaluator(evaluatorId).isFailedOrNotExpected()) {
       final String errMsg = "Evaluator with evaluator ID " + evaluatorId + " not expected to be alive.";
       LOG.log(Level.SEVERE, errMsg);
       throw new DriverFatalRuntimeException(errMsg);
@@ -123,11 +164,17 @@ public final class DriverRestartManager {
     if (getStateOfPreviousEvaluator(evaluatorId) != EvaluatorRestartState.EXPECTED) {
       LOG.log(Level.WARNING, "Evaluator with evaluator ID " + evaluatorId + " added to the set" +
           " of recovered evaluators more than once. Ignoring second add...");
-    } else {
-      setEvaluatorReported(evaluatorId);
+      return false;
     }
 
-    return haveAllExpectedEvaluatorsReported();
+    // set the status for this evaluator ID to be reported.
+    setEvaluatorReported(evaluatorId);
+
+    if (haveAllExpectedEvaluatorsReported()) {
+      onDriverRestartCompleted();
+    }
+
+    return true;
   }
 
   /**
@@ -161,9 +208,9 @@ public final class DriverRestartManager {
   }
 
   /**
-   * Signals to the {@link DriverRestartManager} that an evaluator has had its running task processed.
+   * Signals to the {@link DriverRestartManager} that an evaluator has had its running task or active context processed.
    */
-  public synchronized void setEvaluatorRunningTask(final String evaluatorId) {
+  public synchronized void setEvaluatorProcessed(final String evaluatorId) {
     setStateOfPreviousEvaluator(evaluatorId, EvaluatorRestartState.PROCESSED);
   }
 
@@ -175,7 +222,7 @@ public final class DriverRestartManager {
   }
 
   private synchronized EvaluatorRestartState getStateOfPreviousEvaluator(final String evaluatorId) {
-    if (this.restartEvaluators.contains(evaluatorId)) {
+    if (!this.restartEvaluators.contains(evaluatorId)) {
       return EvaluatorRestartState.NOT_EXPECTED;
     }
 
@@ -212,6 +259,47 @@ public final class DriverRestartManager {
     return true;
   }
 
+  /**
+   * Sets the driver restart status to be completed if not yet set and notifies the restart completed event handlers.
+   */
+  private synchronized void onDriverRestartCompleted() {
+    if (this.state != DriverRestartState.COMPLETED) {
+      final Set<String> outstandingEvaluatorIds = getOutstandingEvaluatorsAndMarkExpired();
+      driverRuntimeRestartManager.informAboutEvaluatorFailures(outstandingEvaluatorIds);
+
+      this.state = DriverRestartState.COMPLETED;
+      final DriverRestartCompleted driverRestartCompleted = new DriverRestartCompleted(System.currentTimeMillis());
+
+      for (final EventHandler<DriverRestartCompleted> serviceRestartCompletedHandler
+          : this.serviceDriverRestartCompletedHandlers) {
+        serviceRestartCompletedHandler.onNext(driverRestartCompleted);
+      }
+
+      for (final EventHandler<DriverRestartCompleted> restartCompletedHandler : this.driverRestartCompletedHandlers) {
+        restartCompletedHandler.onNext(driverRestartCompleted);
+      }
+
+      LOG.log(Level.FINE, "Restart completed. Evaluators that have not reported back are: " + outstandingEvaluatorIds);
+    }
+
+    restartCompletedTimer.cancel();
+  }
+
+  /**
+   * Gets the outstanding evaluators that have not yet reported back and mark them as expired.
+   */
+  private Set<String> getOutstandingEvaluatorsAndMarkExpired() {
+    final Set<String> outstanding = new HashSet<>();
+    for (final String previousEvaluatorId : restartEvaluators.getEvaluatorIds()) {
+      if (getStateOfPreviousEvaluator(previousEvaluatorId) == EvaluatorRestartState.EXPECTED) {
+        outstanding.add(previousEvaluatorId);
+        setEvaluatorExpired(previousEvaluatorId);
+      }
+    }
+
+    return outstanding;
+  }
+
   private Set<String> getFailedEvaluators() {
     final Set<String> failed = new HashSet<>();
     for (final String previousEvaluatorId : this.restartEvaluators.getEvaluatorIds()) {
@@ -221,5 +309,17 @@ public final class DriverRestartManager {
     }
 
     return failed;
+  }
+
+  /**
+   * {@inheritDoc}
+   * @return True if not in process of restart. False otherwise.
+   */
+  @Override
+  public IdleMessage getIdleStatus() {
+    boolean idleState = !this.state.isRestarting();
+    final String idleMessage = idleState ? CLASS_NAME + " currently not in the process of restart." :
+        CLASS_NAME + " currently in the process of restart.";
+    return new IdleMessage(CLASS_NAME, idleMessage, idleState);
   }
 }

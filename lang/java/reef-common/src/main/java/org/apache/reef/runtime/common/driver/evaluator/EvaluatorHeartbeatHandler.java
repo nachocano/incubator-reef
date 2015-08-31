@@ -73,13 +73,23 @@ public final class EvaluatorHeartbeatHandler
 
       if (driverRestartManager.isRestarting() &&
           driverRestartManager.getEvaluatorRestartState(evaluatorId) == EvaluatorRestartState.EXPECTED) {
-        // TODO[REEF-617]: Create EvaluatorManager for recovered evaluator and call onEvaluatorHeartbeatMessage().
+
+        if (this.driverRestartManager.onRecoverEvaluator(evaluatorId)) {
+          LOG.log(Level.FINE, "Evaluator [" + evaluatorId + "] has reported back to the driver after restart.");
+
+          evaluators.put(recoverEvaluatorManager(evaluatorId, evaluatorHeartbeatMessage));
+        } else {
+          LOG.log(Level.FINE, "Evaluator [" + evaluatorId + "] has already been recovered.");
+        }
         return;
       }
 
       if (driverRestartManager.getEvaluatorRestartState(evaluatorId) == EvaluatorRestartState.EXPIRED) {
         LOG.log(Level.FINE, "Expired evaluator " + evaluatorId + " has reported back to the driver after restart.");
-        // TODO[REEF-617]: Create EvaluatorManager for expired evaluator and close it.
+
+        // Create the evaluator manager, analyze its heartbeat, but don't add it to the set of Evaluators.
+        // Immediately close it.
+        recoverEvaluatorManager(evaluatorId, evaluatorHeartbeatMessage).close();
         return;
       }
 
@@ -94,5 +104,23 @@ public final class EvaluatorHeartbeatHandler
     } finally {
       LOG.log(Level.FINEST, "TIME: End Heartbeat {0}", evaluatorId);
     }
+  }
+
+  /**
+   * Creates an EvaluatorManager for recovered evaluator.
+   * {@link EvaluatorManager#onEvaluatorHeartbeatMessage(RemoteMessage)} should not
+   * do anything if driver restart period has expired. Expired evaluators should be immediately closed
+   * upon return of this function, while evaluators that have not yet expired should be recorded and added
+   * to the {@link Evaluators} object.
+   */
+  private EvaluatorManager recoverEvaluatorManager(
+      final String evaluatorId,
+      final RemoteMessage<EvaluatorRuntimeProtocol.EvaluatorHeartbeatProto> evaluatorHeartbeatMessage) {
+    final EvaluatorManager recoveredEvaluatorManager = evaluatorManagerFactory
+        .getNewEvaluatorManagerForRecoveredEvaluator(
+            driverRestartManager.getResourceRecoverEvent(evaluatorId));
+
+    recoveredEvaluatorManager.onEvaluatorHeartbeatMessage(evaluatorHeartbeatMessage);
+    return recoveredEvaluatorManager;
   }
 }

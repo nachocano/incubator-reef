@@ -230,8 +230,7 @@ public class OperatorTopologyStructImpl implements OperatorTopologyStruct {
         LOG.fine(msg);
       }
     }
-    LOG.exiting("OperatorTopologyStructImpl", "receiveFromNode",
-        new Object[]{retVal, getQualifiedName(), node, remove});
+    LOG.exiting("OperatorTopologyStructImpl", "receiveFromNode", getQualifiedName());
     return retVal;
   }
 
