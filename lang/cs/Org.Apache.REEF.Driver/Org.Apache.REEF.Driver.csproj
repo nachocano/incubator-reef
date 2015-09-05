@@ -47,6 +47,7 @@ under the License.
     <Compile Include="Bridge\Clr2java\ICompletedEvaluatorClr2Java.cs" />
     <Compile Include="Bridge\Clr2java\ICompletedTaskClr2Java.cs" />
     <Compile Include="Bridge\Clr2java\IContextMessageClr2Java.cs" />
+    <Compile Include="Bridge\Clr2java\IDriverRestartedClr2Java.cs" />
     <Compile Include="Bridge\Clr2java\IEvaluatorRequestorClr2Java.cs" />
     <Compile Include="Bridge\Clr2java\IFailedContextClr2Java.cs" />
     <Compile Include="Bridge\Clr2java\IFailedEvaluatorClr2Java.cs" />
@@ -59,8 +60,10 @@ under the License.
     <Compile Include="Bridge\ClrHandlerHelper.cs" />
     <Compile Include="Bridge\ClrSystemHandler.cs" />
     <Compile Include="Bridge\ClrSystemHandlerWrapper.cs" />
+    <Compile Include="Bridge\CommandLineArguments.cs" />
+    <Compile Include="Bridge\CustomTraceLevel.cs" />
+    <Compile Include="Bridge\CustomTraceListeners.cs" />
     <Compile Include="Bridge\DriverBridge.cs" />
-    <Compile Include="Bridge\DriverBridgeConfiguration.cs" />
     <Compile Include="Bridge\DriverBridgeConfigurationOptions.cs" />
     <Compile Include="Bridge\Events\ActiveContext.cs" />
     <Compile Include="Bridge\Events\AllocatedEvaluator.cs" />
@@ -71,7 +74,7 @@ under the License.
     <Compile Include="Bridge\Events\DriverRestartCompleted.cs" />
     <Compile Include="Bridge\Events\DriverRestarted.cs" />
     <Compile Include="Bridge\Events\DriverStarted.cs" />
-    <Compile Include="Bridge\Events\EvaluatorRequstor.cs" />
+    <Compile Include="Bridge\Events\EvaluatorRequestor.cs" />
     <Compile Include="Bridge\Events\FailedContext.cs" />
     <Compile Include="Bridge\Events\FailedEvaluator.cs" />
     <Compile Include="Bridge\Events\FailedTask.cs" />
@@ -137,7 +140,6 @@ under the License.
     <Compile Include="Evaluator\IEvaluatorRequest.cs" />
     <Compile Include="Evaluator\IEvaluatorRequestor.cs" />
     <Compile Include="Evaluator\IFailedEvaluator.cs" />
-    <Compile Include="FailedJob.cs" />
     <Compile Include="IDriver.cs" />
     <Compile Include="IDriverRestarted.cs" />
     <Compile Include="IDriverStarted.cs" />

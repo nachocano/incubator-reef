@@ -17,33 +17,29 @@
  * under the License.
  */
 
-using System;
-using Org.Apache.REEF.Common.Api;
-using Org.Apache.REEF.Common.Protobuf.ReefProtocol;
-using Org.Apache.REEF.Utilities;
+using Org.Apache.REEF.IMRU.OnREEF.Parameters;
+using Org.Apache.REEF.Tang.Formats;
+using Org.Apache.REEF.Tang.Util;
 
-namespace Org.Apache.REEF.Common
+namespace Org.Apache.REEF.IMRU.API
 {
-    public class FailedRuntime : AbstractFailure
+    /// <summary>
+    /// A configuration module for per mapper configuration.
+    /// </summary>
+    public sealed class IMRUPerMapperConfigGeneratorConfiguration : ConfigurationModuleBuilder
     {
-        public FailedRuntime(RuntimeErrorProto error)
-            : base(error.identifier, error.message, null, GetException(error), error.exception)
-        {
-        }
+        /// <summary>
+        /// The IPerMapperConfigs to use.
+        /// </summary>
+        public static readonly RequiredImpl<IPerMapperConfigGenerator> PerMapperConfigGenerator =
+            new RequiredImpl<IPerMapperConfigGenerator>();
 
         /// <summary>
-        /// Get the exception from error
+        /// Configuration module
         /// </summary>
-        /// <param name="error"></param>
-        /// <returns>excetpiont from error</returns>
-        private static Exception GetException(RuntimeErrorProto error)
-        {
-            byte[] data = error.exception;
-            if (data != null)
-            {
-                return new InvalidOperationException(ByteUtilities.ByteArrarysToString(error.exception));
-            }
-            return null;
-        }
+        public static ConfigurationModule ConfigurationModule =
+            new IMRUPerMapperConfigGeneratorConfiguration()
+                .BindSetEntry(GenericType<PerMapConfigGeneratorSet>.Class, PerMapperConfigGenerator)
+                .Build();
     }
 }

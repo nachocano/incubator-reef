@@ -18,34 +18,19 @@
  */
 
 using System;
-using Org.Apache.REEF.Common.Api;
-using Org.Apache.REEF.Utilities;
 
-namespace Org.Apache.REEF.Driver
+namespace Org.Apache.REEF.Driver.Bridge.Clr2java
 {
-    /// <summary>
-    /// An error message that REEF Client receives when there is a user error in REEF job.
-    /// </summary>
-    public class FailedJob : AbstractFailure
+    public interface IDriverRestartedClr2Java : IClr2Java
     {
         /// <summary>
-        /// Create an error message given the entity ID and Java Exception. All accessor methods are provided by the base class.
+        /// IDs of the expected Evaluators on Driver Restart.
         /// </summary>
-        /// <param name="id"></param>
-        /// <param name="cause"></param>
-        public FailedJob(string id, Exception cause)
-            : base(id, cause)
-        {
-        }
+        string[] GetExpectedEvaluatorIds();
 
-        public new string Id { get; set; }
-
-        public new string Message { get; set; }
-
-        public new Optional<string> Description { get; set; }
-
-        public new Optional<Exception> Cause { get; set; }
-
-        public new Optional<byte[]> Data { get; set; }
+        /// <summary>
+        /// StartTime of the restart.
+        /// </summary>
+        DateTime GetStartTime();
     }
 }

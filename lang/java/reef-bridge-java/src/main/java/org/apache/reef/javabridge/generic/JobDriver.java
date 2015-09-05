@@ -24,10 +24,11 @@ import org.apache.reef.driver.context.ClosedContext;
 import org.apache.reef.driver.context.ContextMessage;
 import org.apache.reef.driver.context.FailedContext;
 import org.apache.reef.driver.evaluator.*;
+import org.apache.reef.driver.restart.DriverRestarted;
 import org.apache.reef.driver.task.*;
 import org.apache.reef.io.network.naming.NameServer;
 import org.apache.reef.javabridge.*;
-import org.apache.reef.runtime.common.DriverRestartCompleted;
+import org.apache.reef.driver.restart.DriverRestartCompleted;
 import org.apache.reef.runtime.common.driver.DriverStatusManager;
 import org.apache.reef.driver.evaluator.EvaluatorProcess;
 import org.apache.reef.tang.annotations.Unit;
@@ -132,10 +133,10 @@ public final class JobDriver {
   private long closedContextHandler = 0;
   private long failedContextHandler = 0;
   private long contextMessageHandler = 0;
-  private long driverRestartHandler = 0;
   private long driverRestartActiveContextHandler = 0;
   private long driverRestartRunningTaskHandler = 0;
   private long driverRestartCompletedHandler = 0;
+  private long driverRestartFailedEvaluatorHandler = 0;
   private boolean clrBridgeSetup = false;
   private boolean isRestarted = false;
 
@@ -175,7 +176,7 @@ public final class JobDriver {
     this.clrProcessFactory = clrProcessFactory;
   }
 
-  private void setupBridge(final StartTime startTime) {
+  private void setupBridge(final ClrHandlersInitializer initializer) {
     // Signal to the clr buffered log handler that the driver has started and that
     // we can begin logging
     LOG.log(Level.INFO, "Initializing CLRBufferedLogHandler...");
@@ -195,13 +196,10 @@ public final class JobDriver {
         LOG.log(Level.INFO, "CLRBufferedLogHandler init complete.");
       }
 
-      LOG.log(Level.INFO, "StartTime: {0}", new Object[]{startTime});
       final String portNumber = httpServer == null ? null : Integer.toString((httpServer.getPort()));
       final EvaluatorRequestorBridge evaluatorRequestorBridge =
           new EvaluatorRequestorBridge(JobDriver.this.evaluatorRequestor, false, loggingScopeFactory);
-      final long[] handlers = JobDriver.this.isRestarted ?
-          NativeInterop.callClrSystemOnRestartHandlerOnNext(startTime.toString(), portNumber, evaluatorRequestorBridge)
-          : NativeInterop.callClrSystemOnStartHandler(startTime.toString(), portNumber, evaluatorRequestorBridge);
+      final long[] handlers = initializer.getClrHandlers(portNumber, evaluatorRequestorBridge);
       if (handlers != null) {
         if (handlers.length != NativeInterop.N_HANDLERS) {
           throw new RuntimeException(
@@ -228,6 +226,8 @@ public final class JobDriver {
             handlers[NativeInterop.HANDLERS.get(NativeInterop.DRIVER_RESTART_RUNNING_TASK_KEY)];
         this.driverRestartCompletedHandler =
             handlers[NativeInterop.HANDLERS.get(NativeInterop.DRIVER_RESTART_COMPLETED_KEY)];
+        this.driverRestartFailedEvaluatorHandler =
+            handlers[NativeInterop.HANDLERS.get(NativeInterop.DRIVER_RESTART_FAILED_EVALUATOR_KEY)];
       }
 
       try (final LoggingScope lp =
@@ -273,6 +273,78 @@ public final class JobDriver {
       NativeInterop.clrSystemAllocatedEvaluatorHandlerOnNext(JobDriver.this.allocatedEvaluatorHandler,
           allocatedEvaluatorBridge, this.interopLogger);
     }
+  }
+
+  private void handleFailedEvaluator(final FailedEvaluator eval, final boolean isRestartFailed) {
+    try (final LoggingScope ls = loggingScopeFactory.evaluatorFailed(eval.getId())) {
+      synchronized (JobDriver.this) {
+        LOG.log(Level.SEVERE, "FailedEvaluator", eval);
+        for (final FailedContext failedContext : eval.getFailedContextList()) {
+          final String failedContextId = failedContext.getId();
+          LOG.log(Level.INFO, "removing context " + failedContextId + " from job driver contexts.");
+          JobDriver.this.contexts.remove(failedContextId);
+        }
+        String message = "Evaluator " + eval.getId() + " failed with message: "
+            + eval.getEvaluatorException().getMessage();
+        JobDriver.this.jobMessageObserver.sendMessageToClient(message.getBytes());
+
+        if (isRestartFailed) {
+          evaluatorFailedHandlerWaitForCLRBridgeSetup(driverRestartFailedEvaluatorHandler, eval, isRestartFailed);
+        } else {
+          evaluatorFailedHandlerWaitForCLRBridgeSetup(failedEvaluatorHandler, eval, isRestartFailed);
+        }
+      }
+    }
+  }
+
+  private void evaluatorFailedHandlerWaitForCLRBridgeSetup(final long handle,
+                                                           final FailedEvaluator eval,
+                                                           final boolean isRestartFailed) {
+    if (handle == 0) {
+      if (JobDriver.this.clrBridgeSetup) {
+        final String message = "No CLR FailedEvaluator handler was set, exiting now";
+        LOG.log(Level.WARNING, message);
+        JobDriver.this.jobMessageObserver.sendMessageToClient(message.getBytes());
+        return;
+      } else {
+        clock.scheduleAlarm(0, new EventHandler<Alarm>() {
+          @Override
+          public void onNext(final Alarm time) {
+            if (JobDriver.this.clrBridgeSetup) {
+              handleFailedEvaluatorInCLR(eval, isRestartFailed);
+            } else {
+              LOG.log(Level.INFO, "Waiting for CLR bridge to be set up");
+              clock.scheduleAlarm(5000, this);
+            }
+          }
+        });
+      }
+    } else{
+      handleFailedEvaluatorInCLR(eval, isRestartFailed);
+    }
+  }
+
+  private void handleFailedEvaluatorInCLR(final FailedEvaluator eval, final boolean isRestartFailed) {
+    final String message = "CLR FailedEvaluator handler set, handling things with CLR handler.";
+    LOG.log(Level.INFO, message);
+    final FailedEvaluatorBridge failedEvaluatorBridge =
+        new FailedEvaluatorBridge(eval, JobDriver.this.evaluatorRequestor,
+        JobDriver.this.isRestarted, loggingScopeFactory);
+    if (isRestartFailed) {
+      NativeInterop.clrSystemDriverRestartFailedEvaluatorHandlerOnNext(
+          JobDriver.this.driverRestartFailedEvaluatorHandler, failedEvaluatorBridge, JobDriver.this.interopLogger);
+    } else {
+      NativeInterop.clrSystemFailedEvaluatorHandlerOnNext(JobDriver.this.failedEvaluatorHandler, failedEvaluatorBridge,
+          JobDriver.this.interopLogger);
+    }
+
+    final int additionalRequestedEvaluatorNumber = failedEvaluatorBridge.getNewlyRequestedEvaluatorNumber();
+    if (additionalRequestedEvaluatorNumber > 0) {
+      LOG.log(Level.INFO, "number of additional evaluators requested after evaluator failure: " +
+          additionalRequestedEvaluatorNumber);
+    }
+
+    JobDriver.this.jobMessageObserver.sendMessageToClient(message.getBytes());
   }
 
   /**
@@ -361,57 +433,17 @@ public final class JobDriver {
   public final class FailedEvaluatorHandler implements EventHandler<FailedEvaluator> {
     @Override
     public void onNext(final FailedEvaluator eval) {
-      try (final LoggingScope ls = loggingScopeFactory.evaluatorFailed(eval.getId())) {
-        synchronized (JobDriver.this) {
-          LOG.log(Level.SEVERE, "FailedEvaluator", eval);
-          for (final FailedContext failedContext : eval.getFailedContextList()) {
-            final String failedContextId = failedContext.getId();
-            LOG.log(Level.INFO, "removing context " + failedContextId + " from job driver contexts.");
-            JobDriver.this.contexts.remove(failedContextId);
-          }
-          String message = "Evaluator " + eval.getId() + " failed with message: "
-              + eval.getEvaluatorException().getMessage();
-          JobDriver.this.jobMessageObserver.sendMessageToClient(message.getBytes());
-
-          if (failedEvaluatorHandler == 0) {
-            if (JobDriver.this.clrBridgeSetup) {
-              message = "No CLR FailedEvaluator handler was set, exiting now";
-              LOG.log(Level.WARNING, message);
-              JobDriver.this.jobMessageObserver.sendMessageToClient(message.getBytes());
-              return;
-            } else {
-              clock.scheduleAlarm(0, new EventHandler<Alarm>() {
-                @Override
-                public void onNext(final Alarm time) {
-                  if (JobDriver.this.clrBridgeSetup) {
-                    handleFailedEvaluatorInCLR(eval);
-                  } else {
-                    LOG.log(Level.INFO, "Waiting for CLR bridge to be set up");
-                    clock.scheduleAlarm(5000, this);
-                  }
-                }
-              });
-            }
-          } else {
-            handleFailedEvaluatorInCLR(eval);
-          }
-        }
-      }
+      JobDriver.this.handleFailedEvaluator(eval, false);
     }
+  }
 
-    private void handleFailedEvaluatorInCLR(final FailedEvaluator eval) {
-      final String message = "CLR FailedEvaluator handler set, handling things with CLR handler.";
-      LOG.log(Level.INFO, message);
-      FailedEvaluatorBridge failedEvaluatorBridge = new FailedEvaluatorBridge(eval, JobDriver.this.evaluatorRequestor,
-          JobDriver.this.isRestarted, loggingScopeFactory);
-      NativeInterop.clrSystemFailedEvaluatorHandlerOnNext(JobDriver.this.failedEvaluatorHandler, failedEvaluatorBridge,
-          JobDriver.this.interopLogger);
-      final int additionalRequestedEvaluatorNumber = failedEvaluatorBridge.getNewlyRequestedEvaluatorNumber();
-      if (additionalRequestedEvaluatorNumber > 0) {
-        LOG.log(Level.INFO, "number of additional evaluators requested after evaluator failure: " +
-            additionalRequestedEvaluatorNumber);
-      }
-      JobDriver.this.jobMessageObserver.sendMessageToClient(message.getBytes());
+  /**
+   * Receive notification that the entire Evaluator had failed on Driver Restart.
+   */
+  public final class DriverRestartFailedEvaluatorHandler implements EventHandler<FailedEvaluator> {
+    @Override
+    public void onNext(final FailedEvaluator eval) {
+      JobDriver.this.handleFailedEvaluator(eval, true);
     }
   }
 
@@ -579,7 +611,7 @@ public final class JobDriver {
       try (final LoggingScope ls = loggingScopeFactory.driverStart(startTime)) {
         synchronized (JobDriver.this) {
 
-          setupBridge(startTime);
+          setupBridge(new DriverStartClrHandlersInitializer(startTime));
           LOG.log(Level.INFO, "Driver Started");
         }
       }
@@ -590,14 +622,14 @@ public final class JobDriver {
   /**
    * Job driver is restarted after previous crash.
    */
-  public final class RestartHandler implements EventHandler<StartTime> {
+  public final class RestartHandler implements EventHandler<DriverRestarted> {
     @Override
-    public void onNext(final StartTime startTime) {
-      try (final LoggingScope ls = loggingScopeFactory.driverRestart(startTime)) {
+    public void onNext(final DriverRestarted driverRestarted) {
+      try (final LoggingScope ls = loggingScopeFactory.driverRestart(driverRestarted.getStartTime())) {
         synchronized (JobDriver.this) {
 
           JobDriver.this.isRestarted = true;
-          setupBridge(startTime);
+          setupBridge(new DriverRestartClrHandlersInitializer(driverRestarted));
 
           LOG.log(Level.INFO, "Driver Restarted and CLR bridge set up.");
         }
@@ -612,14 +644,16 @@ public final class JobDriver {
     @Override
     public void onNext(final DriverRestartCompleted driverRestartCompleted) {
       LOG.log(Level.INFO, "Java DriverRestartCompleted event received at time [{0}]. ",
-          driverRestartCompleted.getTimeStamp());
-      try (final LoggingScope ls = loggingScopeFactory.driverRestartCompleted(driverRestartCompleted.getTimeStamp())) {
-        if (JobDriver.this.driverRestartHandler != 0) {
+          driverRestartCompleted.getCompletedTime());
+      try (final LoggingScope ls = loggingScopeFactory.driverRestartCompleted(
+          driverRestartCompleted.getCompletedTime().getTimeStamp())) {
+        if (JobDriver.this.driverRestartCompletedHandler != 0) {
           LOG.log(Level.INFO, "CLR driver restart handler implemented, now handle it in CLR.");
+
+          // TODO[REEF-690]: Pass in DriverRestartCompleted object to .NET.
           NativeInterop.clrSystemDriverRestartCompletedHandlerOnNext(JobDriver.this.driverRestartCompletedHandler);
         } else {
           LOG.log(Level.WARNING, "No CLR driver restart handler implemented, done with DriverRestartCompletedHandler.");
-
         }
       }
     }

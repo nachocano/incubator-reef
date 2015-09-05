@@ -17,12 +17,15 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using Org.Apache.REEF.Common.Tasks;
 using Org.Apache.REEF.Driver;
 using Org.Apache.REEF.Driver.Context;
 using Org.Apache.REEF.Driver.Evaluator;
 using Org.Apache.REEF.Driver.Task;
+using Org.Apache.REEF.IMRU.API;
 using Org.Apache.REEF.IMRU.OnREEF.IMRUTasks;
 using Org.Apache.REEF.IMRU.OnREEF.MapInputWithControlMessage;
 using Org.Apache.REEF.IMRU.OnREEF.Parameters;
@@ -62,16 +65,19 @@ namespace Org.Apache.REEF.IMRU.OnREEF.Driver
         private readonly TaskStarter _groupCommTaskStarter;
         private IConfiguration _tcpPortProviderConfig;
         private readonly ConcurrentStack<string> _taskIdStack;
+        private readonly ConcurrentStack<IConfiguration> _perMapperConfiguration;
         private readonly ConcurrentStack<IPartitionDescriptor> _partitionDescriptorStack;
         private readonly int _coresPerMapper;
         private readonly int _coresForUpdateTask;
         private readonly int _memoryPerMapper;
         private readonly int _memoryForUpdateTask;
+        private readonly ISet<IPerMapperConfigGenerator> _perMapperConfigs;
         private bool _allocatedUpdateTaskEvaluator;
         private readonly ConcurrentBag<ICompletedTask> _completedTasks;
             
         [Inject]
         private IMRUDriver(IPartitionedDataSet dataSet,
+            [Parameter(typeof(PerMapConfigGeneratorSet))] ISet<IPerMapperConfigGenerator> perMapperConfigs,
             ConfigurationManager configurationManager,
             IEvaluatorRequestor evaluatorRequestor,
             [Parameter(typeof (TcpPortRangeStart))] int startingPort,
@@ -90,6 +96,7 @@ namespace Org.Apache.REEF.IMRU.OnREEF.Driver
             _coresForUpdateTask = coresForUpdateTask;
             _memoryPerMapper = memoryPerMapper;
             _memoryForUpdateTask = memoryForUpdateTask;
+            _perMapperConfigs = perMapperConfigs;
             _allocatedUpdateTaskEvaluator = false;
             _completedTasks = new ConcurrentBag<ICompletedTask>();
 
@@ -103,6 +110,7 @@ namespace Org.Apache.REEF.IMRU.OnREEF.Driver
             _groupCommTaskStarter = new TaskStarter(_groupCommDriver, _dataSet.Count + 1);
 
             _taskIdStack = new ConcurrentStack<string>();
+            _perMapperConfiguration = new ConcurrentStack<IConfiguration>();
             _partitionDescriptorStack = new ConcurrentStack<IPartitionDescriptor>();
             ConstructTaskIdAndPartitionDescriptorStack();
         }
@@ -113,7 +121,13 @@ namespace Org.Apache.REEF.IMRU.OnREEF.Driver
         /// <param name="value">Event fired when driver started</param>
         public void OnNext(IDriverStarted value)
         {
-            _evaluatorRequestor.Submit(new EvaluatorRequest(1, _memoryForUpdateTask, _coresForUpdateTask));
+            var request =
+                _evaluatorRequestor.NewBuilder()
+                    .SetCores(_coresForUpdateTask)
+                    .SetMegabytes(_memoryForUpdateTask)
+                    .SetNumber(1)
+                    .Build();
+            _evaluatorRequestor.Submit(request);
             //TODO[REEF-598]: Set a timeout for this request to be satisfied. If it is not within that time, exit the Driver.
         }
 
@@ -145,7 +159,13 @@ namespace Org.Apache.REEF.IMRU.OnREEF.Driver
                 serviceConf = Configurations.Merge(serviceConf, codecConfig, _tcpPortProviderConfig);
                 _allocatedUpdateTaskEvaluator = true;
 
-                _evaluatorRequestor.Submit(new EvaluatorRequest(_dataSet.Count, _memoryPerMapper, _coresPerMapper));
+                var request =
+                    _evaluatorRequestor.NewBuilder()
+                        .SetMegabytes(_memoryForUpdateTask)
+                        .SetNumber(_dataSet.Count)
+                        .SetCores(_coresPerMapper)
+                        .Build();
+                _evaluatorRequestor.Submit(request);
                 //TODO[REEF-598]: Set a timeout for this request to be satisfied. If it is not within that time, exit the Driver.
             }
             else
@@ -219,6 +239,17 @@ namespace Org.Apache.REEF.IMRU.OnREEF.Driver
                     return;
                 }
 
+                IConfiguration mapSpecificConfig;
+
+                if (!_perMapperConfiguration.TryPop(out mapSpecificConfig))
+                {
+                    Logger.Log(Level.Warning,
+                        "No per map configuration exist for the active context {0}. Disposing the context.",
+                        activeContext.Id);
+                    activeContext.Dispose();
+                    return;
+                }
+
                 var partialTaskConf =
                     TangFactory.GetTang()
                         .NewConfigurationBuilder(new[]
@@ -227,7 +258,8 @@ namespace Org.Apache.REEF.IMRU.OnREEF.Driver
                                 .Set(TaskConfiguration.Identifier, taskId)
                                 .Set(TaskConfiguration.Task, GenericType<MapTaskHost<TMapInput, TMapOutput>>.Class)
                                 .Build(),
-                            _configurationManager.MapFunctionConfiguration
+                            _configurationManager.MapFunctionConfiguration,
+                            mapSpecificConfig
                         })
                         .Build();
 
@@ -353,6 +385,10 @@ namespace Org.Apache.REEF.IMRU.OnREEF.Driver
                 string id = IMRUConstants.MapTaskPrefix + "-Id" + counter + "-Version0";
                 _taskIdStack.Push(id);
                 _partitionDescriptorStack.Push(partitionDescriptor);
+
+                var emptyConfig = TangFactory.GetTang().NewConfigurationBuilder().Build();
+                IConfiguration config = _perMapperConfigs.Aggregate(emptyConfig, (current, configGenerator) => Configurations.Merge(current, configGenerator.GetMapperConfiguration(counter, _dataSet.Count)));
+                _perMapperConfiguration.Push(config);
                 counter++;
             }
         }

@@ -16,13 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.reef.runtime.common;
-
-import org.apache.reef.wake.time.Time;
-
-public final class DriverRestartCompleted extends Time {
-
-  public DriverRestartCompleted(final long timestamp) {
-    super(timestamp);
-  }
-}
+/**
+ * Task scheduler example exceptions.
+ */
+package org.apache.reef.examples.scheduler.driver.exceptions;

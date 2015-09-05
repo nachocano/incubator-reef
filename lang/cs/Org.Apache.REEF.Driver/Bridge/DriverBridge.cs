@@ -31,6 +31,7 @@ using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Utilities.Logging;
 using Org.Apache.REEF.Wake.Time.Event;
 using Org.Apache.REEF.Common.Evaluator.Parameters;
+using Org.Apache.REEF.Driver.Bridge.Clr2java;
 using Org.Apache.REEF.Driver.Bridge.Events;
 
 namespace Org.Apache.REEF.Driver.Bridge
@@ -58,6 +59,8 @@ namespace Org.Apache.REEF.Driver.Bridge
         private static ClrSystemHandler<ISuspendedTask> _suspendedTaskSubscriber;
 
         private static ClrSystemHandler<IFailedEvaluator> _failedEvaluatorSubscriber;
+
+        private static ClrSystemHandler<IFailedEvaluator> _driverRestartFailedEvaluatorSubscriber;
 
         private static ClrSystemHandler<ICompletedEvaluator> _completedEvaluatorSubscriber;
 
@@ -99,6 +102,8 @@ namespace Org.Apache.REEF.Driver.Bridge
 
         private readonly ISet<IObserver<IFailedEvaluator>> _failedEvaluatorHandlers;
 
+        private readonly ISet<IObserver<IFailedEvaluator>> _driverRestartFailedEvaluatorHandlers;
+
         private readonly ISet<IObserver<ICompletedEvaluator>> _completedEvaluatorHandlers;
 
         private readonly ISet<IObserver<IClosedContext>> _closedContextHandlers;
@@ -133,6 +138,7 @@ namespace Org.Apache.REEF.Driver.Bridge
             [Parameter(Value = typeof(DriverBridgeConfigurationOptions.DriverRestartActiveContextHandlers))] ISet<IObserver<IActiveContext>> driverRestartActiveContextHandlers,
             [Parameter(Value = typeof(DriverBridgeConfigurationOptions.DriverRestartRunningTaskHandlers))] ISet<IObserver<IRunningTask>> driverRestartRunningTaskHandlers,
             [Parameter(Value = typeof(DriverBridgeConfigurationOptions.DriverRestartCompletedHandlers))] ISet<IObserver<IDriverRestartCompleted>> driverRestartCompletedHandlers,
+            [Parameter(Value = typeof(DriverBridgeConfigurationOptions.DriverRestartFailedEvaluatorHandlers))] ISet<IObserver<IFailedEvaluator>> driverRestartFailedEvaluatorHandlers,
             [Parameter(Value = typeof(DriverBridgeConfigurationOptions.TraceListenersSet))] ISet<TraceListener> traceListeners,
             [Parameter(Value = typeof(EvaluatorConfigurationProviders))] ISet<IConfigurationProvider> configurationProviders,
             [Parameter(Value = typeof(DriverBridgeConfigurationOptions.TraceLevel))] string traceLevel,
@@ -173,6 +179,7 @@ namespace Org.Apache.REEF.Driver.Bridge
             _driverRestartActiveContextHandlers = driverRestartActiveContextHandlers;
             _driverRestartRunningTaskHandlers = driverRestartRunningTaskHandlers;
             _driverRestartCompletedHandlers = driverRestartCompletedHandlers;
+            _driverRestartFailedEvaluatorHandlers = driverRestartFailedEvaluatorHandlers;
             _httpServerHandler = httpServerHandler;
             _configurationProviders = configurationProviders;
             
@@ -193,6 +200,7 @@ namespace Org.Apache.REEF.Driver.Bridge
             _driverRestartActiveContextSubscriber = new ClrSystemHandler<IActiveContext>();
             _driverRestartRunningTaskSubscriber = new ClrSystemHandler<IRunningTask>();
             _driverRestartCompletedSubscriber = new ClrSystemHandler<IDriverRestartCompleted>();
+            _driverRestartFailedEvaluatorSubscriber = new ClrSystemHandler<IFailedEvaluator>();
         }
 
         public ulong[] Subscribe()
@@ -319,6 +327,14 @@ namespace Org.Apache.REEF.Driver.Bridge
             }
             handlers[Constants.Handlers[Constants.DriverRestartCompletedHandler]] = ClrHandlerHelper.CreateHandler(_driverRestartCompletedSubscriber);
 
+            // subscribe to Failed Evaluator received during driver restart
+            foreach (var handler in _driverRestartFailedEvaluatorHandlers)
+            {
+                _driverRestartFailedEvaluatorSubscriber.Subscribe(handler);
+                _logger.Log(Level.Verbose, "subscribed to handler for IFailedEvaluator received during driver restart: " + handler);
+            }
+            handlers[Constants.Handlers[Constants.DriverRestartFailedEvaluatorHandler]] = ClrHandlerHelper.CreateHandler(_driverRestartFailedEvaluatorSubscriber);
+
             // subscribe to Http message
             _httpServerEventSubscriber.Subscribe(_httpServerHandler);
             _logger.Log(Level.Verbose, "subscribed to IHttpMessage handler  :" + _httpServerHandler);
@@ -353,9 +369,9 @@ namespace Org.Apache.REEF.Driver.Bridge
         /// <summary>
         /// Call restart handlers
         /// </summary>
-        internal void RestartHandlerOnNext(DateTime startTime)
+        internal void RestartHandlerOnNext(IDriverRestartedClr2Java driverRestartedClr2Java)
         {
-            var driverRestarted = new DriverRestarted(startTime);
+            var driverRestarted = new DriverRestarted(driverRestartedClr2Java);
             foreach (var handler in _driverRestartedHandlers)
             {
                 handler.OnNext(driverRestarted);

@@ -1,4 +1,4 @@
-﻿/**
+/*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
  * distributed with this work for additional information
@@ -16,15 +16,35 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+package org.apache.reef.driver.restart;
 
-using System;
+import org.apache.reef.wake.time.Time;
 
-namespace Org.Apache.REEF.Common
-{
-    /// <summary>
-    ///  The driver uses this interface to communicate with the job client.
-    /// </summary>
-    public interface IJobMessageObserver : IObserver<byte[]>
-    {
-    }
+/**
+ * @see DriverRestartCompleted
+ */
+class DriverRestartCompletedImpl implements DriverRestartCompleted {
+  private final Time completedTime;
+  private final boolean isTimedOut;
+
+  DriverRestartCompletedImpl(final long completedTimeMillis, final boolean isTimedOut) {
+    this.completedTime = new Time(completedTimeMillis) { };
+    this.isTimedOut = isTimedOut;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public Time getCompletedTime() {
+    return completedTime;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public boolean isTimedOut() {
+    return isTimedOut;
+  }
 }

@@ -16,6 +16,10 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
+using System;
+using System.Collections.Generic;
+
 namespace Org.Apache.REEF.Driver
 {
     /// <summary>
@@ -23,6 +27,10 @@ namespace Org.Apache.REEF.Driver
     /// </summary>
     public interface IDriverRestarted : IDriverStarted
     {
-         
+        /// <summary>
+        /// The set of expected Evaluator IDs that are returned to the Driver by the
+        /// RM on Driver Restart.
+        /// </summary>
+        ISet<string> ExpectedEvaluatorIds { get; } 
     }
 }

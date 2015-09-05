@@ -431,22 +431,20 @@ JNIEXPORT void JNICALL Java_org_apache_reef_javabridge_NativeInterop_clrSystemCo
   }
 }
 
-
 /*
 * Class:     org_apache_reef_javabridge_NativeInterop
 * Method:    callClrSystemOnRestartHandlerOnNext
-* Signature: (Ljava/lang/String;Ljava/lang/String;Lorg/apache/reef/javabridge/EvaluatorRequestorBridge;)[J
+* Signature: (Ljava/lang/String;Lorg/apache/reef/javabridge/EvaluatorRequestorBridge;Lorg/apache/reef/javabridge/DriverRestartedBridge;)[J
 */
 JNIEXPORT jlongArray JNICALL Java_org_apache_reef_javabridge_NativeInterop_callClrSystemOnRestartHandlerOnNext
-(JNIEnv * env, jclass jclassx, jstring dateTimeString, jstring httpServerPort, jobject jevaluatorRequestorBridge)
-{
+(JNIEnv * env, jclass jclassx, jstring httpServerPort, jobject jevaluatorRequestorBridge, jobject jdriverRestartedBridge) {
 	try {
 		ManagedLog::LOGGER->Log("+Java_org_apache_reef_javabridge_NativeInterop_callClrSystemOnStartHandler");
-		DateTime dt = DateTime::Now;
 		String^ strPort = ManagedStringFromJavaString(env, httpServerPort);
 
 		EvaluatorRequestorClr2Java^ evaluatorRequestorBridge = gcnew EvaluatorRequestorClr2Java(env, jevaluatorRequestorBridge);
-		array<unsigned long long>^ handlers = ClrSystemHandlerWrapper::Call_ClrSystemRestartHandler_OnRestart(dt, strPort, evaluatorRequestorBridge);
+		DriverRestartedClr2Java^ driverRestartedBridge = gcnew DriverRestartedClr2Java(env, jdriverRestartedBridge);
+		array<unsigned long long>^ handlers = ClrSystemHandlerWrapper::Call_ClrSystemRestartHandler_OnRestart(strPort, evaluatorRequestorBridge, driverRestartedBridge);
 		return JavaLongArrayFromManagedLongArray(env, handlers);
 	}
 	catch (System::Exception^ ex) {
@@ -507,6 +505,24 @@ JNIEXPORT void JNICALL Java_org_apache_reef_javabridge_NativeInterop_clrSystemDr
 	}
 	catch (System::Exception^ ex) {
 		String^ errorMessage = "Exception in Call_ClrSystemDriverRestartRunningTask_OnNext";
+		ManagedLog::LOGGER->LogError(errorMessage, ex);
+	}
+}
+
+/*
+* Class:     org_apache_reef_javabridge_NativeInterop
+* Method:    clrSystemDriverRestartFailedEvaluatorHandlerOnNext
+* Signature: (JLorg/apache/reef/javabridge/FailedEvaluatorBridge;Lorg/apache/reef/javabridge/InteropLogger;)V
+*/
+JNIEXPORT void JNICALL Java_org_apache_reef_javabridge_NativeInterop_clrSystemDriverRestartFailedEvaluatorHandlerOnNext
+(JNIEnv * env, jclass cls, jlong handler, jobject jfailedEvaluator, jobject jlogger) {
+	ManagedLog::LOGGER->Log("+Java_org_apache_reef_javabridge_NativeInterop_clrSystemDriverRestartFailedEvaluatorHandlerOnNext");
+	FailedEvaluatorClr2Java^ failedEvaluatorBridge = gcnew FailedEvaluatorClr2Java(env, jfailedEvaluator);
+	try {
+		ClrSystemHandlerWrapper::Call_ClrSystemDriverRestartFailedEvaluator_OnNext(handler, failedEvaluatorBridge);
+	}
+	catch (System::Exception^ ex) {
+		String^ errorMessage = "Exception in Call_ClrSystemDriverRestartFailedEvaluator_OnNext";
 		ManagedLog::LOGGER->LogError(errorMessage, ex);
 	}
 }
