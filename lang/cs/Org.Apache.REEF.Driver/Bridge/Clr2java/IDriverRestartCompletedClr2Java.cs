@@ -16,14 +16,20 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-
 using System;
 
-namespace Org.Apache.REEF.Driver.Contract
+namespace Org.Apache.REEF.Driver.Bridge.Clr2java
 {
-    [Obsolete("Tmp code never used")]
-    public interface IBridgeContract
+    public interface IDriverRestartCompletedClr2Java
     {
-        string InstanceId { get; set; }
+        /// <summary>
+        /// Completed time of the restart.
+        /// </summary>
+        DateTime GetCompletedTime();
+
+        /// <summary>
+        /// Returns True if restart completed fired on timeout.
+        /// </summary>
+        bool IsTimedOut();
     }
 }

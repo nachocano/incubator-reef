@@ -210,13 +210,13 @@ namespace Org.Apache.REEF.Driver.Bridge
             }
         }
 
-        public static void Call_ClrSystemDriverRestartCompleted_OnNext(ulong handle)
+        public static void Call_ClrSystemDriverRestartCompleted_OnNext(ulong handle, IDriverRestartCompletedClr2Java clr2Java)
         {
             using (LOGGER.LogFunction("ClrSystemHandlerWrapper::Call_ClrSystemDriverRestartCompleted_OnNext"))
             {
                 GCHandle gc = GCHandle.FromIntPtr((IntPtr)handle);
                 ClrSystemHandler<IDriverRestartCompleted> obj = (ClrSystemHandler<IDriverRestartCompleted>)gc.Target;
-                obj.OnNext(new DriverRestartCompleted(DateTime.Now));
+                obj.OnNext(new DriverRestartCompleted(clr2Java));
             }
         }
 
@@ -255,7 +255,6 @@ namespace Org.Apache.REEF.Driver.Bridge
                 LOGGER.Log(Level.Info, "*** httpServerPort: " + httpServerPort);
                 var handlers = GetHandlers(httpServerPort, evaluatorRequestor);
                 _driverBridge.StartHandlersOnNext(startTime);
-                _driverBridge.ObsoleteEvaluatorRequestorOnNext(evaluatorRequestor);
 
                 return handlers;
             }   
@@ -289,9 +288,6 @@ namespace Org.Apache.REEF.Driver.Bridge
                     ? 0
                     : int.Parse(httpServerPortNumber, CultureInfo.InvariantCulture);
 
-                //TODO: Remove next 2 lines after Obsolete period
-                var startHandler = injector.GetInstance<IStartHandler>();
-                LOGGER.Log(Level.Info, "Start handler set to be " + startHandler.Identifier);
                 _driverBridge = injector.GetInstance<DriverBridge>();
             }
             catch (Exception e)

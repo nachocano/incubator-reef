@@ -26,6 +26,14 @@ namespace Org.Apache.REEF.Driver
     /// </summary>
     public interface IDriverRestartCompleted
     {
+        /// <summary>
+        /// The completed time of driver restart process.
+        /// </summary>
         DateTime CompletedTime { get; }
+
+        /// <summary>
+        /// Whether the driver restart completed event fired due to a timeout.
+        /// </summary>
+        bool IsTimedOut { get; }
     }
 }
