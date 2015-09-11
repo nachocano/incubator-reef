@@ -31,10 +31,10 @@ under the License.
   <Import Project="$(SolutionDir)\build.props" />
   <ItemGroup>
     <Reference Include="Microsoft.Hadoop.Avro">
-      <HintPath>$(PackagesDir)\Microsoft.Hadoop.Avro.1.4.0.0\lib\net40\Microsoft.Hadoop.Avro.dll</HintPath>
+      <HintPath>$(PackagesDir)\Microsoft.Hadoop.Avro.$(AvroVersion)\lib\net45\Microsoft.Hadoop.Avro.dll</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>$(PackagesDir)\Newtonsoft.Json.6.0.8\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <HintPath>$(PackagesDir)\Newtonsoft.Json.$(NewtonsoftJsonVersion)\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="protobuf-net">
       <HintPath>$(PackagesDir)\protobuf-net.2.0.0.668\lib\net40\protobuf-net.dll</HintPath>
@@ -85,7 +85,6 @@ under the License.
     <Compile Include="Evaluator\Parameters\EvaluatorConfigurationProviders.cs" />
     <Compile Include="Events\IContextStart.cs" />
     <Compile Include="Events\IContextStop.cs" />
-    <Compile Include="Exceptions\EvaluatorException.cs" />
     <Compile Include="Exceptions\JobException.cs" />
     <Compile Include="Files\PathUtilities.cs" />
     <Compile Include="IContextAndTaskSubmittable.cs" />
@@ -143,7 +142,6 @@ under the License.
     <Compile Include="Tasks\Events\ITaskStart.cs" />
     <Compile Include="Tasks\Events\ITaskStop.cs" />
     <Compile Include="Tasks\IDriverMessageHandler.cs" />
-    <Compile Include="Tasks\IRunningTask.cs" />
     <Compile Include="Tasks\ITask.cs" />
     <Compile Include="Tasks\ITaskMessageSource.cs" />
     <Compile Include="Tasks\TaskConfiguration.cs" />
