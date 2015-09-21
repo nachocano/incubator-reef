@@ -47,8 +47,8 @@ public final class REEFFileNames {
   private static final String DRIVER_STDOUT = "driver.stdout";
   private static final String EVALUATOR_STDERR = "evaluator.stderr";
   private static final String EVALUATOR_STDOUT = "evaluator.stdout";
-  private static final String BRIDGE_DLL_NAME = "Org.Apache.REEF.Bridge.dll";
-
+  private static final String DRIVER_HTTP_ENDPOINT_FILE_NAME = "DriverHttpEndpoint.txt";
+  private static final String BRIDGE_EXE_NAME = "Org.Apache.REEF.Bridge.exe";
 
   @Inject
   public REEFFileNames() {
@@ -58,26 +58,18 @@ public final class REEFFileNames {
   /**
    * @return the filename of the CPP DLL for the bridge.
    */
-  public String getBridgeDLLName() {
-    return BRIDGE_DLL_NAME;
+  public String getBridgeExeName() {
+    return BRIDGE_EXE_NAME;
   }
 
   /**
-   * reef/local/BRIDGE_DLL_NAME.
+   * reef/BRIDGE_EXE_NAME.
    *
-   * @return the File pointing to the DLL containing the DLL for the bridge.
+   * @return the File pointing to the EXE that is the clr driver launcher.
    */
-  public File getBridgeDLLInLocalFolderFile() {
-    return new File(getLocalFolder(), getBridgeDLLName());
+  public File getDriverLauncherExeFile() {
+    return new File(getREEFFolderName(), getBridgeExeName());
   }
-
-  /**
-   * @return a File pointing to the Bridge DLL in the global folder.
-   */
-  public File getBridgeDLLInGlobalFolderFile() {
-    return new File(getGlobalFolder(), getBridgeDLLName());
-  }
-
 
   /**
    * The name of the REEF folder inside of the working directory of an Evaluator or Driver.
@@ -216,4 +208,12 @@ public final class REEFFileNames {
   public String getEvaluatorStdoutFileName() {
     return EVALUATOR_STDOUT;
   }
+
+  /**
+   * @return File name that contains the dfs path for the DriverHttpEndpoint.
+   */
+  public String getDriverHttpEndpoint() {
+    return DRIVER_HTTP_ENDPOINT_FILE_NAME;
+  }
+
 }
