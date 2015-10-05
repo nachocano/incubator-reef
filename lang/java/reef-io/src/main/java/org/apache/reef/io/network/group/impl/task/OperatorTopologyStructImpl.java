@@ -182,12 +182,12 @@ public class OperatorTopologyStructImpl implements OperatorTopologyStruct {
     try {
 
       if (data.length > SMALL_MSG_LENGTH) {
-        LOG.finest(getQualifiedName() + "Msg too big. Sending readiness to send " + msgType + " msg to " + nodeId);
+        LOG.info(getQualifiedName() + "Msg too big. Sending readiness to send " + msgType + " msg to " + nodeId);
         sender.send(Utils.bldVersionedGCM(groupName, operName, msgType, selfId, version, nodeId, node.getVersion(),
             Utils.EMPTY_BYTE_ARR));
         final byte[] tmpVal = receiveFromNode(node, true);
         if (tmpVal != null) {
-          LOG.finest(getQualifiedName() + "Got readiness to accept " + msgType + " msg from " + nodeId
+          LOG.info(getQualifiedName() + "Got readiness to accept " + msgType + " msg from " + nodeId
               + ". Will send actual msg now");
         } else {
           LOG.exiting("OperatorTopologyStructImpl", "sendToNode", getQualifiedName());
@@ -459,7 +459,7 @@ public class OperatorTopologyStructImpl implements OperatorTopologyStruct {
       final String srcId = msg.getSrcid();
       final int srcVersion = msg.getSrcVersion();
       LOG.finest(getQualifiedName() + "Updating " + msg.getType() + " msg from " + srcId);
-      LOG.finest(getQualifiedName() + "Before update: parent=" + ((parent != null) ? parent.getId() : "NULL"));
+      LOG.finest(getQualifiedName() + "Before update: parent=" + (parent != null ? parent.getId() : "NULL"));
       LOG.finest(getQualifiedName() + "Before update: children=" + children);
       switch (msg.getType()) {
       case ParentAdd:
@@ -477,7 +477,7 @@ public class OperatorTopologyStructImpl implements OperatorTopologyStruct {
       default:
         throw new RuntimeException("Received a non control message in update");
       }
-      LOG.finest(getQualifiedName() + "After update: parent=" + ((parent != null) ? parent.getId() : "NULL"));
+      LOG.finest(getQualifiedName() + "After update: parent=" + (parent != null ? parent.getId() : "NULL"));
       LOG.finest(getQualifiedName() + "After update: children=" + children);
     } else {
       throw new RuntimeException(getQualifiedName() + "can only deal with msgs that have src version set");

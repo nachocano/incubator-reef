@@ -64,7 +64,7 @@ public class NSMessageCodec<T> implements Codec<NSMessage<T>> {
   public byte[] encode(final NSMessage<T> obj) {
     if (isStreamingCodec) {
       final StreamingCodec<T> streamingCodec = (StreamingCodec<T>) codec;
-      try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+      try (ByteArrayOutputStream baos = new MyByteArrayOutputStream()) {
         try (DataOutputStream daos = new DataOutputStream(baos)) {
           daos.writeUTF(obj.getSrcId().toString());
           daos.writeUTF(obj.getDestId().toString());

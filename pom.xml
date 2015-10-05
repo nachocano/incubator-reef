@@ -231,53 +231,53 @@ under the License.
                     <artifactId>maven-dependency-plugin</artifactId>
                     <version>2.9</version>
                 </plugin>
-                <plugin>
-                    <groupId>org.apache.rat</groupId>
-                    <artifactId>apache-rat-plugin</artifactId>
-                    <version>0.11</version>
-                    <configuration>
-                        <excludes>
-                            <exclude>.gitattributes</exclude>
-                            <exclude>.gitignore</exclude>
-                            <exclude>.git/**</exclude>
-                            <!-- Intellij idea project files -->
-                            <exclude>lang/java/.idea/**</exclude>
-                            <exclude>**/*.iml</exclude>
-                            <exclude>**/target/**</exclude>
-                            <!-- ReadMe files -->
-                            <exclude>**/README.*</exclude>
-                            <exclude>**/*.md</exclude>
-                            <!-- The below are sometimes created during tests -->
-                            <exclude>REEF_LOCAL_RUNTIME/**</exclude>
-                            <exclude>REEF_MESOS_RUNTIME/**</exclude>
-                            <!-- JVM error logs, especially troublesome on CI servers -->
-                            <exclude>**/hs_err_*.log</exclude>
-                            <!-- The Visual Studio and Nuget build files -->
-                            <exclude>**/*.sln*</exclude>
-                            <exclude>**/*.vcxproj*</exclude>
-                            <exclude>**/*.csproj*</exclude>
-                            <exclude>**/*.opensdf*</exclude>
-                            <exclude>**/*.sdf*</exclude>
-                            <exclude>**/*.snk</exclude>
-                            <!-- The below are auto generated during the .Net build -->
-                            <exclude>**/bin/**</exclude>
-                            <exclude>**/obj/**</exclude>
-                            <exclude>**/Release/**</exclude>
-                            <exclude>**/Debug/**</exclude>
-                            <exclude>**/TestResults/**</exclude>
-                            <exclude>**/x64/**</exclude>
+<!--                 <plugin> -->
+<!--                     <groupId>org.apache.rat</groupId> -->
+<!--                     <artifactId>apache-rat-plugin</artifactId> -->
+<!--                     <version>0.11</version> -->
+<!--                     <configuration> -->
+<!--                         <excludes> -->
+<!--                             <exclude>.gitattributes</exclude> -->
+<!--                             <exclude>.gitignore</exclude> -->
+<!--                             <exclude>.git/**</exclude> -->
+<!--                             Intellij idea project files -->
+<!--                             <exclude>lang/java/.idea/**</exclude> -->
+<!--                             <exclude>**/*.iml</exclude> -->
+<!--                             <exclude>**/target/**</exclude> -->
+<!--                             ReadMe files -->
+<!--                             <exclude>**/README.*</exclude> -->
+<!--                             <exclude>**/*.md</exclude> -->
+<!--                             The below are sometimes created during tests -->
+<!--                             <exclude>REEF_LOCAL_RUNTIME/**</exclude> -->
+<!--                             <exclude>REEF_MESOS_RUNTIME/**</exclude> -->
+<!--                             JVM error logs, especially troublesome on CI servers -->
+<!--                             <exclude>**/hs_err_*.log</exclude> -->
+<!--                             The Visual Studio and Nuget build files -->
+<!--                             <exclude>**/*.sln*</exclude> -->
+<!--                             <exclude>**/*.vcxproj*</exclude> -->
+<!--                             <exclude>**/*.csproj*</exclude> -->
+<!--                             <exclude>**/*.opensdf*</exclude> -->
+<!--                             <exclude>**/*.sdf*</exclude> -->
+<!--                             <exclude>**/*.snk</exclude> -->
+<!--                             The below are auto generated during the .Net build -->
+<!--                             <exclude>**/bin/**</exclude> -->
+<!--                             <exclude>**/obj/**</exclude> -->
+<!--                             <exclude>**/Release/**</exclude> -->
+<!--                             <exclude>**/Debug/**</exclude> -->
+<!--                             <exclude>**/TestResults/**</exclude> -->
+<!--                             <exclude>**/x64/**</exclude> -->
 
-                            <!-- NuGet dependencies downloaded as part of the build -->
-                            <exclude>**/packages/**</exclude>
-                            <!-- The below are auto generated files for serialization -->
-                            <exclude>Org.Apache.REEF.Common/Protobuf/ReefProtocol/*</exclude>
-                            <exclude>Org.Apache.REEF.Common/Avro/*</exclude>
-                            <!-- The below are binary data files used in tests -->
-                            <exclude>Org.Apache.REEF.Examples/ConfigFiles/evaluator.conf</exclude>
-                            <exclude>Org.Apache.REEF.Tang.Tests/simpleConstructorJavaProto.bin</exclude>
-                        </excludes>
-                    </configuration>
-                </plugin>
+<!--                             NuGet dependencies downloaded as part of the build -->
+<!--                             <exclude>**/packages/**</exclude> -->
+<!--                             The below are auto generated files for serialization -->
+<!--                             <exclude>Org.Apache.REEF.Common/Protobuf/ReefProtocol/*</exclude> -->
+<!--                             <exclude>Org.Apache.REEF.Common/Avro/*</exclude> -->
+<!--                             The below are binary data files used in tests -->
+<!--                             <exclude>Org.Apache.REEF.Examples/ConfigFiles/evaluator.conf</exclude> -->
+<!--                             <exclude>Org.Apache.REEF.Tang.Tests/simpleConstructorJavaProto.bin</exclude> -->
+<!--                         </excludes> -->
+<!--                     </configuration> -->
+<!--                 </plugin> -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-checkstyle-plugin</artifactId>
@@ -381,19 +381,19 @@ under the License.
                     <linksource>true</linksource>
                 </configuration>
             </plugin>
-            <plugin>
-                <groupId>org.apache.rat</groupId>
-                <artifactId>apache-rat-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>validate</id>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
+<!--             <plugin> -->
+<!--                 <groupId>org.apache.rat</groupId> -->
+<!--                 <artifactId>apache-rat-plugin</artifactId> -->
+<!--                 <executions> -->
+<!--                     <execution> -->
+<!--                         <id>validate</id> -->
+<!--                         <phase>validate</phase> -->
+<!--                         <goals> -->
+<!--                             <goal>check</goal> -->
+<!--                         </goals> -->
+<!--                     </execution> -->
+<!--                 </executions> -->
+<!--             </plugin> -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>

@@ -24,7 +24,6 @@ import org.apache.reef.driver.evaluator.EvaluatorRequestor;
 import org.apache.reef.runtime.common.driver.api.ResourceRequestEvent;
 import org.apache.reef.runtime.common.driver.api.ResourceRequestEventImpl;
 import org.apache.reef.runtime.common.driver.api.ResourceRequestHandler;
-import org.apache.reef.runtime.common.utils.Constants;
 import org.apache.reef.util.logging.LoggingScope;
 import org.apache.reef.util.logging.LoggingScopeFactory;
 
@@ -81,16 +80,16 @@ public final class EvaluatorRequestorImpl implements EvaluatorRequestor {
     // for backwards compatibility, we will always set the relax locality flag
     // to true unless the user configured racks, in which case we will check for
     // the ANY modifier (*), if not there, then we won't relax the locality
-    boolean relaxLocality = true;
-    if (!req.getRackNames().isEmpty()) {
-      for (final String rackName : req.getRackNames()) {
-        if (Constants.ANY_RACK.equals(rackName)) {
-          relaxLocality = true;
-          break;
-        }
-        relaxLocality = false;
-      }
-    }
+    final boolean relaxLocality = true;
+//    if (!req.getRackNames().isEmpty()) {
+//      for (final String rackName : req.getRackNames()) {
+//        if (Constants.ANY_RACK.equals(rackName)) {
+//          relaxLocality = true;
+//          break;
+//        }
+//        relaxLocality = false;
+//      }
+//    }
 
     try (LoggingScope ls = loggingScopeFactory.evaluatorSubmit(req.getNumber())) {
       final ResourceRequestEvent request = ResourceRequestEventImpl

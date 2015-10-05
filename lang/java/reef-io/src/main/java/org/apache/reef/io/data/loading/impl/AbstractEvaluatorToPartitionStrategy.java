@@ -82,6 +82,8 @@ public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorT
       try {
         final JobConf jobConf = jobConfExternalConstructor.newInstance();
         final InputFormat inputFormat = jobConf.getInputFormat();
+        LOG.log(Level.INFO, "Setting split minimum size 422472800");
+        jobConf.set(org.apache.hadoop.mapreduce.lib.input.FileInputFormat.SPLIT_MINSIZE, "422472800");
         final InputSplit[] inputSplits = inputFormat.getSplits(jobConf, dp.getDesiredSplits());
         if (LOG.isLoggable(Level.FINEST)) {
           LOG.log(Level.FINEST, "Splits for partition: {0} {1}", new Object[] {dp, Arrays.toString(inputSplits)});
