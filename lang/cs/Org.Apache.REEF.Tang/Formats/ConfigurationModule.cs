@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -57,7 +55,6 @@ namespace Org.Apache.REEF.Tang.Formats
             this.Builder = builder.DeepCopy();
         }
 
-         //public final <T> ConfigurationModule set(Impl<T> opt, Class<? extends T> impl)
         public ConfigurationModule Set<T, U>(IImpl<T> opt, GenericType<U> impl) 
             where U : T 
         {
@@ -107,12 +104,11 @@ namespace Org.Apache.REEF.Tang.Formats
         ////TODO
         ////public readonly ConfigurationModule set(Param<? extends Number> opt, Number val) 
         ////{
-        ////    return set(opt, val);
+        ////   return set(opt, val);
         ////}
 
         public ConfigurationModule Set<T>(IParam<T> opt, string val) 
         {
-            //var o = (IParam<object>)opt;
             ConfigurationModule c = DeepCopy();
             c.ProcessSet(opt);
             if (c.Builder.SetOpts.Contains(opt)) 
@@ -186,18 +182,18 @@ namespace Org.Apache.REEF.Tang.Formats
                 {
                     foreach (Type clz in c.setImplSets.GetValuesForKey(i))
                     {
-                        ICsInternalConfigurationBuilder b = (ICsInternalConfigurationBuilder) c.Builder.B;
+                        ICsInternalConfigurationBuilder b = (ICsInternalConfigurationBuilder)c.Builder.B;
                         b.BindSetEntry(clazz, clz);
                     }
                     foreach (string s in c.setLateImplSets.GetValuesForKey(i))
                     {
-                        ICsInternalConfigurationBuilder b = (ICsInternalConfigurationBuilder) c.Builder.B;
+                        ICsInternalConfigurationBuilder b = (ICsInternalConfigurationBuilder)c.Builder.B;
                         b.BindSetEntry(clazz, s);
                     }
                 } 
                 else if (c.setImplLists.ContainsKey(i))
                 {
-                    ICsConfigurationBuilder b = (ICsConfigurationBuilder) c.Builder.B;
+                    ICsConfigurationBuilder b = (ICsConfigurationBuilder)c.Builder.B;
                     b.BindList(clazz, setImplLists.Get(i));
                 }
                 else if (c.setLateImplLists.ContainsKey(i))
@@ -207,7 +203,6 @@ namespace Org.Apache.REEF.Tang.Formats
                 }
             }
             
-            //for (Class<? extends Name<?>> clazz : c.builder.freeParams.Keys) {
             foreach (Type clazz in c.Builder.FreeParams.Keys) 
             {
                 object p = c.Builder.FreeParams.Get(clazz);
@@ -237,7 +232,6 @@ namespace Org.Apache.REEF.Tang.Formats
 
                 if (!foundOne) 
                 {
-                    //if (!(p is OptionalParameter<object>)) //p: OptionalParameter<int>, "is" doesn't work here for generic type object
                     if (!ReflectionUtilities.IsInstanceOfGeneric(p, typeof(OptionalParameter<>)))
                     {
                         Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(new IllegalStateException(), LOGGER);

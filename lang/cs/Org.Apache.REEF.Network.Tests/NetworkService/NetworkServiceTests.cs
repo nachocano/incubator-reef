@@ -1,28 +1,25 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.Linq;
 using System.Net;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.Apache.REEF.Common.Io;
 using Org.Apache.REEF.Network.Naming;
 using Org.Apache.REEF.Network.NetworkService;
@@ -34,13 +31,13 @@ using Org.Apache.REEF.Wake;
 using Org.Apache.REEF.Wake.Remote;
 using Org.Apache.REEF.Wake.Remote.Impl;
 using Org.Apache.REEF.Wake.Util;
+using Xunit;
 
 namespace Org.Apache.REEF.Network.Tests.NetworkService
 {
-    [TestClass]
     public class NetworkServiceTests
     {
-        [TestMethod]
+        [Fact]
         public void TestNetworkServiceOneWayCommunication()
         {
             int networkServicePort1 = NetworkUtils.GenerateRandomPort(6000, 7000);
@@ -68,15 +65,15 @@ namespace Org.Apache.REEF.Network.Tests.NetworkService
                         connection.Write("def");
                         connection.Write("ghi");
 
-                        Assert.AreEqual("abc", queue.Take());
-                        Assert.AreEqual("def", queue.Take());
-                        Assert.AreEqual("ghi", queue.Take());
+                        Assert.Equal("abc", queue.Take());
+                        Assert.Equal("def", queue.Take());
+                        Assert.Equal("ghi", queue.Take());
                     }
                 }
             }
         }
 
-        [TestMethod]
+        [Fact]
         public void TestNetworkServiceTwoWayCommunication()
         {
             int networkServicePort1 = NetworkUtils.GenerateRandomPort(6000, 7000);
@@ -110,12 +107,12 @@ namespace Org.Apache.REEF.Network.Tests.NetworkService
                         connection2.Write("jkl");
                         connection2.Write("mno");
 
-                        Assert.AreEqual("abc", queue2.Take());
-                        Assert.AreEqual("def", queue2.Take());
-                        Assert.AreEqual("ghi", queue2.Take());
+                        Assert.Equal("abc", queue2.Take());
+                        Assert.Equal("def", queue2.Take());
+                        Assert.Equal("ghi", queue2.Take());
 
-                        Assert.AreEqual("jkl", queue1.Take());
-                        Assert.AreEqual("mno", queue1.Take());
+                        Assert.Equal("jkl", queue1.Take());
+                        Assert.Equal("mno", queue1.Take());
                     }
                 }
             }
@@ -161,7 +158,7 @@ namespace Org.Apache.REEF.Network.Tests.NetworkService
             var nameClient = injector.GetInstance<NameClient>();
             var remoteManagerFactory = injector.GetInstance<IRemoteManagerFactory>();
             return new NetworkService<string>(networkServicePort,
-                handler, new StringIdentifierFactory(), new StringCodec(), nameClient, remoteManagerFactory);
+                handler, new StringIdentifierFactory(), new StringCodec(), nameClient, injector.GetInstance<ILocalAddressProvider>(), remoteManagerFactory);
         }
 
         private class MessageHandler : IObserver<NsMessage<string>>

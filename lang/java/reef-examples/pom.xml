@@ -26,9 +26,13 @@ under the License.
     <parent>
         <groupId>org.apache.reef</groupId>
         <artifactId>reef-project</artifactId>
-        <version>0.13.0-incubating-SNAPSHOT</version>
+        <version>0.16.0-SNAPSHOT</version>
         <relativePath>../../..</relativePath>
     </parent>
+
+    <properties>
+        <rootPath>${basedir}/../../..</rootPath>
+    </properties>
 
     <dependencies>
         <!-- REEF -->
@@ -40,6 +44,11 @@ under the License.
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>reef-runtime-local</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>reef-runtime-standalone</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -98,11 +107,27 @@ under the License.
             <artifactId>junit</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.reef</groupId>
+            <artifactId>reef-runtime-multi</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
     </dependencies>
 
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-checkstyle-plugin</artifactId>
+                    <configuration>
+                        <configLocation>lang/java/reef-common/src/main/resources/checkstyle-strict.xml</configLocation>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Concurrent;
@@ -25,7 +23,6 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.Apache.REEF.Common.Io;
 using Org.Apache.REEF.Network.Naming;
 using Org.Apache.REEF.Network.NetworkService;
@@ -41,19 +38,19 @@ using Org.Apache.REEF.Wake.Remote.Impl;
 using Org.Apache.REEF.Wake.StreamingCodec;
 using Org.Apache.REEF.Wake.StreamingCodec.CommonStreamingCodecs;
 using Org.Apache.REEF.Wake.Util;
+using Xunit;
 
 namespace Org.Apache.REEF.Network.Tests.NetworkService
 {
     /// <summary>
     /// Tests for Streaming Network Service
     /// </summary>
-    [TestClass]
     public class StreamingNetworkServiceTests
     {
         /// <summary>
         /// Tests one way communication between two network services
         /// </summary>
-        [TestMethod]
+        [Fact]
         public void TestStreamingNetworkServiceOneWayCommunication()
         {
             int networkServicePort1 = NetworkUtils.GenerateRandomPort(6000, 7000);
@@ -103,9 +100,9 @@ namespace Org.Apache.REEF.Network.Tests.NetworkService
                         connection.Write("def");
                         connection.Write("ghi");
 
-                        Assert.AreEqual("abc", queue.Take());
-                        Assert.AreEqual("def", queue.Take());
-                        Assert.AreEqual("ghi", queue.Take());
+                        Assert.Equal("abc", queue.Take());
+                        Assert.Equal("def", queue.Take());
+                        Assert.Equal("ghi", queue.Take());
                     }
                 }
             }
@@ -114,7 +111,7 @@ namespace Org.Apache.REEF.Network.Tests.NetworkService
         /// <summary>
         /// Tests two way communication between two network services
         /// </summary>
-        [TestMethod]
+        [Fact]
         public void TestStreamingNetworkServiceTwoWayCommunication()
         {
             int networkServicePort1 = NetworkUtils.GenerateRandomPort(6000, 7000);
@@ -165,12 +162,12 @@ namespace Org.Apache.REEF.Network.Tests.NetworkService
                         connection2.Write("jkl");
                         connection2.Write("nop");
 
-                        Assert.AreEqual("abc", queue2.Take());
-                        Assert.AreEqual("def", queue2.Take());
-                        Assert.AreEqual("ghi", queue2.Take());
+                        Assert.Equal("abc", queue2.Take());
+                        Assert.Equal("def", queue2.Take());
+                        Assert.Equal("ghi", queue2.Take());
 
-                        Assert.AreEqual("jkl", queue1.Take());
-                        Assert.AreEqual("nop", queue1.Take());
+                        Assert.Equal("jkl", queue1.Take());
+                        Assert.Equal("nop", queue1.Take());
                     }
                 }
             }
@@ -179,7 +176,7 @@ namespace Org.Apache.REEF.Network.Tests.NetworkService
         /// <summary>
         /// Tests StreamingCodecFunctionCache
         /// </summary>
-        [TestMethod]
+        [Fact]
         public void TestStreamingCodecFunctionCache()
         {
             IConfiguration conf = TangFactory.GetTang().NewConfigurationBuilder()
@@ -190,7 +187,7 @@ namespace Org.Apache.REEF.Network.Tests.NetworkService
             StreamingCodecFunctionCache<A> cache = new StreamingCodecFunctionCache<A>(injector);
 
             var readFunc = cache.ReadFunction(typeof(B));
-            var writeFunc = cache.WriteFunction(typeof (B));
+            var writeFunc = cache.WriteFunction(typeof(B));
             var readAsyncFunc = cache.ReadAsyncFunction(typeof(B));
             var writeAsyncFunc = cache.WriteAsyncFunction(typeof(B));
 
@@ -219,10 +216,10 @@ namespace Org.Apache.REEF.Network.Tests.NetworkService
             res = readAsyncFunc.EndInvoke(asyncResult);
             B resB2 = res as B;
             
-            Assert.AreEqual("hello", resB1.Value1);
-            Assert.AreEqual("reef", resB1.Value2);
-            Assert.AreEqual("helloasync", resB2.Value1);
-            Assert.AreEqual("reefasync", resB2.Value2);
+            Assert.Equal("hello", resB1.Value1);
+            Assert.Equal("reef", resB1.Value2);
+            Assert.Equal("helloasync", resB2.Value1);
+            Assert.Equal("reefasync", resB2.Value2);
         }
 
         /// <summary>
@@ -301,6 +298,7 @@ namespace Org.Apache.REEF.Network.Tests.NetworkService
                 await writer.WriteStringAsync(obj.Value2, token);
             }
         } 
+
         /// <summary>
         /// The observer to handle incoming messages for string
         /// </summary>

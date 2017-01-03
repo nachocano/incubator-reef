@@ -23,7 +23,6 @@ import org.apache.reef.driver.context.ActiveContext;
 import org.apache.reef.driver.context.ClosedContext;
 import org.apache.reef.driver.context.ContextConfiguration;
 import org.apache.reef.driver.evaluator.AllocatedEvaluator;
-import org.apache.reef.driver.evaluator.EvaluatorRequest;
 import org.apache.reef.driver.evaluator.EvaluatorRequestor;
 import org.apache.reef.driver.task.FailedTask;
 import org.apache.reef.driver.task.TaskConfiguration;
@@ -56,6 +55,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Driver for broadcast example.
+ */
 @DriverSide
 @Unit
 public class BroadcastDriver {
@@ -126,10 +128,10 @@ public class BroadcastDriver {
     public void onNext(final StartTime startTime) {
       final int numEvals = BroadcastDriver.this.numberOfReceivers + 1;
       LOG.log(Level.FINE, "Requesting {0} evaluators", numEvals);
-      BroadcastDriver.this.requestor.submit(EvaluatorRequest.newBuilder()
+      BroadcastDriver.this.requestor.newRequest()
           .setNumber(numEvals)
           .setMemory(2048)
-          .build());
+          .submit();
     }
   }
 
@@ -148,6 +150,9 @@ public class BroadcastDriver {
     }
   }
 
+  /**
+   * FailedTask handler.
+   */
   public class FailedTaskHandler implements EventHandler<FailedTask> {
 
     @Override
@@ -179,6 +184,9 @@ public class BroadcastDriver {
     }
   }
 
+  /**
+   * ActiveContext handler.
+   */
   public class ContextActiveHandler implements EventHandler<ActiveContext> {
 
     private final AtomicBoolean storeMasterId = new AtomicBoolean(false);
@@ -270,6 +278,9 @@ public class BroadcastDriver {
     }
   }
 
+  /**
+   * ClosedContext handler.
+   */
   public class ContextCloseHandler implements EventHandler<ClosedContext> {
 
     @Override

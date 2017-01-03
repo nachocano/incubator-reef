@@ -429,7 +429,7 @@ public class OperatorTopologyStructImpl implements OperatorTopologyStruct {
       LOG.warning(getQualifiedName() + "Got dead msg when no node existed. OOS Queuing up for add to handle");
       addToDeadMsgs(msgSrcId, msgSrcVersion);
       LOG.exiting("OperatorTopologyStructImpl", "addedToDeadMsgs",
-          Arrays.toString(new Object[]{true, getQualifiedName(), node, msgSrcId, msgSrcVersion}));
+          Arrays.toString(new Object[]{true, getQualifiedName(), null, msgSrcId, msgSrcVersion}));
       return true;
     }
     final int nodeVersion = node.getVersion();
@@ -450,7 +450,7 @@ public class OperatorTopologyStructImpl implements OperatorTopologyStruct {
    * Updates the topology structure with the received
    * message. Does not make assumptions about msg order
    * Tries to handle OOS msgs
-   * <p/>
+   * <p>
    * Expects only control messages
    */
   @Override

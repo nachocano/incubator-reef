@@ -1,35 +1,33 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
 using Org.Apache.REEF.Network.Group.Config;
 using Org.Apache.REEF.Network.Group.Operators;
 using Org.Apache.REEF.Network.Group.Operators.Impl;
+using Org.Apache.REEF.Tang.Implementations.Configuration;
 using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Util;
-using Org.Apache.REEF.Tang.Implementations.Configuration;
 
 namespace Org.Apache.REEF.Network.Group.Topology
 {
-    public class TreeTopology<T> : ITopology<T> 
+    internal sealed class TreeTopology<T> : ITopology<T> 
     {
         private readonly string _groupName;
         private readonly string _operatorName;
@@ -52,7 +50,7 @@ namespace Org.Apache.REEF.Network.Group.Topology
         /// <param name="rootId">The root Task identifier</param>
         /// <param name="driverId">The driver identifier</param>
         /// <param name="operatorSpec">The operator specification</param>
-        /// <param name="fanOut">The number of chldren for a tree node</param>
+        /// <param name="fanOut">The number of children for a tree node</param>
         public TreeTopology(
             string operatorName, 
             string groupName, 
@@ -103,13 +101,13 @@ namespace Org.Apache.REEF.Network.Group.Topology
                 parentId = parent.TaskId;
             }
 
-            //add parentid, if no parent, add itself
+            // add parentid, if no parent, add itself
             ICsConfigurationBuilder confBuilder = TangFactory.GetTang().NewConfigurationBuilder()
                 .BindNamedParameter<GroupCommConfigurationOptions.TopologyRootTaskId, string>(
                     GenericType<GroupCommConfigurationOptions.TopologyRootTaskId>.Class,
                     parentId);
 
-            //add all its children
+            // add all its children
             foreach (TaskNode childNode in selfTaskNode.GetChildren())
             {
                 confBuilder.BindSetEntry<GroupCommConfigurationOptions.TopologyChildTaskIds, string>(
@@ -164,7 +162,7 @@ namespace Org.Apache.REEF.Network.Group.Topology
                 throw new NotSupportedException("Spec type not supported");
             }
 
-            return Configurations.Merge(confBuilder.Build(), OperatorSpec.Configiration);
+            return Configurations.Merge(confBuilder.Build(), OperatorSpec.Configuration);
         }
 
         public void AddTask(string taskId)

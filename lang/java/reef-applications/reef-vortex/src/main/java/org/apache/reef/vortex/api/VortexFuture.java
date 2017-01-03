@@ -19,33 +19,114 @@
 package org.apache.reef.vortex.api;
 
 import org.apache.reef.annotations.Unstable;
+import org.apache.reef.annotations.audience.Private;
+import org.apache.reef.util.Optional;
+import org.apache.reef.vortex.driver.VortexFutureDelegate;
+import org.apache.reef.vortex.driver.VortexMaster;
 
+import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * The interface between user code and submitted task.
- * TODO[REEF-505]: Callback features for VortexFuture.
  */
 @Unstable
-public final class VortexFuture<TOutput> implements Future<TOutput> {
-  private TOutput userResult;
+public final class VortexFuture<TOutput> implements Future<TOutput>, VortexFutureDelegate<TOutput> {
+  private static final Logger LOG = Logger.getLogger(VortexFuture.class.getName());
+
+  // userResult starts out as null. If not null => variable is set and tasklet returned.
+  // Otherwise tasklet has not completed.
+  private Optional<TOutput> userResult = null;
   private Exception userException;
+  private AtomicBoolean cancelled = new AtomicBoolean(false);
   private final CountDownLatch countDownLatch = new CountDownLatch(1);
+  private final FutureCallback<TOutput> callbackHandler;
+  private final Executor executor;
+  private final VortexMaster vortexMaster;
+  private final int taskletId;
 
   /**
-   * TODO[REEF-502]: Support Vortex Tasklet(s) cancellation by user.
+   * Creates a {@link VortexFuture}.
    */
-  @Override
-  public boolean cancel(final boolean mayInterruptIfRunning) {
-    throw new UnsupportedOperationException("Cancel not yet supported");
+  @Private
+  public VortexFuture(final Executor executor, final VortexMaster vortexMaster, final int taskletId) {
+    this(executor, vortexMaster, taskletId, null);
   }
 
   /**
-   * TODO[REEF-502]: Support Vortex Tasklet(s) cancellation by user.
+   * Creates a {@link VortexFuture} with a callback.
+   */
+  @Private
+  public VortexFuture(final Executor executor,
+                      final VortexMaster vortexMaster,
+                      final int taskletId,
+                      final FutureCallback<TOutput> callbackHandler) {
+    this.executor = executor;
+    this.vortexMaster = vortexMaster;
+    this.taskletId = taskletId;
+    this.callbackHandler = callbackHandler;
+  }
+
+  /**
+   * Sends a cancel signal and blocks and waits until the task is cancelled, completed, or failed.
+   * @return true if task did not start or was cancelled, false if task failed or completed
+   */
+  @Override
+  public boolean cancel(final boolean mayInterruptIfRunning) {
+    try {
+      return cancel(mayInterruptIfRunning, Optional.<Long>empty(), Optional.<TimeUnit>empty());
+    } catch (final TimeoutException e) {
+      // This should never happen.
+      LOG.log(Level.WARNING, "Received a TimeoutException in VortexFuture.cancel(). Should not have occurred.");
+      return false;
+    }
+  }
+
+  /**
+   * Sends a cancel signal and blocks and waits until the task is cancelled, completed, or failed, or
+   * if the timeout has expired.
+   * @return true if task did not start or was cancelled, false if task failed or completed
+   */
+  public boolean cancel(final boolean mayInterruptIfRunning, final long timeout, final TimeUnit unit)
+      throws TimeoutException {
+    return cancel(mayInterruptIfRunning, Optional.of(timeout), Optional.of(unit));
+  }
+
+  private boolean cancel(final boolean mayInterruptIfRunning,
+                         final Optional<Long> timeout,
+                         final Optional<TimeUnit> unit) throws TimeoutException {
+    if (isDone()) {
+      return isCancelled();
+    }
+
+    vortexMaster.cancelTasklet(mayInterruptIfRunning, taskletId);
+
+    try {
+      if (timeout.isPresent() && unit.isPresent()) {
+        if (!countDownLatch.await(timeout.get(), unit.get())) {
+          throw new TimeoutException("Cancellation of the VortexFuture timed out. Timeout = " + timeout.get()
+                  + " in time units: " + unit.get());
+        }
+      } else {
+        countDownLatch.await();
+      }
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+      return false;
+    }
+
+    return isCancelled();
+  }
+
+  /**
+   * @return true if the task is cancelled, false if not.
    */
   @Override
   public boolean isCancelled() {
-    throw new UnsupportedOperationException("Cancel not yet supported");
+    return cancelled.get();
   }
 
   /**
@@ -58,49 +139,117 @@ public final class VortexFuture<TOutput> implements Future<TOutput> {
 
   /**
    * Infinitely wait for the result of the task.
+   * @throws InterruptedException if the thread is interrupted.
+   * @throws ExecutionException if the Tasklet execution failed to complete.
+   * @throws CancellationException if the Tasklet was cancelled.
    */
   @Override
-  public TOutput get() throws InterruptedException, ExecutionException {
+  public TOutput get() throws InterruptedException, ExecutionException, CancellationException {
     countDownLatch.await();
     if (userResult != null) {
-      return userResult;
+      return userResult.get();
     } else {
-      assert(userException != null);
-      throw new ExecutionException(userException);
+      assert this.cancelled.get() || userException != null;
+      if (userException != null) {
+        throw new ExecutionException(userException);
+      }
+
+      throw new CancellationException("Tasklet was cancelled.");
     }
   }
 
   /**
    * Wait a certain period of time for the result of the task.
+   * @throws TimeoutException if the timeout provided hits before the Tasklet is done.
+   * @throws InterruptedException if the thread is interrupted.
+   * @throws ExecutionException if the Tasklet execution failed to complete.
+   * @throws CancellationException if the Tasklet was cancelled.
    */
   @Override
   public TOutput get(final long timeout, final TimeUnit unit)
-      throws InterruptedException, ExecutionException, TimeoutException {
+      throws InterruptedException, ExecutionException, TimeoutException, CancellationException {
     if (!countDownLatch.await(timeout, unit)) {
-      throw new TimeoutException();
+      throw new TimeoutException("Waiting for the results of the task timed out. Timeout = " + timeout
+              + " in time units: " + unit);
     }
 
-    if (userResult != null) {
-      return userResult;
-    } else {
-      assert(userException != null);
-      throw new ExecutionException(userException);
-    }
+    return get();
   }
 
   /**
-   * Called by VortexMaster to let the user know that the task completed.
+   * Called by VortexMaster to let the user know that the Tasklet completed.
    */
-  public void completed(final TOutput result) {
-    this.userResult = result;
+  @Private
+  @Override
+  public void completed(final int pTaskletId, final TOutput result) {
+    assert taskletId == pTaskletId;
+    this.userResult = Optional.ofNullable(result);
+    if (callbackHandler != null) {
+      executor.execute(new Runnable() {
+        @Override
+        public void run() {
+          callbackHandler.onSuccess(userResult.get());
+        }
+      });
+    }
     this.countDownLatch.countDown();
   }
 
   /**
-   * Called by VortexMaster to let the user know that the task threw an exception.
+   * VortexMaster should never call this.
    */
-  public void threwException(final Exception exception) {
+  @Private
+  @Override
+  public void aggregationCompleted(final List<Integer> taskletIds, final TOutput result) {
+    throw new RuntimeException("Functions not associated with AggregationFunctions cannot be aggregated.");
+  }
+
+  /**
+   * Called by VortexMaster to let the user know that the Tasklet threw an exception.
+   */
+  @Private
+  @Override
+  public void threwException(final int pTaskletId, final Exception exception) {
+    assert taskletId == pTaskletId;
+
     this.userException = exception;
+    if (callbackHandler != null) {
+      executor.execute(new Runnable() {
+        @Override
+        public void run() {
+          callbackHandler.onFailure(exception);
+        }
+      });
+    }
+    this.countDownLatch.countDown();
+  }
+
+  /**
+   * VortexMaster should never call this.
+   */
+  @Private
+  @Override
+  public void aggregationThrewException(final List<Integer> taskletIds, final Exception exception) {
+    throw new RuntimeException("Functions not associated with AggregationFunctions cannot be aggregated");
+  }
+
+  /**
+   * Called by VortexMaster to let the user know that the Tasklet was cancelled.
+   */
+  @Private
+  @Override
+  public void cancelled(final int pTaskletId) {
+    assert taskletId == pTaskletId;
+
+    this.cancelled.set(true);
+    if (callbackHandler != null) {
+      executor.execute(new Runnable() {
+        @Override
+        public void run() {
+          callbackHandler.onFailure(new InterruptedException("VortexFuture has been cancelled on request."));
+        }
+      });
+    }
     this.countDownLatch.countDown();
   }
 }

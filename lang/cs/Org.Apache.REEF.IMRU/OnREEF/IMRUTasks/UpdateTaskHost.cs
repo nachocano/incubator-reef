@@ -15,13 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+using System;
+using System.Threading;
 using Org.Apache.REEF.Common.Tasks;
 using Org.Apache.REEF.IMRU.API;
 using Org.Apache.REEF.IMRU.OnREEF.Driver;
 using Org.Apache.REEF.IMRU.OnREEF.MapInputWithControlMessage;
+using Org.Apache.REEF.IMRU.OnREEF.Parameters;
 using Org.Apache.REEF.Network.Group.Operators;
 using Org.Apache.REEF.Network.Group.Task;
 using Org.Apache.REEF.Tang.Annotations;
+using Org.Apache.REEF.Utilities.Attributes;
 using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.IMRU.OnREEF.IMRUTasks
@@ -32,67 +36,122 @@ namespace Org.Apache.REEF.IMRU.OnREEF.IMRUTasks
     /// <typeparam name="TMapInput">Map input</typeparam>
     /// <typeparam name="TMapOutput">Map output</typeparam>
     /// <typeparam name="TResult">Final result</typeparam>
-    public sealed class UpdateTaskHost<TMapInput, TMapOutput, TResult> : ITask
+    [ThreadSafe]
+    internal sealed class UpdateTaskHost<TMapInput, TMapOutput, TResult> : TaskHostBase
     {
         private static readonly Logger Logger = Logger.GetLogger(typeof(UpdateTaskHost<TMapInput, TMapOutput, TResult>));
 
         private readonly IReduceReceiver<TMapOutput> _dataReceiver;
         private readonly IBroadcastSender<MapInputWithControlMessage<TMapInput>> _dataAndControlMessageSender;
         private readonly IUpdateFunction<TMapInput, TMapOutput, TResult> _updateTask;
+        private readonly IIMRUResultHandler<TResult> _resultHandler;
 
         /// <summary>
         /// </summary>
         /// <param name="updateTask">The UpdateTask hosted in this REEF Task.</param>
         /// <param name="groupCommunicationsClient">Used to setup the communications.</param>
+        /// <param name="resultHandler">Result handler</param>
+        /// <param name="taskCloseCoordinator">Task close Coordinator</param>
+        /// <param name="invokeGc">Whether to call Garbage Collector after each iteration or not</param>
+        /// <param name="taskId">task id</param>
         [Inject]
         private UpdateTaskHost(
             IUpdateFunction<TMapInput, TMapOutput, TResult> updateTask,
-            IGroupCommClient groupCommunicationsClient)
+            IGroupCommClient groupCommunicationsClient,
+            IIMRUResultHandler<TResult> resultHandler,
+            TaskCloseCoordinator taskCloseCoordinator,
+            [Parameter(typeof(InvokeGC))] bool invokeGc,
+            [Parameter(typeof(TaskConfigurationOptions.Identifier))] string taskId) :
+            base(groupCommunicationsClient, taskCloseCoordinator, invokeGc)
         {
+            Logger.Log(Level.Info, "Entering constructor of UpdateTaskHost for task id {0}", taskId);
             _updateTask = updateTask;
-            var cg = groupCommunicationsClient.GetCommunicationGroup(IMRUConstants.CommunicationGroupName);
-            _dataAndControlMessageSender = cg.GetBroadcastSender<MapInputWithControlMessage<TMapInput>>(IMRUConstants.BroadcastOperatorName);
-            _dataReceiver = cg.GetReduceReceiver<TMapOutput>(IMRUConstants.ReduceOperatorName);
+            _dataAndControlMessageSender =
+                _communicationGroupClient.GetBroadcastSender<MapInputWithControlMessage<TMapInput>>(IMRUConstants.BroadcastOperatorName);
+            _dataReceiver = _communicationGroupClient.GetReduceReceiver<TMapOutput>(IMRUConstants.ReduceOperatorName);
+            _resultHandler = resultHandler;
+            Logger.Log(Level.Info, "$$$$_resultHandler." + _resultHandler.GetType().AssemblyQualifiedName);
+            Logger.Log(Level.Info, "UpdateTaskHost initialized.");
         }
 
         /// <summary>
         /// Performs IMRU iterations on update side
         /// </summary>
-        /// <param name="memento"></param>
         /// <returns></returns>
-        public byte[] Call(byte[] memento)
+        protected override byte[] TaskBody(byte[] memento)
         {
-            var updateResult = _updateTask.Initialize();
-            MapInputWithControlMessage<TMapInput> message =
-                new MapInputWithControlMessage<TMapInput>(MapControlMessage.AnotherRound);
-
-            while (updateResult.HasMapInput)
+            UpdateResult<TMapInput, TResult> updateResult = null;
+            try
             {
-                message.Message = updateResult.MapInput;
-                _dataAndControlMessageSender.Send(message);
-                updateResult = _updateTask.Update(_dataReceiver.Reduce());
-                if (updateResult.HasResult)
+                updateResult = _updateTask.Initialize();
+            }
+            catch (Exception e)
+            {
+                HandleTaskAppException(e);
+            }
+
+            while (!_cancellationSource.IsCancellationRequested && updateResult.HasMapInput)
+            {
+                using (
+                    var message = new MapInputWithControlMessage<TMapInput>(updateResult.MapInput,
+                        MapControlMessage.AnotherRound))
                 {
-                    // TODO[REEF-576]: Emit output somewhere.
+                    _dataAndControlMessageSender.Send(message);
+                }
+
+                if (_invokeGc)
+                {
+                    Logger.Log(Level.Verbose, "Calling Garbage Collector");
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                }
+
+                var input = _dataReceiver.Reduce(_cancellationSource);
+
+                try
+                {
+                    updateResult = _updateTask.Update(input);
+                    if (updateResult.HasResult)
+                    {
+                        _resultHandler.HandleResult(updateResult.Result);
+                    }
+                }
+                catch (Exception e)
+                {
+                    HandleTaskAppException(e);
                 }
             }
 
-            message.ControlMessage = MapControlMessage.Stop;
-            _dataAndControlMessageSender.Send(message);
-
-            if (updateResult.HasResult)
+            if (!_cancellationSource.IsCancellationRequested)
             {
-                // TODO[REEF-576]: Emit output somewhere.
+                MapInputWithControlMessage<TMapInput> stopMessage =
+                    new MapInputWithControlMessage<TMapInput>(MapControlMessage.Stop);
+                _dataAndControlMessageSender.Send(stopMessage);
             }
 
             return null;
         }
 
         /// <summary>
-        /// Dispose function
+        /// Return UpdateHostName
         /// </summary>
-        public void Dispose()
+        protected override string TaskHostName
         {
+            get { return "UpdateTaskHost"; }
+        }
+
+        public override void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                _resultHandler.Dispose();
+                _groupCommunicationsClient.Dispose();
+                var disposableTask = _updateTask as IDisposable;
+                if (disposableTask != null)
+                {
+                    disposableTask.Dispose();
+                }
+            }
         }
     }
 }

@@ -22,6 +22,7 @@ import org.apache.reef.io.ConfigurableDirectoryTempFileCreator;
 import org.apache.reef.io.TempFileCreator;
 import org.apache.reef.io.parameters.TempFileRootFolder;
 import org.apache.reef.runtime.local.client.LocalRuntimeConfiguration;
+import org.apache.reef.runtime.local.driver.RuntimeIdentifier;
 import org.apache.reef.tang.Configuration;
 import org.apache.reef.tang.Configurations;
 import org.apache.reef.tang.JavaConfigurationBuilder;
@@ -46,7 +47,7 @@ public final class LocalTestEnvironment extends TestEnvironmentBase implements T
 
   @Override
   public synchronized Configuration getRuntimeConfiguration() {
-    assert (this.ready);
+    assert this.ready;
     final String rootFolder = System.getProperty("org.apache.reef.runtime.local.folder");
     final JavaConfigurationBuilder jcb = Tang.Factory.getTang().newConfigurationBuilder();
     jcb.bindNamedParameter(TempFileRootFolder.class, "./target/reef/temp");
@@ -66,12 +67,17 @@ public final class LocalTestEnvironment extends TestEnvironmentBase implements T
 
   @Override
   public synchronized void tearDown() {
-    assert (this.ready);
+    assert this.ready;
     this.ready = false;
   }
 
   @Override
   public int getTestTimeout() {
     return 60000; // 1 min.
+  }
+
+  @Override
+  public String getRuntimeName() {
+    return RuntimeIdentifier.RUNTIME_NAME;
   }
 }

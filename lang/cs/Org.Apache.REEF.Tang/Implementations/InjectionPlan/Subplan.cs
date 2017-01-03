@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -28,13 +26,13 @@ using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Tang.Implementations.InjectionPlan
 {
-    public class Subplan : InjectionPlan
+    internal sealed class Subplan : InjectionPlan
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(Subplan));
 
-        readonly InjectionPlan[] alternatives; //all implementatios on the same interface
+        readonly InjectionPlan[] alternatives; // all implementations on the same interface
         readonly int numAlternatives;
-        readonly int selectedIndex; //the implementation that is bound
+        readonly int selectedIndex; // the implementation that is bound
 
         public Subplan(INode n, int selectedIndex, InjectionPlan[] alternatives)
             : base(n)
@@ -45,12 +43,14 @@ namespace Org.Apache.REEF.Tang.Implementations.InjectionPlan
                 Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(new IndexOutOfRangeException(), LOGGER);
             }
             this.selectedIndex = selectedIndex;
-            if (selectedIndex != -1)   //one was bound
+            if (selectedIndex != -1)
             {
+                // one was bound
                 this.numAlternatives = alternatives[selectedIndex].GetNumAlternatives();
             }
-            else // no one was bound, but anyone could be used
+            else
             {
+                // no one was bound, but anyone could be used
                 int numAlternatives = 0;
                 foreach (InjectionPlan a in alternatives)
                 {
@@ -151,14 +151,14 @@ namespace Org.Apache.REEF.Tang.Implementations.InjectionPlan
             return null;
         }
 
-        //public override bool HasFutureDependency()
-        //{
-        //    if (selectedIndex == -1)
-        //    {
-        //        throw new IllegalStateException("hasFutureDependency() called on ambiguous subplan!");
-        //    }
-        //    return alternatives[selectedIndex].HasFutureDependency();
-        //}
+        ////public override bool HasFutureDependency()
+        ////{
+        ////   if (selectedIndex == -1)
+        ////   {
+        ////       throw new IllegalStateException("hasFutureDependency() called on ambiguous subplan!");
+        ////   }
+        ////   return alternatives[selectedIndex].HasFutureDependency();
+        ////}
 
         public override string ToAmbiguousInjectString()
         {
@@ -231,6 +231,5 @@ namespace Org.Apache.REEF.Tang.Implementations.InjectionPlan
         {
             return false;
         }
-
     }
 }

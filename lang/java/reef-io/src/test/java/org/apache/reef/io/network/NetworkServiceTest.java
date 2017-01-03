@@ -18,8 +18,10 @@
  */
 package org.apache.reef.io.network;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.reef.exception.evaluator.NetworkException;
 import org.apache.reef.io.network.impl.NetworkService;
+import org.apache.reef.io.network.impl.NetworkServiceParameters;
 import org.apache.reef.io.network.naming.NameResolver;
 import org.apache.reef.io.network.naming.NameResolverConfiguration;
 import org.apache.reef.io.network.naming.NameServer;
@@ -35,7 +37,6 @@ import org.apache.reef.wake.EventHandler;
 import org.apache.reef.wake.Identifier;
 import org.apache.reef.wake.IdentifierFactory;
 import org.apache.reef.wake.remote.address.LocalAddressProvider;
-import org.apache.reef.wake.remote.address.LocalAddressProviderFactory;
 import org.apache.reef.wake.remote.transport.netty.MessagingTransportFactory;
 import org.junit.Rule;
 import org.junit.Test;
@@ -57,7 +58,7 @@ public class NetworkServiceTest {
   private final String localAddress;
 
   public NetworkServiceTest() throws InjectionException {
-    localAddressProvider = LocalAddressProviderFactory.getInstance();
+    localAddressProvider = Tang.Factory.getTang().newInjector().getInstance(LocalAddressProvider.class);
     localAddress = localAddressProvider.getLocalAddress();
   }
 
@@ -97,13 +98,24 @@ public class NetworkServiceTest {
 
       LOG.log(Level.FINEST, "=== Test network service receiver start");
       LOG.log(Level.FINEST, "=== Test network service sender start");
-      try (final NameResolver nameResolver = injector2.getInstance(NameResolver.class);
-           final NetworkService<String> ns2 = new NetworkService<String>(factory, 0, nameResolver,
-               new StringCodec(), injector.getInstance(MessagingTransportFactory.class),
-               new MessageHandler<String>(name2, monitor, numMessages), new ExceptionHandler(), localAddressProvider);
-           final NetworkService<String> ns1 = new NetworkService<String>(factory, 0, nameResolver,
-               new StringCodec(), injector.getInstance(MessagingTransportFactory.class),
-               new MessageHandler<String>(name1, null, 0), new ExceptionHandler(), localAddressProvider)) {
+      try (final NameResolver nameResolver = injector2.getInstance(NameResolver.class)) {
+        injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceIdentifierFactory.class, factory);
+        injector2.bindVolatileInstance(NameResolver.class, nameResolver);
+        injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceCodec.class, new StringCodec());
+        injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceTransportFactory.class,
+            injector.getInstance(MessagingTransportFactory.class));
+        injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceExceptionHandler.class,
+            new ExceptionHandler());
+
+        final Injector injectorNs2 = injector2.forkInjector();
+        injectorNs2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceHandler.class,
+            new MessageHandler<String>(name2, monitor, numMessages));
+        final NetworkService<String> ns2 = injectorNs2.getInstance(NetworkService.class);
+
+        final Injector injectorNs1 = injector2.forkInjector();
+        injectorNs1.bindVolatileParameter(NetworkServiceParameters.NetworkServiceHandler.class,
+            new MessageHandler<String>(name1, null, 0));
+        final NetworkService<String> ns1 = injectorNs1.getInstance(NetworkService.class);
 
         ns2.registerId(factory.getNewInstance(name2));
         final int port2 = ns2.getTransport().getListeningPort();
@@ -166,13 +178,24 @@ public class NetworkServiceTest {
 
         LOG.log(Level.FINEST, "=== Test network service receiver start");
         LOG.log(Level.FINEST, "=== Test network service sender start");
-        try (final NameResolver nameResolver = injector2.getInstance(NameResolver.class);
-             NetworkService<String> ns2 = new NetworkService<String>(factory, 0, nameResolver,
-                 new StringCodec(), injector.getInstance(MessagingTransportFactory.class),
-                 new MessageHandler<String>(name2, monitor, numMessages), new ExceptionHandler(), localAddressProvider);
-             NetworkService<String> ns1 = new NetworkService<String>(factory, 0, nameResolver,
-                 new StringCodec(), injector.getInstance(MessagingTransportFactory.class),
-                 new MessageHandler<String>(name1, null, 0), new ExceptionHandler(), localAddressProvider)) {
+        try (final NameResolver nameResolver = injector2.getInstance(NameResolver.class)) {
+          injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceIdentifierFactory.class, factory);
+          injector2.bindVolatileInstance(NameResolver.class, nameResolver);
+          injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceCodec.class, new StringCodec());
+          injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceTransportFactory.class,
+              injector.getInstance(MessagingTransportFactory.class));
+          injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceExceptionHandler.class,
+              new ExceptionHandler());
+
+          final Injector injectorNs2 = injector2.forkInjector();
+          injectorNs2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceHandler.class,
+              new MessageHandler<String>(name2, monitor, numMessages));
+          final NetworkService<String> ns2 = injectorNs2.getInstance(NetworkService.class);
+
+          final Injector injectorNs1 = injector2.forkInjector();
+          injectorNs1.bindVolatileParameter(NetworkServiceParameters.NetworkServiceHandler.class,
+              new MessageHandler<String>(name1, null, 0));
+          final NetworkService<String> ns1 = injectorNs1.getInstance(NetworkService.class);
 
           ns2.registerId(factory.getNewInstance(name2));
           final int port2 = ns2.getTransport().getListeningPort();
@@ -183,18 +206,12 @@ public class NetworkServiceTest {
           server.register(factory.getNewInstance("task1"), new InetSocketAddress(this.localAddress, port1));
 
           final Identifier destId = factory.getNewInstance(name2);
-
-          // build the message
-          final StringBuilder msb = new StringBuilder();
-          for (int i = 0; i < size; i++) {
-            msb.append("1");
-          }
-          final String message = msb.toString();
+          final String message = StringUtils.repeat('1', size);
 
           final long start = System.currentTimeMillis();
           try (Connection<String> conn = ns1.newConnection(destId)) {
+            conn.open();
             for (int i = 0; i < numMessages; i++) {
-              conn.open();
               conn.write(message);
             }
             monitor.mwait();
@@ -227,7 +244,7 @@ public class NetworkServiceTest {
     try (final NameServer server = injector.getInstance(NameServer.class)) {
       final int nameServerPort = server.getPort();
 
-      final BlockingQueue<Object> barrier = new LinkedBlockingQueue<Object>();
+      final BlockingQueue<Object> barrier = new LinkedBlockingQueue<>();
 
       final int numThreads = 4;
       final int size = 2000;
@@ -258,14 +275,24 @@ public class NetworkServiceTest {
 
               LOG.log(Level.FINEST, "=== Test network service receiver start");
               LOG.log(Level.FINEST, "=== Test network service sender start");
-              try (final NameResolver nameResolver = injector.getInstance(NameResolver.class);
-                   NetworkService<String> ns2 = new NetworkService<String>(factory, 0, nameResolver,
-                       new StringCodec(), injector.getInstance(MessagingTransportFactory.class),
-                       new MessageHandler<String>(name2, monitor, numMessages),
-                       new ExceptionHandler(), localAddressProvider);
-                   NetworkService<String> ns1 = new NetworkService<String>(factory, 0, nameResolver,
-                       new StringCodec(), injector.getInstance(MessagingTransportFactory.class),
-                       new MessageHandler<String>(name1, null, 0), new ExceptionHandler(), localAddressProvider)) {
+              try (final NameResolver nameResolver = injector.getInstance(NameResolver.class)) {
+                injector.bindVolatileParameter(NetworkServiceParameters.NetworkServiceIdentifierFactory.class, factory);
+                injector.bindVolatileInstance(NameResolver.class, nameResolver);
+                injector.bindVolatileParameter(NetworkServiceParameters.NetworkServiceCodec.class, new StringCodec());
+                injector.bindVolatileParameter(NetworkServiceParameters.NetworkServiceTransportFactory.class,
+                    injector.getInstance(MessagingTransportFactory.class));
+                injector.bindVolatileParameter(NetworkServiceParameters.NetworkServiceExceptionHandler.class,
+                    new ExceptionHandler());
+
+                final Injector injectorNs2 = injector.forkInjector();
+                injectorNs2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceHandler.class,
+                    new MessageHandler<String>(name2, monitor, numMessages));
+                final NetworkService<String> ns2 = injectorNs2.getInstance(NetworkService.class);
+
+                final Injector injectorNs1 = injector.forkInjector();
+                injectorNs1.bindVolatileParameter(NetworkServiceParameters.NetworkServiceHandler.class,
+                    new MessageHandler<String>(name1, null, 0));
+                final NetworkService<String> ns1 = injectorNs1.getInstance(NetworkService.class);
 
                 ns2.registerId(factory.getNewInstance(name2));
                 final int port2 = ns2.getTransport().getListeningPort();
@@ -276,17 +303,11 @@ public class NetworkServiceTest {
                 server.register(factory.getNewInstance(name1), new InetSocketAddress(localAddress, port1));
 
                 final Identifier destId = factory.getNewInstance(name2);
-
-                // build the message
-                final StringBuilder msb = new StringBuilder();
-                for (int i = 0; i < size; i++) {
-                  msb.append("1");
-                }
-                final String message = msb.toString();
+                final String message = StringUtils.repeat('1', size);
 
                 try (Connection<String> conn = ns1.newConnection(destId)) {
+                  conn.open();
                   for (int i = 0; i < numMessages; i++) {
-                    conn.open();
                     conn.write(message);
                   }
                   monitor.mwait();
@@ -354,14 +375,24 @@ public class NetworkServiceTest {
 
         LOG.log(Level.FINEST, "=== Test network service receiver start");
         LOG.log(Level.FINEST, "=== Test network service sender start");
-        try (final NameResolver nameResolver = injector2.getInstance(NameResolver.class);
-             NetworkService<String> ns2 = new NetworkService<String>(factory, 0, nameResolver,
-                 new StringCodec(), injector.getInstance(MessagingTransportFactory.class),
-                 new MessageHandler<String>(name2, monitor, totalNumMessages),
-                 new ExceptionHandler(), localAddressProvider);
-             NetworkService<String> ns1 = new NetworkService<String>(factory, 0, nameResolver,
-                 new StringCodec(), injector.getInstance(MessagingTransportFactory.class),
-                 new MessageHandler<String>(name1, null, 0), new ExceptionHandler(), localAddressProvider)) {
+        try (final NameResolver nameResolver = injector2.getInstance(NameResolver.class)) {
+          injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceIdentifierFactory.class, factory);
+          injector2.bindVolatileInstance(NameResolver.class, nameResolver);
+          injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceCodec.class, new StringCodec());
+          injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceTransportFactory.class,
+              injector.getInstance(MessagingTransportFactory.class));
+          injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceExceptionHandler.class,
+              new ExceptionHandler());
+
+          final Injector injectorNs2 = injector2.forkInjector();
+          injectorNs2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceHandler.class,
+              new MessageHandler<String>(name2, monitor, numMessages));
+          final NetworkService<String> ns2 = injectorNs2.getInstance(NetworkService.class);
+
+          final Injector injectorNs1 = injector2.forkInjector();
+          injectorNs1.bindVolatileParameter(NetworkServiceParameters.NetworkServiceHandler.class,
+              new MessageHandler<String>(name1, null, 0));
+          final NetworkService<String> ns1 = injectorNs1.getInstance(NetworkService.class);
 
           ns2.registerId(factory.getNewInstance(name2));
           final int port2 = ns2.getTransport().getListeningPort();
@@ -376,13 +407,7 @@ public class NetworkServiceTest {
           try (final Connection<String> conn = ns1.newConnection(destId)) {
             conn.open();
 
-            // build the message
-            final StringBuilder msb = new StringBuilder();
-            for (int i = 0; i < size; i++) {
-              msb.append("1");
-            }
-            final String message = msb.toString();
-
+            final String message = StringUtils.repeat('1', size);
             final ExecutorService e = Executors.newCachedThreadPool();
 
             final long start = System.currentTimeMillis();
@@ -451,13 +476,24 @@ public class NetworkServiceTest {
 
         LOG.log(Level.FINEST, "=== Test network service receiver start");
         LOG.log(Level.FINEST, "=== Test network service sender start");
-        try (final NameResolver nameResolver = injector2.getInstance(NameResolver.class);
-             NetworkService<String> ns2 = new NetworkService<String>(factory, 0, nameResolver,
-                 new StringCodec(), injector.getInstance(MessagingTransportFactory.class),
-                 new MessageHandler<String>(name2, monitor, numMessages), new ExceptionHandler(), localAddressProvider);
-             NetworkService<String> ns1 = new NetworkService<String>(factory, 0, nameResolver,
-                 new StringCodec(), injector.getInstance(MessagingTransportFactory.class),
-                 new MessageHandler<String>(name1, null, 0), new ExceptionHandler(), localAddressProvider)) {
+        try (final NameResolver nameResolver = injector2.getInstance(NameResolver.class)) {
+          injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceIdentifierFactory.class, factory);
+          injector2.bindVolatileInstance(NameResolver.class, nameResolver);
+          injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceCodec.class, new StringCodec());
+          injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceTransportFactory.class,
+              injector.getInstance(MessagingTransportFactory.class));
+          injector2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceExceptionHandler.class,
+              new ExceptionHandler());
+
+          final Injector injectorNs2 = injector2.forkInjector();
+          injectorNs2.bindVolatileParameter(NetworkServiceParameters.NetworkServiceHandler.class,
+              new MessageHandler<String>(name2, monitor, numMessages));
+          final NetworkService<String> ns2 = injectorNs2.getInstance(NetworkService.class);
+
+          final Injector injectorNs1 = injector2.forkInjector();
+          injectorNs1.bindVolatileParameter(NetworkServiceParameters.NetworkServiceHandler.class,
+              new MessageHandler<String>(name1, null, 0));
+          final NetworkService<String> ns1 = injectorNs1.getInstance(NetworkService.class);
 
           ns2.registerId(factory.getNewInstance(name2));
           final int port2 = ns2.getTransport().getListeningPort();
@@ -468,23 +504,13 @@ public class NetworkServiceTest {
           server.register(factory.getNewInstance("task1"), new InetSocketAddress(this.localAddress, port1));
 
           final Identifier destId = factory.getNewInstance(name2);
-
-          // build the message
-          final StringBuilder msb = new StringBuilder();
-          for (int i = 0; i < size; i++) {
-            msb.append("1");
-          }
-          final String message = msb.toString();
+          final String message = StringUtils.repeat('1', batchSize);
 
           final long start = System.currentTimeMillis();
           try (Connection<String> conn = ns1.newConnection(destId)) {
+            conn.open();
             for (int i = 0; i < numMessages; i++) {
-              final StringBuilder sb = new StringBuilder();
-              for (int j = 0; j < batchSize / size; j++) {
-                sb.append(message);
-              }
-              conn.open();
-              conn.write(sb.toString());
+              conn.write(message);
             }
             monitor.mwait();
           } catch (final NetworkException e) {

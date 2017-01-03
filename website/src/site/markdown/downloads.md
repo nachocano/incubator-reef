@@ -22,7 +22,10 @@ under the License.
 
 Choose a release version:
 <select id="selectRelease" onchange="setReleaseLink()">
-    <option value="0.12.0-incubating" selected="selected">0.12.0-incubating</option>
+    <option value="0.15.0" selected="selected">0.15.0</option>
+    <option value="0.14.0">0.14.0</option>
+    <option value="0.13.0-incubating">0.13.0-incubating</option>
+    <option value="0.12.0-incubating">0.12.0-incubating</option>
     <option value="0.11.0-incubating">0.11.0-incubating</option>
     <option value="0.10.0-incubating">0.10.0-incubating</option>
 </select>
@@ -30,22 +33,31 @@ Choose a release version:
 <ul id="listRelease">
     <li>
         Download directly:
-        <a id="directLink" href="http://www.apache.org/dist/incubator/reef/0.12.0-incubating/apache-reef-0.12.0-incubating.tar.gz">
-            apache-reef-0.12.0-incubating.tar.gz
+        <a id="directLink" href="http://www.apache.org/dist/reef/0.15.0/apache-reef-0.15.0.tar.gz">
+            apache-reef-0.15.0.tar.gz
         </a>
     </li>
     <li>
         Download from mirror:
-        <a id="mirrorLink" href="http://www.apache.org/dyn/closer.cgi/incubator/reef/0.12.0-incubating">
+        <a id="mirrorLink" href="http://www.apache.org/dyn/closer.cgi/reef/0.15.0">
         Closest Apache Mirror</a>
     </li>
     <li>
         Verification:
-        <a id="verificationLink" href="http://www.apache.org/dist/incubator/reef/0.12.0-incubating/">
+        <a id="verificationLink" href="http://www.apache.org/dist/reef/0.15.0/">
             Signatures and checksums
         </a>
         <br />
-        SHA512: <span id="sha512Text">a5ec246fc5f73427ecb74f4725ce7ac1a8911ee7cf969aa45142b05b4985f385547b9ff47d6752e6c505dbbc98acda762d2fc22f3e2759040e2a7d9a0249398d</span>
+        SHA512: <span id="sha512Text">3805103aa3d59cd23ef1edc204f8beb4cfdc92e13e4257b980463c2176301e399dd6f6c3eb9e447e94cbf407b5bfd6ec7007bcf1a87599414a2429a17ef82a75</span>
+    </li>
+    <li>
+        <a id="releaseNotesLink" href="https://issues.apache.org/jira/secure/ReleaseNote.jspa?projectId=12315820&amp;version=12334912">Release notes</a>
+    </li>
+    <li>
+        <a id="javaApiLink" href="apidocs/0.15.0/index.html">Java API</a>
+    </li>
+    <li>
+        <span id="dotnetApiLink"><a href="apidoc_net/0.15.0/index.html">.NET API</a></span>
     </li>
 </ul>
 
@@ -53,13 +65,13 @@ Choose a release version:
 
 If you are interested in working with the newest under-development code or contributing to REEF, you can also check out the master branch from Git:
 
-    $ git clone git://git.apache.org/incubator-reef.git
+    $ git clone git://git.apache.org/reef.git
 
 ##How to verify the integrity of the files
 
 It is essential that you verify the integrity of the downloaded files using the PGP or MD5 signatures. Please read [Verifying Apache HTTP Server Releases](http://www.apache.org/info/verification.html) for more information on why you should verify our releases.
 
-The PGP signatures can be verified using [PGP](http://www.pgpi.org/) or [GPG](https://www.gnupg.org/). First download the [KEYS](http://www.apache.org/dist/incubator/reef/KEYS) as well as the `*.asc` signature file for the relevant distribution. Make sure you get these files from the [main distribution directory](http://www.apache.org/dist/incubator/reef/) rather than from a mirror. Then verify the signatures using one of the following sets of commands:
+The PGP signatures can be verified using [PGP](http://www.pgpi.org/) or [GPG](https://www.gnupg.org/). First download the [KEYS](http://www.apache.org/dist/reef/KEYS) as well as the `*.asc` signature file for the relevant distribution. Make sure you get these files from the [main distribution directory](http://www.apache.org/dist/reef/) rather than from a mirror. Then verify the signatures using one of the following sets of commands:
 
     % pgpk -a KEYS
     % pgpv downloaded_file.asc

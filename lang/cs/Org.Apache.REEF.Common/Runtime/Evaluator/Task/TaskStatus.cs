@@ -1,53 +1,65 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Runtime.Serialization;
+using Org.Apache.REEF.Common.Avro;
+using Org.Apache.REEF.Common.Context;
+using Org.Apache.REEF.Common.Exceptions;
 using Org.Apache.REEF.Common.Protobuf.ReefProtocol;
 using Org.Apache.REEF.Common.Tasks;
+using Org.Apache.REEF.Tang.Annotations;
 using Org.Apache.REEF.Utilities;
+using Org.Apache.REEF.Utilities.Attributes;
 using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Common.Runtime.Evaluator.Task
 {
-    public class TaskStatus
+    [ThreadSafe]
+    internal sealed class TaskStatus
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(TaskStatus));
-        private readonly TaskLifeCycle _taskLifeCycle;
-        private readonly HeartBeatManager _heartBeatManager;
-        private readonly Optional<ISet<ITaskMessageSource>> _evaluatorMessageSources;
 
+        private readonly TaskLifeCycle _taskLifeCycle;
+        private readonly IHeartBeatManager _heartBeatManager;
+        private readonly Optional<ISet<ITaskMessageSource>> _evaluatorMessageSources;
         private readonly string _taskId;
         private readonly string _contextId;
+
         private Optional<Exception> _lastException = Optional<Exception>.Empty();
         private Optional<byte[]> _result = Optional<byte[]>.Empty();
         private TaskState _state;
 
-        public TaskStatus(HeartBeatManager heartBeatManager, string contextId, string taskId, Optional<ISet<ITaskMessageSource>> evaluatorMessageSources)
+        [Inject]
+        private TaskStatus(
+            [Parameter(typeof(ContextConfigurationOptions.ContextIdentifier))] string contextId,
+            [Parameter(typeof(TaskConfigurationOptions.Identifier))] string taskId,
+            [Parameter(typeof(TaskConfigurationOptions.TaskMessageSources))] ISet<ITaskMessageSource> taskMessageSources,
+            TaskLifeCycle taskLifeCycle,
+            IHeartBeatManager heartBeatManager)
         {
-            _contextId = contextId;
-            _taskId = taskId;
             _heartBeatManager = heartBeatManager;
-            _taskLifeCycle = new TaskLifeCycle();
-            _evaluatorMessageSources = evaluatorMessageSources;
+            _taskLifeCycle = taskLifeCycle;
+            _evaluatorMessageSources = Optional<ISet<ITaskMessageSource>>.OfNullable(taskMessageSources);
             State = TaskState.Init;
+            _taskId = taskId;
+            _contextId = contextId;
         }
 
         public TaskState State
@@ -57,7 +69,7 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Task
                 return _state;
             }
 
-            set
+            private set
             {
                 if (IsLegalStateTransition(_state, value))
                 {
@@ -67,7 +79,7 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Task
                 {
                     string message = string.Format(CultureInfo.InvariantCulture, "Illegal state transition from [{0}] to [{1}]", _state, value);
                     LOGGER.Log(Level.Error, message);
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(new InvalidOperationException(message), LOGGER);
+                    Utilities.Diagnostics.Exceptions.Throw(new InvalidOperationException(message), LOGGER);
                 }
             }
         }
@@ -84,65 +96,105 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Task
 
         public void SetException(Exception e)
         {
-            RecordExecptionWithoutHeartbeat(e);
-            Heartbeat();
-            _lastException = Optional<Exception>.Empty();
+            lock (_heartBeatManager)
+            {
+                _lastException = Optional<Exception>.Of(e);
+                State = TaskState.Failed;
+                Heartbeat();
+            }
         }
 
         public void SetResult(byte[] result)
         {
-            _result = Optional<byte[]>.OfNullable(result);
-            if (State == TaskState.Running)
+            lock (_heartBeatManager)
             {
-                State = TaskState.Done;
+                _result = Optional<byte[]>.OfNullable(result);
+
+                // This can throw an Exception.
+                _taskLifeCycle.Stop();
+
+                switch (State)
+                {
+                    case TaskState.SuspendRequested:
+                        State = TaskState.Suspended;
+                        break;
+                    case TaskState.Running:
+                    case TaskState.CloseRequested:
+                        State = TaskState.Done;
+                        break;
+                }
+                
+                Heartbeat();
             }
-            else if (State == TaskState.SuspendRequested)
+        }
+
+        public void SetInit()
+        {
+            lock (_heartBeatManager)
             {
-                State = TaskState.Suspended;
+                LOGGER.Log(Level.Verbose, "TaskStatus::SetInit");
+                if (_state == TaskState.Init)
+                {
+                    LOGGER.Log(Level.Verbose, "Sending task INIT heartbeat");
+                    Heartbeat();
+                }
             }
-            else if (State == TaskState.CloseRequested)
-            {
-                State = TaskState.Done;
-            }
-            _taskLifeCycle.Stop();
-            Heartbeat();
         }
 
         public void SetRunning()
         {
-            LOGGER.Log(Level.Verbose, "TaskStatus::SetRunning");
-            if (_state == TaskState.Init)
+            lock (_heartBeatManager)
             {
-                try
+                LOGGER.Log(Level.Verbose, "TaskStatus::SetRunning");
+                if (_state == TaskState.Init)
                 {
                     _taskLifeCycle.Start();
-                    // Need to send an INIT heartbeat to the driver prompting it to create an RunningTask event. 
-                    LOGGER.Log(Level.Info, string.Format(CultureInfo.InvariantCulture, "Sending task INIT heartbeat"));
-                    Heartbeat();
                     State = TaskState.Running;
-                }
-                catch (Exception e)
-                {
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Caught(e, Level.Error, "Cannot set task status to running.", LOGGER);
-                    SetException(e);
+                    LOGGER.Log(Level.Verbose, "Sending task Running heartbeat");
+                    Heartbeat();
                 }
             }
         }
 
         public void SetCloseRequested()
         {
-            State = TaskState.CloseRequested;
+            lock (_heartBeatManager)
+            {
+                if (HasEnded())
+                {
+                    return;
+                }
+
+                State = TaskState.CloseRequested;
+            }
         }
 
         public void SetSuspendRequested()
         {
-            State = TaskState.SuspendRequested;
+            lock (_heartBeatManager)
+            {
+                if (HasEnded())
+                {
+                    return;
+                }
+
+                State = TaskState.SuspendRequested;
+            }
         }
 
         public void SetKilled()
         {
-            State = TaskState.Killed;
-            Heartbeat();
+            lock (_heartBeatManager)
+            {
+                if (HasEnded())
+                {
+                    LOGGER.Log(Level.Warning, "Trying to kill a task that is in {0} state. Ignored.", State);
+                    return;
+                }
+
+                State = TaskState.Killed;
+                Heartbeat();
+            }
         }
 
         public bool IsNotRunning()
@@ -166,47 +218,58 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Task
 
         public TaskStatusProto ToProto()
         {
-            Check();
-            TaskStatusProto taskStatusProto = new TaskStatusProto()
+            // This is locked because the Task continuation thread which sets the
+            // result is potentially different from the HeartBeat thread.
+            lock (_heartBeatManager)
             {
-                context_id = _contextId,
-                task_id = _taskId,
-                state = GetProtoState(),
-            };
-            if (_result.IsPresent())
-            {
-                taskStatusProto.result = ByteUtilities.CopyBytesFrom(_result.Value);
-            }
-            else if (_lastException.IsPresent())
-            {
-                //final Encoder<Throwable> codec = new ObjectSerializableCodec<>();
-                //final byte[] error = codec.encode(_lastException.get());
-                byte[] error = ByteUtilities.StringToByteArrays(_lastException.Value.ToString());
-                taskStatusProto.result = ByteUtilities.CopyBytesFrom(error);
-            }
-            else if (_state == TaskState.Running)
-            {
-                foreach (TaskMessage message in GetMessages())
+                Check();
+                TaskStatusProto taskStatusProto = new TaskStatusProto()
                 {
-                    TaskStatusProto.TaskMessageProto taskMessageProto = new TaskStatusProto.TaskMessageProto()
-                    {
-                        source_id = message.MessageSourceId,
-                        message = ByteUtilities.CopyBytesFrom(message.Message),
-                    };
-                    taskStatusProto.task_message.Add(taskMessageProto);
+                    context_id = ContextId,
+                    task_id = TaskId,
+                    state = GetProtoState()
+                };
+                if (_result.IsPresent())
+                {
+                    taskStatusProto.result = ByteUtilities.CopyBytesFrom(_result.Value);
                 }
-            }
-            return taskStatusProto;
-        }
+                else if (_lastException.IsPresent())
+                {
+                    byte[] error;
+                    try
+                    {
+                        error = ByteUtilities.SerializeToBinaryFormat(_lastException.Value);
+                    }
+                    catch (SerializationException se)
+                    {
+                        error = ByteUtilities.SerializeToBinaryFormat(
+                            NonSerializableTaskException.UnableToSerialize(_lastException.Value, se));
+                    }
 
-        internal void RecordExecptionWithoutHeartbeat(Exception e)
-        {
-            if (!_lastException.IsPresent())
-            {
-                _lastException = Optional<Exception>.Of(e);
+                    var avroFailedTask = new AvroFailedTask
+                    {
+                        identifier = _taskId,
+                        cause = error,
+                        data = ByteUtilities.StringToByteArrays(_lastException.Value.ToString()),
+                        message = _lastException.Value.Message
+                    };
+
+                    taskStatusProto.result = AvroJsonSerializer<AvroFailedTask>.ToBytes(avroFailedTask);
+                }
+                else if (_state == TaskState.Running)
+                {
+                    foreach (TaskMessage message in GetMessages())
+                    {
+                        TaskStatusProto.TaskMessageProto taskMessageProto = new TaskStatusProto.TaskMessageProto()
+                        {
+                            source_id = message.MessageSourceId,
+                            message = ByteUtilities.CopyBytesFrom(message.Message),
+                        };
+                        taskStatusProto.task_message.Add(taskMessageProto);
+                    }
+                }
+                return taskStatusProto;
             }
-            State = TaskState.Failed;
-            _taskLifeCycle.Stop();
         }
 
         private static bool IsLegalStateTransition(TaskState? from, TaskState to)
@@ -215,6 +278,13 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Task
             {
                 return to == TaskState.Init;
             }
+
+            if (from == to)
+            {
+                LOGGER.Log(Level.Warning, "Transitioning to the same state from {0} to {1}.", from, to);
+                return true;
+            }
+
             switch (from)
             {
                 case TaskState.Init:
@@ -264,9 +334,11 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Task
 
                 case TaskState.Failed:
                 case TaskState.Done:
-                case TaskState.Killed:           
+                case TaskState.Killed:
+                    return false;
                 default:
-                    return true;
+                    LOGGER.Log(Level.Error, "Unknown \"from\" state: {0}", from);
+                    return false;
             }
         }
 
@@ -274,9 +346,9 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Task
         {
             if (_result.IsPresent() && _lastException.IsPresent())
             {
-                LOGGER.Log(Level.Warning, "Both task result and exception are present, the expcetion will take over. Thrown away result:" + ByteUtilities.ByteArrarysToString(_result.Value));
-                State = TaskState.Failed;
-                _result = Optional<byte[]>.Empty();
+                throw new ApplicationException(
+                    string.Format("Both Exception and Result are present. One of the Threads have already sent a result back." +
+                    "Result returned [{0}]. Exception was [{1}]. Failing the Evaluator.", _result.Value, _lastException.Value));
             }
         }
 
@@ -304,10 +376,10 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Task
                 case TaskState.Killed:
                     return Protobuf.ReefProtocol.State.KILLED;
                 default:
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(new InvalidOperationException("Unknown state: " + _state), LOGGER);
+                    Utilities.Diagnostics.Exceptions.Throw(new InvalidOperationException("Unknown state: " + _state), LOGGER);
                     break;
             }
-            return Protobuf.ReefProtocol.State.FAILED; //this line should not be reached as default case will throw exception
+            return Protobuf.ReefProtocol.State.FAILED; // this line should not be reached as default case will throw exception
         }
 
         private ICollection<TaskMessage> GetMessages()

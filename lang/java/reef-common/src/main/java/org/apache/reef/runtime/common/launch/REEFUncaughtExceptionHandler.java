@@ -28,10 +28,10 @@ import java.util.logging.Logger;
 
 /**
  * This is used as the Exception handler for REEF client processes (Driver, Evaluator).
- * <p/>
+ * <p>
  * It catches all exceptions and sends them to the controlling process.
  * For Evaluators, that is the Driver. For the Driver, that is the Client.
- * <p/>
+ * <p>
  * After sending the exception, this shuts down the JVM, as this JVM is then officially dead.
  */
 public final class REEFUncaughtExceptionHandler implements Thread.UncaughtExceptionHandler {
@@ -51,36 +51,36 @@ public final class REEFUncaughtExceptionHandler implements Thread.UncaughtExcept
 
   @Override
   public synchronized void uncaughtException(final Thread thread, final Throwable throwable) {
+
+    final String msg = "Thread " + thread.getName() + " threw an uncaught exception.";
+    LOG.log(Level.SEVERE, msg, throwable);
+
     if (this.errorHandler == null) {
       try {
-        this.errorHandler = Tang.Factory.getTang().newInjector(this.errorHandlerConfig)
-            .getInstance(REEFErrorHandler.class);
-      } catch (InjectionException ie) {
+        this.errorHandler = Tang.Factory.getTang()
+            .newInjector(this.errorHandlerConfig).getInstance(REEFErrorHandler.class);
+      } catch (final InjectionException ie) {
         LOG.log(Level.WARNING, "Unable to inject error handler.");
       }
     }
 
-    final String msg = "Thread " + thread.getName() + " threw an uncaught exception.";
-
     if (this.errorHandler != null) {
-      LOG.log(Level.SEVERE, msg, throwable);
       this.errorHandler.onNext(new Exception(msg, throwable));
       try {
         this.wait(100);
-      } catch (final InterruptedException e) {
+      } catch (final InterruptedException expected) {
         // try-catch block used to wait and give process a chance to setup communication with its parent
       }
       this.errorHandler.close();
     }
 
     LOG.log(Level.SEVERE, msg + " System.exit(1)");
+
     System.exit(1);
   }
 
   @Override
   public String toString() {
-    return "REEFUncaughtExceptionHandler{" +
-        "errorHandler=" + String.valueOf(this.errorHandler) +
-        '}';
+    return "REEFUncaughtExceptionHandler{errorHandler=" + this.errorHandler + '}';
   }
 }

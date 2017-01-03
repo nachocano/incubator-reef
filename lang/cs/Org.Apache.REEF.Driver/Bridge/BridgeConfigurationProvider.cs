@@ -1,21 +1,20 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 using System.IO;
 using Org.Apache.REEF.Common.Files;
 using Org.Apache.REEF.Driver.Evaluator;
@@ -39,6 +38,11 @@ namespace Org.Apache.REEF.Driver.Bridge
     internal sealed class BridgeConfigurationProvider
     {
         private static readonly Logger Logger = Logger.GetLogger(typeof(BridgeConfigurationProvider));
+        private static readonly object LockObject = new object();
+
+        private static IConfiguration bridgeConfiguration = null;
+        private static IInjector bridgeInjector = null;
+
         private readonly REEFFileNames _fileNames;
 
         [Inject]
@@ -69,11 +73,10 @@ namespace Org.Apache.REEF.Driver.Bridge
 
             if (newExists && oldExists)
             {
-                Logger.Log(Level.Warning, "Found configurations in both the legacy location (" +
-                                          legacyBridgeConfigurationPath + ") and the new location (" +
-                                          newBridgeConfigurationPath +
-                                          "). Loading only the one found in the new location."
-                    );
+                var msg = "Found configurations in both the legacy location (" + legacyBridgeConfigurationPath + 
+                    ") and the new location (" + newBridgeConfigurationPath +
+                    "). Loading only the one found in the new location.";
+                Logger.Log(Level.Warning, msg);
             }
             if (newExists)
             {
@@ -81,12 +84,13 @@ namespace Org.Apache.REEF.Driver.Bridge
             }
             if (oldExists)
             {
-                Logger.Log(Level.Warning, "Only found configuration in the legacy location (" +
-                                          legacyBridgeConfigurationPath + ") and not the new location (" +
-                                          newBridgeConfigurationPath +
-                                          "). Loading only the one found in the legacy location.");
+                var msg = "Only found configuration in the legacy location (" + legacyBridgeConfigurationPath + 
+                    ") and not the new location (" + newBridgeConfigurationPath +
+                    "). Loading only the one found in the legacy location.";
+                Logger.Log(Level.Warning, msg);
                 return legacyBridgeConfigurationPath;
             }
+
             // If we reached this, we weren't able to find the configuration file.
             var message = "Unable to find brigde configuration. Paths checked: ['" +
                           newBridgeConfigurationPath + "', '" +
@@ -120,7 +124,15 @@ namespace Org.Apache.REEF.Driver.Bridge
         /// <returns></returns>
         internal static IConfiguration GetBridgeConfiguration()
         {
-            return new BridgeConfigurationProvider(new REEFFileNames()).LoadBridgeConfiguration();
+            lock (LockObject)
+            {
+                if (bridgeConfiguration == null)
+                {
+                    bridgeConfiguration = new BridgeConfigurationProvider(new REEFFileNames()).LoadBridgeConfiguration();
+                }
+
+                return bridgeConfiguration;
+            }
         }
 
         /// <summary>
@@ -129,12 +141,19 @@ namespace Org.Apache.REEF.Driver.Bridge
         /// <returns></returns>
         internal static IInjector GetBridgeInjector(IEvaluatorRequestor evaluatorRequestor)
         {
-            var injector = TangFactory.GetTang().NewInjector(GetBridgeConfiguration());
-            if (evaluatorRequestor != null)
+            lock (LockObject)
             {
-                injector.BindVolatileInstance(GenericType<IEvaluatorRequestor>.Class, evaluatorRequestor);
+                if (bridgeInjector == null)
+                {
+                    bridgeInjector = TangFactory.GetTang().NewInjector(GetBridgeConfiguration());
+                    if (evaluatorRequestor != null)
+                    {
+                        bridgeInjector.BindVolatileInstance(GenericType<IEvaluatorRequestor>.Class, evaluatorRequestor);
+                    }
+                }
+
+                return bridgeInjector;
             }
-            return injector;
         }
     }
 }

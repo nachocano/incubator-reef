@@ -21,6 +21,7 @@ package org.apache.reef.runtime.common.launch;
 import org.apache.commons.lang.StringUtils;
 import org.apache.reef.runtime.common.REEFLauncher;
 import org.apache.reef.util.EnvironmentUtils;
+import org.apache.reef.util.Optional;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -32,34 +33,52 @@ import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Build the launch command for Java REEF processes.
+ */
 public final class JavaLaunchCommandBuilder implements LaunchCommandBuilder {
+
   private static final Logger LOG = Logger.getLogger(JavaLaunchCommandBuilder.class.getName());
 
-  private static final String DEFAULT_JAVA_PATH = System.getenv("JAVA_HOME") + "/bin/" + "java";
+  private static final String DEFAULT_JAVA_PATH = "{{JAVA_HOME}}/bin/java";
   private static final String[] DEFAULT_OPTIONS = {"-XX:PermSize=128m", "-XX:MaxPermSize=128m"};
+
+  private final Map<String, JVMOption> options = new HashMap<>();
+  private final List<String> commandPrefixList;
+  private final Class launcherClass;
+
   private String stderrPath = null;
   private String stdoutPath = null;
-  private String evaluatorConfigurationPath = null;
+  private Optional<List<String>> evaluatorConfigurationPaths = Optional.empty();
   private String javaPath = null;
   private String classPath = null;
   private Boolean assertionsEnabled = null;
-  private Map<String, JVMOption> options = new HashMap<>();
-  private final List<String> commandPrefixList;
 
   /**
-   * Constructor that populates default options.
+   * Constructor that populates default options, using the default Launcher
+   * class {@link REEFLauncher}.
    */
   public JavaLaunchCommandBuilder() {
-    this(null);
+    this(REEFLauncher.class, null);
   }
 
   /**
-   * Constructor that populates prefix.
+   * Constructor that uses the default Launcher class, {@link REEFLauncher}.
+   * @param commandPrefixList
    */
   public JavaLaunchCommandBuilder(final List<String> commandPrefixList) {
+    this(REEFLauncher.class, commandPrefixList);
+  }
+
+  /**
+   * Constructor that populates prefix and uses a custom Launcher class.
+   */
+  public JavaLaunchCommandBuilder(final Class launcherClass, final List<String> commandPrefixList) {
     for (final String defaultOption : DEFAULT_OPTIONS) {
       addOption(defaultOption);
     }
+
+    this.launcherClass = launcherClass;
     this.commandPrefixList = commandPrefixList;
   }
 
@@ -78,7 +97,7 @@ public final class JavaLaunchCommandBuilder implements LaunchCommandBuilder {
           add(javaPath);
         }
 
-        if ((assertionsEnabled != null && assertionsEnabled)
+        if (assertionsEnabled != null && assertionsEnabled
             || EnvironmentUtils.areAssertionsEnabled()) {
           addOption("-ea");
         }
@@ -92,12 +111,16 @@ public final class JavaLaunchCommandBuilder implements LaunchCommandBuilder {
           add(classPath);
         }
 
-        REEFLauncher.propagateProperties(this, true, "proc_reef");
-        REEFLauncher.propagateProperties(this, false,
+        propagateProperties(this, true, "proc_reef");
+        propagateProperties(this, false,
             "java.util.logging.config.file", "java.util.logging.config.class");
 
-        add(REEFLauncher.class.getName());
-        add(evaluatorConfigurationPath);
+        add(launcherClass.getName());
+        if (evaluatorConfigurationPaths.isPresent()) {
+          for (final String configurationPath : evaluatorConfigurationPaths.get()) {
+            add(configurationPath);
+          }
+        }
 
         if (stdoutPath != null && !stdoutPath.isEmpty()) {
           add("1>");
@@ -118,8 +141,8 @@ public final class JavaLaunchCommandBuilder implements LaunchCommandBuilder {
   }
 
   @Override
-  public JavaLaunchCommandBuilder setConfigurationFileName(final String configurationFileName) {
-    this.evaluatorConfigurationPath = configurationFileName;
+  public JavaLaunchCommandBuilder setConfigurationFilePaths(final List<String> configurationPaths) {
+    this.evaluatorConfigurationPaths = Optional.of(configurationPaths);
     return this;
   }
 
@@ -138,7 +161,7 @@ public final class JavaLaunchCommandBuilder implements LaunchCommandBuilder {
   /**
    * Set the path to the java executable. Will default to a heuristic search if not set.
    *
-   * @param path
+   * @param path Path to the java executable.
    * @return this
    */
   public JavaLaunchCommandBuilder setJavaPath(final String path) {
@@ -165,6 +188,28 @@ public final class JavaLaunchCommandBuilder implements LaunchCommandBuilder {
     return addOption(JVMOption.parse(option));
   }
 
+  /**
+   * Pass values of the properties specified in the propNames array as <code>-D...</code>
+   * command line parameters. Currently used only to pass logging configuration to child JVMs processes.
+   *
+   * @param vargs     List of command line parameters to append to.
+   * @param copyNull  create an empty parameter if the property is missing in current process.
+   * @param propNames property names.
+   */
+  private static void propagateProperties(
+      final Collection<String> vargs, final boolean copyNull, final String... propNames) {
+    for (final String propName : propNames) {
+      final String propValue = System.getProperty(propName);
+      if (propValue == null || propValue.isEmpty()) {
+        if (copyNull) {
+          vargs.add("-D" + propName);
+        }
+      } else {
+        vargs.add(String.format("-D%s=%s", propName, propValue));
+      }
+    }
+  }
+
   private JavaLaunchCommandBuilder addOption(final JVMOption jvmOption) {
     if (options.containsKey(jvmOption.option)) {
       LOG.warning("Replaced option " + options.get(jvmOption.option) + " with " + jvmOption);
@@ -177,7 +222,7 @@ public final class JavaLaunchCommandBuilder implements LaunchCommandBuilder {
    * Enable or disable assertions on the child process.
    * If not set, the setting is taken from the JVM that executes the code.
    *
-   * @param assertionsEnabled
+   * @param assertionsEnabled If true, enable assertions.
    * @return this
    */
   @SuppressWarnings("checkstyle:hiddenfield")

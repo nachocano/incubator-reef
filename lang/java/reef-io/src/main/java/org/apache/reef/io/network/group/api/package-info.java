@@ -16,7 +16,8 @@
  * specific language governing permissions and limitations
  * under the License.
  */
+
 /**
- * TODO: Document.
+ * Elastic Group Communications API.
  */
 package org.apache.reef.io.network.group.api;

@@ -39,7 +39,7 @@ import java.util.logging.Logger;
  */
 @Private
 @TaskSide
-final class ProcessContainer implements Container {
+public final class ProcessContainer implements Container {
 
   private static final Logger LOG = Logger.getLogger(ProcessContainer.class.getName());
 
@@ -51,10 +51,11 @@ final class ProcessContainer implements Container {
   private final int numberOfCores;
   private final String rackName;
   private final REEFFileNames fileNames;
-  private final File reefFolder;
   private final File localFolder;
   private final File globalFolder;
   private final RunnableProcessObserver processObserver;
+  private final ThreadGroup threadGroup;
+
   private Thread theThread;
   private RunnableProcess process;
 
@@ -72,7 +73,9 @@ final class ProcessContainer implements Container {
                    final int numberOfCores,
                    final String rackName,
                    final REEFFileNames fileNames,
-                   final ReefRunnableProcessObserver processObserver) {
+                   final ReefRunnableProcessObserver processObserver,
+                   final ThreadGroup threadGroup) {
+
     this.errorHandlerRID = errorHandlerRID;
     this.nodeID = nodeID;
     this.containedID = containedID;
@@ -82,11 +85,19 @@ final class ProcessContainer implements Container {
     this.rackName = rackName;
     this.fileNames = fileNames;
     this.processObserver = processObserver;
-    this.reefFolder = new File(folder, fileNames.getREEFFolderName());
+    this.threadGroup = threadGroup;
+
+    final File reefFolder = new File(folder, fileNames.getREEFFolderName());
+
     this.localFolder = new File(reefFolder, fileNames.getLocalFolderName());
-    this.localFolder.mkdirs();
+    if (!this.localFolder.exists() && !this.localFolder.mkdirs()) {
+      LOG.log(Level.WARNING, "Failed to create [{0}]", this.localFolder.getAbsolutePath());
+    }
+
     this.globalFolder = new File(reefFolder, fileNames.getGlobalFolderName());
-    this.globalFolder.mkdirs();
+    if (!this.globalFolder.exists() && !this.globalFolder.mkdirs()) {
+      LOG.log(Level.WARNING, "Failed to create [{0}]", this.globalFolder.getAbsolutePath());
+    }
   }
 
   private static void copy(final Iterable<File> files, final File folder) throws IOException {
@@ -111,10 +122,12 @@ final class ProcessContainer implements Container {
   }
 
   @Override
-  @SuppressWarnings("checkstyle:hiddenfield")
-  public void addGlobalFiles(final File globalFolder) {
+  public void addGlobalFiles(final File globalFilesFolder) {
     try {
-      copy(Arrays.asList(globalFolder.listFiles()), this.globalFolder);
+      final File[] files = globalFilesFolder.listFiles();
+      if (files != null) {
+        copy(Arrays.asList(files), this.globalFolder);
+      }
     } catch (final IOException e) {
       throw new RuntimeException("Unable to copy files to the evaluator folder.", e);
     }
@@ -122,13 +135,16 @@ final class ProcessContainer implements Container {
 
   @Override
   public void run(final List<String> commandLine) {
-    this.process = new RunnableProcess(commandLine,
+
+    this.process = new RunnableProcess(
+        commandLine,
         this.containedID,
         this.folder,
         this.processObserver,
         this.fileNames.getEvaluatorStdoutFileName(),
         this.fileNames.getEvaluatorStderrFileName());
-    this.theThread = new Thread(this.process);
+
+    this.theThread = new Thread(this.threadGroup, this.process, "ProcessContainer:" + this.containedID);
     this.theThread.start();
   }
 
@@ -177,12 +193,8 @@ final class ProcessContainer implements Container {
 
   @Override
   public String toString() {
-    return "ProcessContainer{" +
-        "containedID='" + containedID + '\'' +
-        ", nodeID='" + nodeID + '\'' +
-        ", errorHandlerRID='" + errorHandlerRID + '\'' +
-        ", folder=" + folder + '\'' +
-        ", rack=" + rackName +
-        '}';
+    return String.format(
+        "ProcessContainer{containedID=%s, nodeID=%s, errorHandlerRID=%s, folder=%s, rack=%s}",
+        this.containedID, this.nodeID, this.errorHandlerRID, this.folder, this.rackName);
   }
 }

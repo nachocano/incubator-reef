@@ -1,25 +1,22 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Reflection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.Apache.REEF.Common.Tasks;
 using Org.Apache.REEF.Examples.Tasks.HelloTask;
 using Org.Apache.REEF.Examples.Tasks.StreamingTasks;
@@ -29,6 +26,7 @@ using Org.Apache.REEF.Tang.Implementations.ClassHierarchy;
 using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Util;
+using Xunit;
 
 namespace Org.Apache.REEF.Tang.Tests.Injection
 {
@@ -37,33 +35,16 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
     {
     }
 
-    [TestClass]
     public class TestInjection
     {
         static Assembly asm = null;
 
-        [ClassInitialize]
-        public static void ClassSetup(TestContext context)
+        public TestInjection()
         {
             asm = Assembly.Load(FileNames.Examples);
         }
 
-        [ClassCleanup]
-        public static void ClassCleanup()
-        {
-        }
-
-        [TestInitialize()]
-        public void TestSetup()
-        {
-        }
-
-        [TestCleanup()]
-        public void TestCleanup()
-        {
-        }
-
-        [TestMethod]
+        [Fact]
         public void TestTimer()
         {
             Type timerType = typeof(Timer);
@@ -74,12 +55,12 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IInjector injector = tang.NewInjector(conf);
             var timer = (Timer)injector.GetInstance(timerType);
 
-            Assert.IsNotNull(timer);
+            Assert.NotNull(timer);
 
             timer.sleep();
         }
 
-        [TestMethod]
+        [Fact]
         public void TestTimerWithClassHierarchy()
         {
             Type timerType = typeof(Timer);
@@ -95,12 +76,12 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IInjector injector = tang.NewInjector(conf);
             var timer = (Timer)injector.GetInstance(timerType);
 
-            Assert.IsNotNull(timer);
+            Assert.NotNull(timer);
 
             timer.sleep();
         }
 
-        [TestMethod]
+        [Fact]
         public void TestDocumentLoadNamedParameter()
         {
             Type documentedLocalNamedParameterType = typeof(DocumentedLocalNamedParameter);
@@ -111,10 +92,10 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IInjector injector = tang.NewInjector(conf);
             var doc = (DocumentedLocalNamedParameter)injector.GetInstance(documentedLocalNamedParameterType);
 
-            Assert.IsNotNull(doc);
+            Assert.NotNull(doc);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestDocumentLoadNamedParameterWithDefaultValue()
         {
             ITang tang = TangFactory.GetTang();
@@ -122,10 +103,10 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IInjector injector = tang.NewInjector(conf);
             var doc = (DocumentedLocalNamedParameter)injector.GetInstance(typeof(DocumentedLocalNamedParameter));
 
-            Assert.IsNotNull(doc);
+            Assert.NotNull(doc);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSimpleConstructor()
         {
             Type simpleConstructorType = typeof(SimpleConstructors);
@@ -135,10 +116,10 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IConfiguration conf = cb.Build();
             IInjector injector = tang.NewInjector(conf);
             var simpleConstructor = (SimpleConstructors)injector.GetInstance(simpleConstructorType);
-            Assert.IsNotNull(simpleConstructor);
+            Assert.NotNull(simpleConstructor);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestActivity()
         {
             Type activityType = typeof(HelloTask);
@@ -148,10 +129,10 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IConfiguration conf = cb.Build();
             IInjector injector = tang.NewInjector(conf);
             var activityRef = (ITask)injector.GetInstance(activityType);
-            Assert.IsNotNull(activityRef);
+            Assert.NotNull(activityRef);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestStreamActivity1()
         {
             Type activityType = typeof(StreamTask1);
@@ -161,10 +142,10 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IConfiguration conf = cb.Build();
             IInjector injector = tang.NewInjector(conf);
             var activityRef = (ITask)injector.GetInstance(activityType);
-            Assert.IsNotNull(activityRef);
+            Assert.NotNull(activityRef);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestStreamActivity2()
         {
             Type activityType = typeof(StreamTask2);
@@ -174,10 +155,10 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IConfiguration conf = cb.Build();
             IInjector injector = tang.NewInjector(conf);
             var activityRef = (ITask)injector.GetInstance(activityType);
-            Assert.IsNotNull(activityRef);
+            Assert.NotNull(activityRef);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestMultipleAssemlies()
         {
             Type activityInterfaceType1 = typeof(ITask);
@@ -195,13 +176,13 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             var activityRef = (ITask)injector.GetInstance(activityInterfaceType1);
             var tweeter = (Tweeter)injector.GetInstance(tweeterType);
 
-            Assert.IsNotNull(activityRef);
-            Assert.IsNotNull(tweeter);
+            Assert.NotNull(activityRef);
+            Assert.NotNull(tweeter);
 
             tweeter.sendMessage();
         }
 
-        [TestMethod]
+        [Fact]
         public void TestActivityWithBinding()
         {
             Type activityInterfaceType = typeof(ITask);
@@ -215,12 +196,12 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IInjector injector = tang.NewInjector(conf);
             ITask activityRef1 = injector.GetInstance<ITask>();
             var activityRef2 = (ITask)injector.GetInstance(activityInterfaceType);
-            Assert.IsNotNull(activityRef2);
-            Assert.IsNotNull(activityRef1);
-            Assert.AreEqual(activityRef1, activityRef2);
+            Assert.NotNull(activityRef2);
+            Assert.NotNull(activityRef1);
+            Assert.Equal(activityRef1, activityRef2);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestHelloStreamingActivityWithBinding()
         {
             Type activityInterfaceType = typeof(ITask);
@@ -234,10 +215,10 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IConfiguration conf = cb.Build();
             IInjector injector = tang.NewInjector(conf);
             var activityRef = (ITask)injector.GetInstance(activityInterfaceType);
-            Assert.IsNotNull(activityRef);
+            Assert.NotNull(activityRef);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestTweetExample()
         {
             Type tweeterType = typeof(Tweeter);
@@ -254,26 +235,26 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
             var sms = (ISMS)injector.GetInstance(typeof(ISMS));
             var factory = (ITweetFactory)injector.GetInstance(typeof(ITweetFactory));
-            Assert.IsNotNull(sms);
-            Assert.IsNotNull(factory);
+            Assert.NotNull(sms);
+            Assert.NotNull(factory);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestReferenceType()
         {
             AReferenceClass o = (AReferenceClass)TangFactory.GetTang().NewInjector().GetInstance(typeof(IAInterface));
         }
 
-        [TestMethod]
+        [Fact]
         public void TestGeneric()
         {
             var o = (AGenericClass<int>)TangFactory.GetTang().NewInjector().GetInstance(typeof(AGenericClass<int>));
             var o2 = (AClassWithGenericArgument<int>)TangFactory.GetTang().NewInjector().GetInstance(typeof(AClassWithGenericArgument<int>));
-            Assert.IsNotNull(o);
-            Assert.IsNotNull(o2);
+            Assert.NotNull(o);
+            Assert.NotNull(o2);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestNestedClass()
         {
             ITang tang = TangFactory.GetTang();
@@ -287,10 +268,10 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IInjector injector = tang.NewInjector(conf);
             ClassHasNestedClass h = injector.GetInstance<ClassHasNestedClass>();
 
-            Assert.IsNotNull(h);
+            Assert.NotNull(h);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestExternalObject()
         {
             ITang tang = TangFactory.GetTang();
@@ -298,18 +279,18 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
             IInjector injector = tang.NewInjector(cb.Build());
 
-            //bind an object to the injetor so that Tang will get this instance from cache directly instead of inject it when injecting ClassWithExternalObject
+            // bind an object to the injetor so that Tang will get this instance from cache directly instead of inject it when injecting ClassWithExternalObject
             injector.BindVolatileInstance(GenericType<ExternalClass>.Class, new ExternalClass());
             ClassWithExternalObject o = injector.GetInstance<ClassWithExternalObject>();
 
-            Assert.IsNotNull(o.ExternalObject is ExternalClass);
+            Assert.NotNull(o.ExternalObject is ExternalClass);
         }
 
         /// <summary>
         /// In this test, interface is a generic of T. Implementations have different generic arguments such as int and string. 
         /// When doing injection, we must specify the interface with a specified argument type
         /// </summary>
-        [TestMethod]
+        [Fact]
         public void TestInjectionWithGenericArguments()
         {
             var c = TangFactory.GetTang().NewConfigurationBuilder()
@@ -319,21 +300,21 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
             var injector = TangFactory.GetTang().NewInjector(c);
 
-            //argument type must be specified in injection
+            // argument type must be specified in injection
             var o1 = injector.GetInstance(typeof(IMyOperator<int>));
             var o2 = injector.GetInstance(typeof(IMyOperator<string>));
             var o3 = injector.GetInstance(typeof(MyOperatorTopology<int>));
 
-            Assert.IsTrue(o1 is MyOperatorImpl<int>);
-            Assert.IsTrue(o2 is MyOperatorImpl<string>);
-            Assert.IsTrue(o3 is MyOperatorTopology<int>);
+            Assert.True(o1 is MyOperatorImpl<int>);
+            Assert.True(o2 is MyOperatorImpl<string>);
+            Assert.True(o3 is MyOperatorTopology<int>);
         }
 
         /// <summary>
         /// In this test, interface argument type is set through Configuration. We can get the argument type and then 
         /// make the interface with the argument type on the fly so that to do the injection
         /// </summary>
-        [TestMethod]
+        [Fact]
         public void TestInjectionWithGenericArgumentType()
         {
             var c = TangFactory.GetTang().NewConfigurationBuilder()
@@ -343,17 +324,17 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
             var injector = TangFactory.GetTang().NewInjector(c);
 
-            //get argument type from configuration
+            // get argument type from configuration
             var messageTypeAsString = injector.GetNamedInstance<MessageType, string>(GenericType<MessageType>.Class);
             Type messageType = Type.GetType(messageTypeAsString);
 
-            //creat interface with generic type on the fly
+            // create interface with generic type on the fly
             Type genericInterfaceType = typeof(IMyOperator<>);
             Type interfaceOfMessageType = genericInterfaceType.MakeGenericType(messageType);
 
             var o = injector.GetInstance(interfaceOfMessageType);
 
-            Assert.IsTrue(o is MyOperatorImpl<int[]>);
+            Assert.True(o is MyOperatorImpl<int[]>);
         }
     }
 

@@ -44,18 +44,21 @@ import java.util.logging.Logger;
 @DriverSide
 @Private
 @Unstable
-public final class DriverRestartManager implements DriverIdlenessSource {
+public final class DriverRestartManager implements DriverIdlenessSource, AutoCloseable {
+
   private static final String CLASS_NAME = DriverRestartManager.class.getName();
   private static final Logger LOG = Logger.getLogger(CLASS_NAME);
+
+  private final Timer restartCompletedTimer = new Timer(this.getClass().getSimpleName() + ":Timer");
 
   private final DriverRuntimeRestartManager driverRuntimeRestartManager;
   private final Set<EventHandler<DriverRestartCompleted>> driverRestartCompletedHandlers;
   private final Set<EventHandler<DriverRestartCompleted>> serviceDriverRestartCompletedHandlers;
   private final int driverRestartEvaluatorRecoverySeconds;
-  private final Timer restartCompletedTimer = new Timer();
 
   private RestartEvaluators restartEvaluators;
   private DriverRestartState state = DriverRestartState.NOT_RESTARTED;
+  private int resubmissionAttempts = 0;
 
   @Inject
   private DriverRestartManager(final DriverRuntimeRestartManager driverRuntimeRestartManager,
@@ -81,9 +84,13 @@ public final class DriverRestartManager implements DriverIdlenessSource {
    * Can be already done with restart or in the process of restart.
    */
   public synchronized boolean detectRestart() {
-    if (this.state.hasNotRestarted() && driverRuntimeRestartManager.hasRestarted()) {
-      // set the state machine in motion.
-      this.state = DriverRestartState.BEGAN;
+    if (this.state.hasNotRestarted()) {
+      resubmissionAttempts = driverRuntimeRestartManager.getResubmissionAttempts();
+
+      if (resubmissionAttempts > 0) {
+        // set the state machine in motion.
+        this.state = DriverRestartState.BEGAN;
+      }
     }
 
     return this.state.hasRestarted();
@@ -105,7 +112,7 @@ public final class DriverRestartManager implements DriverIdlenessSource {
                                      final List<EventHandler<DriverRestarted>> orderedHandlers) {
     if (this.state == DriverRestartState.BEGAN) {
       restartEvaluators = driverRuntimeRestartManager.getPreviousEvaluators();
-      final DriverRestarted restartedInfo = new DriverRestartedImpl(startTime, restartEvaluators);
+      final DriverRestarted restartedInfo = new DriverRestartedImpl(resubmissionAttempts, startTime, restartEvaluators);
 
       for (final EventHandler<DriverRestarted> handler : orderedHandlers) {
         handler.onNext(restartedInfo);
@@ -329,5 +336,14 @@ public final class DriverRestartManager implements DriverIdlenessSource {
     final String idleMessage = idleState ? CLASS_NAME + " currently not in the process of restart." :
         CLASS_NAME + " currently in the process of restart.";
     return new IdleMessage(CLASS_NAME, idleMessage, idleState);
+  }
+
+  /**
+   * Close the restart timer.
+   */
+  @Override
+  public void close() {
+    LOG.log(Level.FINER, "Closing restart timer. Final state: {0}", this.state);
+    this.restartCompletedTimer.cancel();
   }
 }

@@ -110,7 +110,7 @@ public class TaskNodeStatusImpl implements TaskNodeStatus {
   /**
    * This needs to happen in line rather than in a stage because we need to note.
    * the messages we send to the tasks before we start processing msgs from the
-   * nodes.(Acks & Topology msgs)
+   * nodes.(Acks and Topology msgs)
    */
   @Override
   public void expectAckFor(final Type msgType, final String srcId) {
@@ -148,7 +148,6 @@ public class TaskNodeStatusImpl implements TaskNodeStatus {
   @Override
   public void processAcknowledgement(final GroupCommunicationMessage gcm) {
     LOG.entering("TaskNodeStatusImpl", "processMsg", new Object[]{getQualifiedName(), gcm});
-    final String self = gcm.getSrcid();
     final Type msgType = gcm.getType();
     final Type msgAcked = getAckedMsg(msgType);
     final String sourceId = gcm.getDestid();

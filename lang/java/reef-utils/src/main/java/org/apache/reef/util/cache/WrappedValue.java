@@ -42,7 +42,7 @@ final class WrappedValue<V> {
    * @param valueFetcher method used to fetch the value
    * @param currentTime  class that returns the current time
    */
-  public WrappedValue(final Callable<V> valueFetcher,
+  WrappedValue(final Callable<V> valueFetcher,
                       final CurrentTime currentTime) {
     this.valueFetcher = valueFetcher;
     this.currentTime = currentTime;
@@ -73,7 +73,7 @@ final class WrappedValue<V> {
       this.notifyAll();
     }
     if (!value.isPresent()) {
-      throw new ExecutionException("valueFetcher returned null", new NullPointerException());
+      throw new ExecutionException(new NullPointerException("valueFetcher returned null"));
     } else {
       return value.get();
     }
@@ -83,7 +83,7 @@ final class WrappedValue<V> {
     while (!value.isPresent()) {
       try {
         this.wait();
-      } catch (final InterruptedException e) {
+      } catch (final InterruptedException ignored) {
         // Ignore, as while loop will be re-entered
       }
     }

@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -23,19 +21,19 @@ using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Tang.Util
 {
-    public class MonotonicSet<T> : SortedSet<T>
+    public sealed class MonotonicSet<T> : SortedSet<T>
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(MonotonicSet<T>));
 
-        //private static readonly long serialVersionUID = 1L;
+        // private static readonly long serialVersionUID = 1L;
         public MonotonicSet() : base()
         {
         }
 
-        //public MonotonicSet(SortedSet<T> c) : base(c.Comparer)
-        //{
-        //    AddAll(c);
-        //}
+        ////public MonotonicSet(SortedSet<T> c) : base(c.Comparer)
+        ////{
+        ////   AddAll(c);
+        ////}
 
         public MonotonicSet(ICollection<T> c)
             : base(c)
@@ -47,7 +45,7 @@ namespace Org.Apache.REEF.Tang.Util
         {
         }
 
-        public new bool Add(T e) //TODO
+        public new bool Add(T e) // TODO
         {
             if (this.Contains(e))
             {
@@ -97,7 +95,7 @@ namespace Org.Apache.REEF.Tang.Util
             Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(new NotSupportedException("Attempt to clear MonotonicSet!"), LOGGER);
         }
 
-        public bool Remove(Object o)
+        public bool Remove(object o)
         {
             Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(new NotSupportedException("Attempt to remove " + o
                 + " from MonotonicSet!"), LOGGER);

@@ -75,9 +75,8 @@ public final class NameClient implements NameResolver {
       final LocalAddressProvider localAddressProvider,
       final TransportFactory tpFactory) {
 
-    final NameCache cache = new NameCache(timeout);
-    final BlockingQueue<NamingLookupResponse> replyLookupQueue = new LinkedBlockingQueue<NamingLookupResponse>();
-    final BlockingQueue<NamingRegisterResponse> replyRegisterQueue = new LinkedBlockingQueue<NamingRegisterResponse>();
+    final BlockingQueue<NamingLookupResponse> replyLookupQueue = new LinkedBlockingQueue<>();
+    final BlockingQueue<NamingRegisterResponse> replyRegisterQueue = new LinkedBlockingQueue<>();
     final Codec<NamingMessage> codec = NamingCodecFactory.createFullCodec(factory);
 
     this.transport = tpFactory.newInstance(localAddressProvider.getLocalAddress(), 0,
@@ -85,8 +84,8 @@ public final class NameClient implements NameResolver {
             new NamingResponseHandler(replyLookupQueue, replyRegisterQueue), codec)),
         null, retryCount, retryTimeout);
 
-    this.lookupClient = new NameLookupClient(serverAddr, serverPort, timeout,
-        factory, retryCount, retryTimeout, replyLookupQueue, this.transport, cache);
+    this.lookupClient = new NameLookupClient(serverAddr, serverPort, timeout, factory,
+        retryCount, retryTimeout, replyLookupQueue, this.transport);
 
     this.registryClient = new NameRegistryClient(serverAddr, serverPort, timeout,
         factory, replyRegisterQueue, this.transport);
@@ -167,7 +166,7 @@ class NamingClientEventHandler implements EventHandler<TransportEvent> {
   private final EventHandler<NamingMessage> handler;
   private final Codec<NamingMessage> codec;
 
-  public NamingClientEventHandler(
+  NamingClientEventHandler(
       final EventHandler<NamingMessage> handler, final Codec<NamingMessage> codec) {
     this.handler = handler;
     this.codec = codec;
@@ -184,6 +183,7 @@ class NamingClientEventHandler implements EventHandler<TransportEvent> {
  * Naming response message handler.
  */
 class NamingResponseHandler implements EventHandler<NamingMessage> {
+  private static final Logger LOG = Logger.getLogger(NamingResponseHandler.class.getName());
 
   private final BlockingQueue<NamingLookupResponse> replyLookupQueue;
   private final BlockingQueue<NamingRegisterResponse> replyRegisterQueue;
@@ -197,9 +197,13 @@ class NamingResponseHandler implements EventHandler<NamingMessage> {
   @Override
   public void onNext(final NamingMessage value) {
     if (value instanceof NamingLookupResponse) {
-      replyLookupQueue.offer((NamingLookupResponse) value);
+      if (!replyLookupQueue.offer((NamingLookupResponse) value)) {
+        LOG.log(Level.FINEST, "Element {0} was not added to the queue", value);
+      }
     } else if (value instanceof NamingRegisterResponse) {
-      replyRegisterQueue.offer((NamingRegisterResponse) value);
+      if (!replyRegisterQueue.offer((NamingRegisterResponse) value)) {
+        LOG.log(Level.FINEST, "Element {0} was not added to the queue", value);
+      }
     } else {
       throw new NamingRuntimeException("Unknown naming response message");
     }

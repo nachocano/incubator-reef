@@ -18,11 +18,8 @@
  */
 package org.apache.reef.runtime.yarn.driver;
 
-import org.apache.hadoop.yarn.api.ApplicationConstants;
 import org.apache.hadoop.yarn.api.records.ApplicationAttemptId;
 import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.api.records.ContainerId;
-import org.apache.hadoop.yarn.util.ConverterUtils;
 import org.apache.reef.annotations.Unstable;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.annotations.audience.Private;
@@ -30,11 +27,12 @@ import org.apache.reef.annotations.audience.RuntimeAuthor;
 import org.apache.reef.driver.restart.DriverRuntimeRestartManager;
 import org.apache.reef.driver.restart.EvaluatorRestartInfo;
 import org.apache.reef.driver.restart.RestartEvaluators;
-import org.apache.reef.proto.ReefServiceProtos;
 import org.apache.reef.runtime.common.driver.EvaluatorPreserver;
+import org.apache.reef.runtime.common.driver.evaluator.pojos.State;
 import org.apache.reef.runtime.common.driver.resourcemanager.ResourceEventImpl;
 import org.apache.reef.runtime.common.driver.resourcemanager.ResourceStatusEventImpl;
 import org.apache.reef.runtime.yarn.driver.parameters.YarnEvaluatorPreserver;
+import org.apache.reef.runtime.yarn.util.YarnUtilities;
 import org.apache.reef.tang.annotations.Parameter;
 
 import javax.inject.Inject;
@@ -54,13 +52,20 @@ public final class YarnDriverRuntimeRestartManager implements DriverRuntimeResta
 
   private static final Logger LOG = Logger.getLogger(YarnDriverRuntimeRestartManager.class.getName());
 
+  /**
+   * The default resubmission attempts number returned if:
+   * 1) we are not able to determine the number of application attempts based on the environment provided by YARN.
+   * 2) we are able to receive a list of previous containers from the Resource Manager.
+   */
+  private static final int DEFAULT_RESTART_RESUBMISSION_ATTEMPTS = 1;
+
   private final EvaluatorPreserver evaluatorPreserver;
   private final ApplicationMasterRegistration registration;
   private final REEFEventHandlers reefEventHandlers;
   private final YarnContainerManager yarnContainerManager;
   private final RackNameFormatter rackNameFormatter;
 
-  private Set<Container> previousContainers;
+  private Set<Container> previousContainers = null;
 
   @Inject
   private YarnDriverRuntimeRestartManager(@Parameter(YarnEvaluatorPreserver.class)
@@ -74,56 +79,39 @@ public final class YarnDriverRuntimeRestartManager implements DriverRuntimeResta
     this.reefEventHandlers = reefEventHandlers;
     this.yarnContainerManager = yarnContainerManager;
     this.rackNameFormatter = rackNameFormatter;
-    this.previousContainers = null;
   }
 
   /**
-   * Determines whether the application master has been restarted based on the container ID environment
+   * Determines the number of times the Driver has been submitted based on the container ID environment
    * variable provided by YARN. If that fails, determine whether the application master is a restart
-   * based on the number of previous containers reported by YARN.
-   * @return true if the application master is a restarted instance, false otherwise.
+   * based on the number of previous containers reported by YARN. In the failure scenario, returns 1 if restart, 0
+   * otherwise.
+   * @return positive value if the application master is a restarted instance, 0 otherwise.
    */
   @Override
-  public boolean hasRestarted() {
-    final String containerIdString = getContainerIdString();
+  public int getResubmissionAttempts() {
+    final String containerIdString = YarnUtilities.getContainerIdString();
+    final ApplicationAttemptId appAttemptID = YarnUtilities.getAppAttemptId(containerIdString);
 
-    if (containerIdString == null) {
-      // container id should always be set in the env by the framework
-      LOG.log(Level.WARNING, "Container ID is null, determining restart based on previous containers.");
-      return this.isRestartByPreviousContainers();
+    if (containerIdString == null || appAttemptID == null) {
+      LOG.log(Level.WARNING, "Was not able to fetch application attempt, container ID is [" + containerIdString +
+          "] and application attempt is [" + appAttemptID + "]. Determining restart based on previous containers.");
+
+      if (this.isRestartByPreviousContainers()) {
+        LOG.log(Level.WARNING, "Driver is a restarted instance based on the number of previous containers. " +
+            "As returned by the Resource Manager. Returning default resubmission attempts " +
+            DEFAULT_RESTART_RESUBMISSION_ATTEMPTS + ".");
+        return DEFAULT_RESTART_RESUBMISSION_ATTEMPTS;
+      }
+
+      return 0;
     }
 
-    final ApplicationAttemptId appAttemptID = getAppAttemptId(containerIdString);
+    int appAttempt = appAttemptID.getAttemptId();
 
-    if (appAttemptID == null) {
-      LOG.log(Level.WARNING, "applicationAttempt ID is null, determining restart based on previous containers.");
-      return this.isRestartByPreviousContainers();
-    }
-
-    LOG.log(Level.FINE, "Application attempt: " + appAttemptID.getAttemptId());
-
-    return appAttemptID.getAttemptId() > 1;
-  }
-
-  private static String getContainerIdString() {
-    try {
-      return System.getenv(ApplicationConstants.Environment.CONTAINER_ID.key());
-    } catch (Exception e) {
-      LOG.log(Level.WARNING, "Unable to get the container ID from the environment, exception " +
-          e + " was thrown.");
-      return null;
-    }
-  }
-
-  private static ApplicationAttemptId getAppAttemptId(final String containerIdString) {
-    try {
-      final ContainerId containerId = ConverterUtils.toContainerId(containerIdString);
-      return containerId.getApplicationAttemptId();
-    } catch (Exception e) {
-      LOG.log(Level.WARNING, "Unable to get the applicationAttempt ID from the environment, exception " +
-          e + " was thrown.");
-      return null;
-    }
+    LOG.log(Level.FINE, "Application attempt: " + appAttempt);
+    assert appAttempt > 0;
+    return appAttempt - 1;
   }
 
   /**
@@ -219,7 +207,8 @@ public final class YarnDriverRuntimeRestartManager implements DriverRuntimeResta
             ResourceEventImpl.newRecoveryBuilder().setIdentifier(container.getId().toString())
                 .setNodeId(container.getNodeId().toString()).setRackName(rackNameFormatter.getRackName(container))
                 .setResourceMemory(container.getResource().getMemory())
-                .setVirtualCores(container.getResource().getVirtualCores()).build()));
+                .setVirtualCores(container.getResource().getVirtualCores())
+                .setRuntimeName(RuntimeIdentifier.RUNTIME_NAME).build()));
       }
     }
 
@@ -240,7 +229,7 @@ public final class YarnDriverRuntimeRestartManager implements DriverRuntimeResta
       // trigger a failed evaluator event
       this.reefEventHandlers.onResourceStatus(ResourceStatusEventImpl.newBuilder()
           .setIdentifier(evaluatorId)
-          .setState(ReefServiceProtos.State.FAILED)
+          .setState(State.FAILED)
           .setExitCode(1)
           .setDiagnostics("Container [" + evaluatorId + "] failed during driver restart process.")
           .build());

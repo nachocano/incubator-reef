@@ -19,6 +19,7 @@
 package org.apache.reef.tests;
 
 import org.apache.reef.runtime.yarn.client.YarnClientConfiguration;
+import org.apache.reef.runtime.yarn.driver.RuntimeIdentifier;
 import org.apache.reef.tang.Configuration;
 import org.apache.reef.tang.exceptions.BindException;
 
@@ -37,7 +38,7 @@ public final class YarnTestEnvironment extends TestEnvironmentBase implements Te
 
   @Override
   public synchronized Configuration getRuntimeConfiguration() {
-    assert (this.ready);
+    assert this.ready;
     try {
       return YarnClientConfiguration.CONF.build();
     } catch (final BindException ex) {
@@ -47,7 +48,7 @@ public final class YarnTestEnvironment extends TestEnvironmentBase implements Te
 
   @Override
   public synchronized void tearDown() {
-    assert (this.ready);
+    assert this.ready;
     this.ready = false;
   }
 
@@ -56,5 +57,9 @@ public final class YarnTestEnvironment extends TestEnvironmentBase implements Te
     return 300000; // 5 minutes
   }
 
+  @Override
+  public String getRuntimeName() {
+    return RuntimeIdentifier.RUNTIME_NAME;
+  }
 
 }

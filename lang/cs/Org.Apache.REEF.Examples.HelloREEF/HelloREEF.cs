@@ -1,27 +1,27 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using Org.Apache.REEF.Client.API;
 using Org.Apache.REEF.Client.Local;
-using Org.Apache.REEF.Client.YARN;
+using Org.Apache.REEF.Client.Yarn;
+using Org.Apache.REEF.Client.YARN.HDI;
 using Org.Apache.REEF.Driver;
+using Org.Apache.REEF.IO.FileSystem.AzureBlob;
 using Org.Apache.REEF.Tang.Annotations;
 using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Interface;
@@ -36,14 +36,16 @@ namespace Org.Apache.REEF.Examples.HelloREEF
     {
         private const string Local = "local";
         private const string YARN = "yarn";
+        private const string YARNRest = "yarnrest";
+        private const string HDInsight = "hdi";
         private readonly IREEFClient _reefClient;
-        private readonly JobSubmissionBuilderFactory _jobSubmissionBuilderFactory;
+        private readonly JobRequestBuilder _jobRequestBuilder;
 
         [Inject]
-        private HelloREEF(IREEFClient reefClient, JobSubmissionBuilderFactory jobSubmissionBuilderFactory)
+        private HelloREEF(IREEFClient reefClient, JobRequestBuilder jobRequestBuilder)
         {
             _reefClient = reefClient;
-            _jobSubmissionBuilderFactory = jobSubmissionBuilderFactory;
+            _jobRequestBuilder = jobRequestBuilder;
         }
 
         /// <summary>
@@ -56,14 +58,15 @@ namespace Org.Apache.REEF.Examples.HelloREEF
                 .Set(DriverConfiguration.OnEvaluatorAllocated, GenericType<HelloDriver>.Class)
                 .Set(DriverConfiguration.OnDriverStarted, GenericType<HelloDriver>.Class)
                 .Build();
+
             // The JobSubmission contains the Driver configuration as well as the files needed on the Driver.
-            var helloJobSubmission = _jobSubmissionBuilderFactory.GetJobSubmissionBuilder()
+            var helloJobRequest = _jobRequestBuilder
                 .AddDriverConfiguration(helloDriverConfiguration)
                 .AddGlobalAssemblyForType(typeof(HelloDriver))
                 .SetJobIdentifier("HelloREEF")
                 .Build();
 
-            _reefClient.Submit(helloJobSubmission);
+            _reefClient.Submit(helloJobRequest);
         }
 
         /// <summary>
@@ -80,6 +83,21 @@ namespace Org.Apache.REEF.Examples.HelloREEF
                         .Build();
                 case YARN:
                     return YARNClientConfiguration.ConfigurationModule.Build();
+                case YARNRest:
+                    return YARNClientConfiguration.ConfigurationModuleYARNRest.Build();
+                case HDInsight:
+                    // To run against HDInsight please replace placeholders below, with actual values for
+                    // connection string, container name (available at Azure portal) and HDInsight 
+                    // credentials (username and password)
+                    const string connectionString = "ConnString";
+                    const string continerName = "foo";
+                    return HDInsightClientConfiguration.ConfigurationModule
+                        .Set(HDInsightClientConfiguration.HDInsightPasswordParameter, @"pwd")
+                        .Set(HDInsightClientConfiguration.HDInsightUsernameParameter, @"foo")
+                        .Set(HDInsightClientConfiguration.HDInsightUrlParameter, @"https://foo.azurehdinsight.net/")
+                        .Set(HDInsightClientConfiguration.JobSubmissionDirectoryPrefix, string.Format(@"/{0}/tmp", continerName))
+                        .Set(AzureBlockBlobFileSystemConfiguration.ConnectionString, connectionString)
+                        .Build();
                 default:
                     throw new Exception("Unknown runtime: " + name);
             }

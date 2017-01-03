@@ -30,7 +30,7 @@ import org.apache.reef.wake.remote.address.LocalAddressProvider;
 import org.apache.reef.wake.remote.impl.DefaultRemoteIdentifierFactoryImplementation;
 import org.apache.reef.wake.remote.impl.MultiCodec;
 import org.apache.reef.wake.remote.impl.ObjectSerializableCodec;
-import org.apache.reef.wake.remote.ports.RangeTcpPortProvider;
+import org.apache.reef.wake.remote.ports.TcpPortProvider;
 import org.apache.reef.wake.test.util.Monitor;
 import org.apache.reef.wake.test.util.TimeoutHandler;
 import org.junit.Assert;
@@ -49,6 +49,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
+/**
+ * Tests for RemoteManagerFactory.
+ */
 public class RemoteManagerTest {
 
   private final LocalAddressProvider localAddressProvider;
@@ -64,7 +67,6 @@ public class RemoteManagerTest {
   public final TestName name = new TestName();
 
   private static final String LOG_PREFIX = "TEST ";
-  private static final int PORT = 9100;
 
   @Test
   public void testRemoteManagerTest() throws Exception {
@@ -74,7 +76,7 @@ public class RemoteManagerTest {
     final Monitor monitor = new Monitor();
     final TimerStage timer = new TimerStage(new TimeoutHandler(monitor), 2000, 2000);
 
-    final Map<Class<?>, Codec<?>> clazzToCodecMap = new HashMap<Class<?>, Codec<?>>();
+    final Map<Class<?>, Codec<?>> clazzToCodecMap = new HashMap<>();
     clazzToCodecMap.put(StartEvent.class, new ObjectSerializableCodec<StartEvent>());
     clazzToCodecMap.put(TestEvent.class, new ObjectSerializableCodec<TestEvent>());
     clazzToCodecMap.put(TestEvent1.class, new ObjectSerializableCodec<TestEvent1>());
@@ -84,11 +86,10 @@ public class RemoteManagerTest {
     final String hostAddress = localAddressProvider.getLocalAddress();
 
     final RemoteManager rm = this.remoteManagerFactory.getInstance(
-        "name", hostAddress, PORT, codec, new LoggingEventHandler<Throwable>(), false, 3, 10000,
-        localAddressProvider, RangeTcpPortProvider.Default);
+        "name", hostAddress, 0, codec, new LoggingEventHandler<Throwable>(), false, 3, 10000,
+        localAddressProvider, Tang.Factory.getTang().newInjector().getInstance(TcpPortProvider.class));
 
-    final RemoteIdentifierFactory factory = new DefaultRemoteIdentifierFactoryImplementation();
-    final RemoteIdentifier remoteId = factory.getNewInstance("socket://" + hostAddress + ":" + PORT);
+    final RemoteIdentifier remoteId = rm.getMyIdentifier();
     Assert.assertTrue(rm.getMyIdentifier().equals(remoteId));
 
     final EventHandler<StartEvent> proxyConnection = rm.getHandler(remoteId, StartEvent.class);
@@ -141,7 +142,7 @@ public class RemoteManagerTest {
     final int numOfSenderThreads = 5;
     final ExecutorService smExecutor = Executors.newFixedThreadPool(numOfSenderThreads);
     final ExecutorService rmExecutor = Executors.newFixedThreadPool(1);
-    final ArrayList<Future<Integer>> smFutures = new ArrayList<Future<Integer>>(numOfSenderThreads);
+    final ArrayList<Future<Integer>> smFutures = new ArrayList<>(numOfSenderThreads);
 
     final RemoteManager sendingManager = getTestRemoteManager("sender", 9030, 3, 5000);
 
@@ -178,7 +179,7 @@ public class RemoteManagerTest {
     final Monitor monitor = new Monitor();
     final TimerStage timer = new TimerStage(new TimeoutHandler(monitor), 2000, 2000);
 
-    final Map<Class<?>, Codec<?>> clazzToCodecMap = new HashMap<Class<?>, Codec<?>>();
+    final Map<Class<?>, Codec<?>> clazzToCodecMap = new HashMap<>();
     clazzToCodecMap.put(StartEvent.class, new ObjectSerializableCodec<StartEvent>());
     clazzToCodecMap.put(TestEvent.class, new ObjectSerializableCodec<TestEvent>());
     clazzToCodecMap.put(TestEvent1.class, new ObjectSerializableCodec<TestEvent1>());
@@ -188,11 +189,10 @@ public class RemoteManagerTest {
     final String hostAddress = localAddressProvider.getLocalAddress();
 
     final RemoteManager rm = this.remoteManagerFactory.getInstance(
-        "name", hostAddress, PORT, codec, new LoggingEventHandler<Throwable>(), true, 3, 10000,
-        localAddressProvider, RangeTcpPortProvider.Default);
+        "name", hostAddress, 0, codec, new LoggingEventHandler<Throwable>(), true, 3, 10000,
+        localAddressProvider, Tang.Factory.getTang().newInjector().getInstance(TcpPortProvider.class));
 
-    final RemoteIdentifierFactory factory = new DefaultRemoteIdentifierFactoryImplementation();
-    final RemoteIdentifier remoteId = factory.getNewInstance("socket://" + hostAddress + ":" + PORT);
+    final RemoteIdentifier remoteId = rm.getMyIdentifier();
 
     final EventHandler<StartEvent> proxyConnection = rm.getHandler(remoteId, StartEvent.class);
     final EventHandler<TestEvent1> proxyHandler1 = rm.getHandler(remoteId, TestEvent1.class);
@@ -225,18 +225,17 @@ public class RemoteManagerTest {
     final Monitor monitor = new Monitor();
     final TimerStage timer = new TimerStage(new TimeoutHandler(monitor), 2000, 2000);
 
-    final Map<Class<?>, Codec<?>> clazzToCodecMap = new HashMap<Class<?>, Codec<?>>();
+    final Map<Class<?>, Codec<?>> clazzToCodecMap = new HashMap<>();
     clazzToCodecMap.put(TestEvent.class, new TestEventCodec());
     final Codec<?> codec = new MultiCodec<Object>(clazzToCodecMap);
 
     final String hostAddress = localAddressProvider.getLocalAddress();
 
     final RemoteManager rm = this.remoteManagerFactory.getInstance(
-        "name", hostAddress, PORT, codec, new LoggingEventHandler<Throwable>(), false, 3, 10000,
-        localAddressProvider, RangeTcpPortProvider.Default);
+        "name", hostAddress, 0, codec, new LoggingEventHandler<Throwable>(), false, 3, 10000,
+        localAddressProvider, Tang.Factory.getTang().newInjector().getInstance(TcpPortProvider.class));
 
-    final RemoteIdentifierFactory factory = new DefaultRemoteIdentifierFactoryImplementation();
-    final RemoteIdentifier remoteId = factory.getNewInstance("socket://" + hostAddress + ":" + PORT);
+    final RemoteIdentifier remoteId = rm.getMyIdentifier();
 
     final EventHandler<TestEvent> proxyHandler = rm.getHandler(remoteId, TestEvent.class);
 
@@ -262,18 +261,15 @@ public class RemoteManagerTest {
     final Monitor monitor = new Monitor();
     final TimerStage timer = new TimerStage(new TimeoutHandler(monitor), 2000, 2000);
 
-    final Map<Class<?>, Codec<?>> clazzToCodecMap = new HashMap<Class<?>, Codec<?>>();
+    final Map<Class<?>, Codec<?>> clazzToCodecMap = new HashMap<>();
     clazzToCodecMap.put(StartEvent.class, new ObjectSerializableCodec<StartEvent>());
     clazzToCodecMap.put(TestEvent.class, new ObjectSerializableCodec<TestEvent>());
     final Codec<?> codec = new MultiCodec<Object>(clazzToCodecMap);
 
-    final String hostAddress = localAddressProvider.getLocalAddress();
-
     final ExceptionHandler errorHandler = new ExceptionHandler(monitor);
 
-    try (final RemoteManager rm = remoteManagerFactory.getInstance("name", PORT, codec, errorHandler)) {
-      final RemoteIdentifierFactory factory = new DefaultRemoteIdentifierFactoryImplementation();
-      final RemoteIdentifier remoteId = factory.getNewInstance("socket://" + hostAddress + ":" + PORT);
+    try (final RemoteManager rm = remoteManagerFactory.getInstance("name", 0, codec, errorHandler)) {
+      final RemoteIdentifier remoteId = rm.getMyIdentifier();
 
       final EventHandler<StartEvent> proxyConnection = rm.getHandler(remoteId, StartEvent.class);
       rm.registerHandler(StartEvent.class, new ExceptionGenEventHandler<StartEvent>("recvExceptionGen"));
@@ -291,16 +287,21 @@ public class RemoteManagerTest {
 
   private RemoteManager getTestRemoteManager(final String rmName, final int localPort,
                                              final int retry, final int retryTimeout) {
-    final Map<Class<?>, Codec<?>> clazzToCodecMap = new HashMap<Class<?>, Codec<?>>();
+    final Map<Class<?>, Codec<?>> clazzToCodecMap = new HashMap<>();
     clazzToCodecMap.put(StartEvent.class, new ObjectSerializableCodec<StartEvent>());
     clazzToCodecMap.put(TestEvent1.class, new ObjectSerializableCodec<TestEvent1>());
     clazzToCodecMap.put(TestEvent2.class, new ObjectSerializableCodec<TestEvent1>());
     final Codec<?> codec = new MultiCodec<Object>(clazzToCodecMap);
 
     final String hostAddress = localAddressProvider.getLocalAddress();
-    return remoteManagerFactory.getInstance(rmName, hostAddress, localPort,
-        codec, new LoggingEventHandler<Throwable>(), false, retry, retryTimeout,
-        localAddressProvider, RangeTcpPortProvider.Default);
+    try {
+      TcpPortProvider tcpPortProvider = Tang.Factory.getTang().newInjector().getInstance(TcpPortProvider.class);
+      return remoteManagerFactory.getInstance(rmName, hostAddress, localPort,
+              codec, new LoggingEventHandler<Throwable>(), false, retry, retryTimeout,
+              localAddressProvider, tcpPortProvider);
+    } catch (final InjectionException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   private class SendingRemoteManagerThread implements Callable<Integer> {
@@ -309,7 +310,7 @@ public class RemoteManagerTest {
     private final int timeout;
     private RemoteManager rm;
 
-    public SendingRemoteManagerThread(final RemoteManager rm, final int remotePort, final int timeout) {
+    SendingRemoteManagerThread(final RemoteManager rm, final int remotePort, final int timeout) {
       this.remotePort = remotePort;
       this.timeout = timeout;
       this.rm = rm;
@@ -352,8 +353,8 @@ public class RemoteManagerTest {
     private final int numOfEvent;
     private RemoteManager rm;
 
-    public ReceivingRemoteManagerThread(final RemoteManager rm, final int timeout,
-                                        final int numOfConnection, final int numOfEvent) {
+    ReceivingRemoteManagerThread(final RemoteManager rm, final int timeout,
+                                 final int numOfConnection, final int numOfEvent) {
       this.rm = rm;
       this.timeout = timeout;
       this.numOfConnection = numOfConnection;
@@ -476,7 +477,7 @@ public class RemoteManagerTest {
   final class TestRuntimeException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
-    public TestRuntimeException(final String s) {
+    TestRuntimeException(final String s) {
       super(s);
     }
   }

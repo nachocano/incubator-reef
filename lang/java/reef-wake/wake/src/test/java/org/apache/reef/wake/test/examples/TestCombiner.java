@@ -27,6 +27,9 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Tests for CombinerStage.
+ */
 public class TestCombiner {
 
   private static final int BUCKET_COUNT = 1000;
@@ -40,7 +43,7 @@ public class TestCombiner {
 
   @Test
   public void test() throws Exception {
-    final CombinerStage<Integer, Integer> stage = new CombinerStage<Integer, Integer>(
+    final CombinerStage<Integer, Integer> stage = new CombinerStage<>(
         new Combiner<Integer, Integer>() {
 
           @Override
@@ -57,7 +60,6 @@ public class TestCombiner {
 
           @Override
           public void onNext(final Entry<Integer, Integer> value) {
-            System.out.println(value.getKey() + "=" + value.getValue());
             x.incrementAndGet();
             try {
               if (!done) {

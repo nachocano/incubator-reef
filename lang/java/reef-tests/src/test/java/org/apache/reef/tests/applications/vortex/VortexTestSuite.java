@@ -19,12 +19,19 @@
 package org.apache.reef.tests.applications.vortex;
 
 import org.apache.reef.tests.applications.vortex.addone.AddOneTest;
+import org.apache.reef.tests.applications.vortex.exception.VortexExceptionTest;
+import org.apache.reef.tests.applications.vortex.cancellation.TaskletCancellationRequestTest;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 
+/**
+ * Test suite of Vortex tests.
+ */
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
-    AddOneTest.class
+    AddOneTest.class,
+    VortexExceptionTest.class,
+    TaskletCancellationRequestTest.class
     })
 public final class VortexTestSuite {
 }

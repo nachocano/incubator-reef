@@ -22,7 +22,7 @@ import org.apache.commons.lang.Validate;
 
 /**
  * A tuple of an object of type E and an integer index.
- * Used inside {@link EvaluatorToPartitionStrategy} implementations to
+ * Used inside {@link org.apache.reef.io.data.loading.api.EvaluatorToPartitionStrategy} implementations to
  * mark the partitions associated with each {@link org.apache.hadoop.mapred.InputSplit}
  *
  * @param <E>
@@ -59,6 +59,24 @@ public final class NumberedSplit<E> implements Comparable<NumberedSplit<E>> {
   @Override
   public String toString() {
     return "InputSplit-" + partition + "-" + index;
+  }
+
+  @Override
+  public boolean equals(final Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    NumberedSplit<?> that = (NumberedSplit<?>) o;
+    return index == that.index;
+  }
+
+  @Override
+  public int hashCode() {
+    return index;
   }
 
   @Override

@@ -18,6 +18,8 @@
  */
 package org.apache.reef.javabridge;
 
+import org.apache.reef.annotations.audience.Interop;
+import org.apache.reef.annotations.audience.Private;
 import org.apache.reef.driver.context.ActiveContext;
 import org.apache.reef.driver.context.ClosedContext;
 import org.apache.reef.driver.evaluator.EvaluatorDescriptor;
@@ -26,7 +28,14 @@ import org.apache.reef.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class ClosedContextBridge extends NativeBridge implements ClosedContext {
+/**
+ * The Java-CLR bridge object for {@link org.apache.reef.driver.context.ClosedContext}.
+ */
+@Private
+@Interop(
+    CppFiles = { "Clr2JavaImpl.h", "ClosedContextClr2Java.cpp" },
+    CsFiles = { "IClosedContextClr2Java.cs", "ClosedContext.cs" })
+public final class ClosedContextBridge extends NativeBridge implements ClosedContext {
 
   private static final Logger LOG = Logger.getLogger(ClosedContextBridge.class.getName());
 
@@ -39,7 +48,12 @@ public class ClosedContextBridge extends NativeBridge implements ClosedContext {
   public ClosedContextBridge(final ClosedContext closedContext,
                              final ActiveContextBridgeFactory activeContextBridgeFactory) {
     jcloseContext = closedContext;
-    parentContext = activeContextBridgeFactory.getActiveContextBridge(closedContext.getParentContext());
+    if (closedContext.getParentContext() != null) {
+      parentContext = activeContextBridgeFactory.getActiveContextBridge(closedContext.getParentContext());
+    } else {
+      parentContext = null;
+    }
+
     contextId = closedContext.getId();
     evaluatorId = closedContext.getEvaluatorId();
     evaluatorDescriptor = closedContext.getEvaluatorDescriptor();
@@ -69,10 +83,14 @@ public class ClosedContextBridge extends NativeBridge implements ClosedContext {
   public void close() throws Exception {
   }
 
-  public String getEvaluatorDescriptorSring() {
+  public String getEvaluatorDescriptorString() {
     final String descriptorString = Utilities.getEvaluatorDescriptorString(evaluatorDescriptor);
     LOG.log(Level.INFO, "Closed Context - serialized evaluator descriptor: " + descriptorString);
     return descriptorString;
+  }
+
+  public ActiveContextBridge getParentContextBridge() {
+    return parentContext;
   }
 
   @Override

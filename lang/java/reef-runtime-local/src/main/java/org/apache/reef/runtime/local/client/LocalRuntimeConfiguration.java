@@ -20,18 +20,18 @@ package org.apache.reef.runtime.local.client;
 
 import org.apache.reef.client.parameters.DriverConfigurationProviders;
 import org.apache.reef.runtime.common.client.CommonRuntimeConfiguration;
+import org.apache.reef.runtime.common.client.DriverConfigurationProvider;
 import org.apache.reef.runtime.common.client.api.JobSubmissionHandler;
+import org.apache.reef.runtime.common.driver.parameters.DefinedRuntimes;
 import org.apache.reef.runtime.common.files.RuntimeClasspathProvider;
 import org.apache.reef.runtime.common.parameters.JVMHeapSlack;
 import org.apache.reef.runtime.local.LocalClasspathProvider;
 import org.apache.reef.runtime.local.client.parameters.MaxNumberOfEvaluators;
 import org.apache.reef.runtime.local.client.parameters.RackNames;
 import org.apache.reef.runtime.local.client.parameters.RootFolder;
+import org.apache.reef.runtime.local.driver.RuntimeIdentifier;
 import org.apache.reef.tang.ConfigurationProvider;
-import org.apache.reef.tang.formats.ConfigurationModule;
-import org.apache.reef.tang.formats.ConfigurationModuleBuilder;
-import org.apache.reef.tang.formats.OptionalImpl;
-import org.apache.reef.tang.formats.OptionalParameter;
+import org.apache.reef.tang.formats.*;
 
 import java.util.concurrent.ExecutorService;
 
@@ -51,7 +51,7 @@ public class LocalRuntimeConfiguration extends ConfigurationModuleBuilder {
    * The folder in which the sub-folders, one per Node, will be created. Those will contain one folder per
    * Evaluator instantiated on the virtual node. Those inner folders will be named by the time when the Evaluator was
    * launched.
-   * <p/>
+   * <p>
    * If none is given, a folder "REEF_LOCAL_RUNTIME" will be created in the local directory.
    */
   public static final OptionalParameter<String> RUNTIME_ROOT_FOLDER = new OptionalParameter<>();
@@ -71,7 +71,6 @@ public class LocalRuntimeConfiguration extends ConfigurationModuleBuilder {
    */
   public static final OptionalParameter<String> RACK_NAMES = new OptionalParameter<>();
 
-
   /**
    * The ConfigurationModule for the local resourcemanager.
    */
@@ -79,6 +78,7 @@ public class LocalRuntimeConfiguration extends ConfigurationModuleBuilder {
       .merge(CommonRuntimeConfiguration.CONF)
           // Bind the local runtime
       .bindImplementation(JobSubmissionHandler.class, LocalJobSubmissionHandler.class)
+      .bindImplementation(DriverConfigurationProvider.class, LocalDriverConfigurationProviderImpl.class)
       .bindConstructor(ExecutorService.class, ExecutorServiceConstructor.class)
       .bindImplementation(RuntimeClasspathProvider.class, LocalClasspathProvider.class)
           // Bind parameters of the local runtime
@@ -87,7 +87,9 @@ public class LocalRuntimeConfiguration extends ConfigurationModuleBuilder {
       .bindNamedParameter(JVMHeapSlack.class, JVM_HEAP_SLACK)
       .bindSetEntry(DriverConfigurationProviders.class, DRIVER_CONFIGURATION_PROVIDERS)
       .bindSetEntry(RackNames.class, RACK_NAMES)
+      .bindSetEntry(DefinedRuntimes.class, RuntimeIdentifier.RUNTIME_NAME)
       .build();
 
 
 }
+

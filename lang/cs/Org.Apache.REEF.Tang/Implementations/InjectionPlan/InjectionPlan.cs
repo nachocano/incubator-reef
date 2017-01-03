@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -25,14 +23,14 @@ using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Tang.Implementations.InjectionPlan
 {
-    //contains the data for injecting a Node such as which Constructor to use, what are the arguments
+    // contains the data for injecting a Node such as which Constructor to use, what are the arguments
     public abstract class InjectionPlan : ITraversable<InjectionPlan> 
     {
         protected INode node;
 
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(InjectionPlan));
 
-        public InjectionPlan(INode node) 
+        protected InjectionPlan(INode node) 
         {
             this.node = node;
         }
@@ -62,7 +60,7 @@ namespace Org.Apache.REEF.Tang.Implementations.InjectionPlan
 
         abstract public bool IsInjectable();
 
-        //abstract public bool HasFutureDependency();
+        //// abstract public bool HasFutureDependency();
 
         protected void pad(StringBuilder sb, int n)
         {
@@ -81,9 +79,9 @@ namespace Org.Apache.REEF.Tang.Implementations.InjectionPlan
             }
         }
 
-        public String ToPrettyString()
+        public string ToPrettyString()
         {
-            String ugly = node.GetFullName() + ":\n" + ToString();
+            string ugly = node.GetFullName() + ":\n" + ToString();
             StringBuilder pretty = new StringBuilder();
             int currentIndent = 1;
             for (int i = 0; i < ugly.Length; i++)
@@ -169,12 +167,10 @@ namespace Org.Apache.REEF.Tang.Implementations.InjectionPlan
         public abstract bool IsInfeasibleLeaf();
 
         public abstract string ToShallowString();
-
     }
 
-    public class BuildingInjectionPlan : InjectionPlan
+    internal sealed class BuildingInjectionPlan : InjectionPlan
     {
-
         public BuildingInjectionPlan(INode node)
             : base(node)
         {
@@ -195,10 +191,10 @@ namespace Org.Apache.REEF.Tang.Implementations.InjectionPlan
             throw new NotSupportedException();
         }
 
-        //public override bool HasFutureDependency()
-        //{
-        //    throw new NotSupportedException();
-        //}
+        ////public override bool HasFutureDependency()
+        ////{
+        ////    throw new NotSupportedException();
+        ////}
 
         public override string ToAmbiguousInjectString()
         {

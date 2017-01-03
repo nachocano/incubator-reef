@@ -22,7 +22,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.records.LocalResource;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.io.TempFileCreator;
-import org.apache.reef.io.WorkingDirectoryTempFileCreator;
 import org.apache.reef.runtime.common.driver.api.ResourceLaunchEvent;
 import org.apache.reef.runtime.common.files.JobJarMaker;
 import org.apache.reef.runtime.common.files.REEFFileNames;
@@ -121,7 +120,9 @@ final class EvaluatorSetupHelper {
       LOG.log(Level.FINE, "Marking [{0}] for deletion at the exit of this JVM and deleting [{1}]",
           new Object[]{localFile.getAbsolutePath(), localStagingFolder.getAbsolutePath()});
       localFile.deleteOnExit();
-      localStagingFolder.delete();
+      if (!localStagingFolder.delete()) {
+        LOG.log(Level.WARNING, "Failed to delete [{0}]", localStagingFolder.getAbsolutePath());
+      }
     } else {
       LOG.log(Level.FINE, "The evaluator staging folder will be kept at [{0}], the JAR at [{1}]",
           new Object[]{localFile.getAbsolutePath(), localStagingFolder.getAbsolutePath()});
@@ -141,7 +142,6 @@ final class EvaluatorSetupHelper {
       throws IOException {
     return Tang.Factory.getTang()
         .newConfigurationBuilder(resourceLaunchEvent.getEvaluatorConf())
-        .bindImplementation(TempFileCreator.class, WorkingDirectoryTempFileCreator.class)
         .build();
   }
 }

@@ -20,6 +20,7 @@ package org.apache.reef.runtime.local.client;
 
 import org.apache.reef.annotations.audience.ClientSide;
 import org.apache.reef.annotations.audience.Private;
+import org.apache.reef.runtime.common.client.DriverConfigurationProvider;
 import org.apache.reef.runtime.common.client.api.JobSubmissionEvent;
 import org.apache.reef.runtime.common.client.api.JobSubmissionHandler;
 import org.apache.reef.runtime.common.files.REEFFileNames;
@@ -37,11 +38,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Handles Job Submissions for the Local Runtime.
+ * Handles Job Submissions for the Local and the Standalone Runtime.
  */
 @Private
 @ClientSide
-final class LocalJobSubmissionHandler implements JobSubmissionHandler {
+public final class LocalJobSubmissionHandler implements JobSubmissionHandler {
 
 
   private static final Logger LOG = Logger.getLogger(LocalJobSubmissionHandler.class.getName());
@@ -54,7 +55,7 @@ final class LocalJobSubmissionHandler implements JobSubmissionHandler {
   private final DriverConfigurationProvider driverConfigurationProvider;
 
   @Inject
-  public LocalJobSubmissionHandler(
+  LocalJobSubmissionHandler(
       final ExecutorService executor,
       @Parameter(RootFolder.class) final String rootFolderName,
       final ConfigurationSerializer configurationSerializer,
@@ -91,17 +92,22 @@ final class LocalJobSubmissionHandler implements JobSubmissionHandler {
             "/" + t.getIdentifier() + "-" + System.currentTimeMillis() + "/");
 
         final File driverFolder = new File(jobFolder, PreparedDriverFolderLauncher.DRIVER_FOLDER_NAME);
-        driverFolder.mkdirs();
+        if (!driverFolder.exists() && !driverFolder.mkdirs()) {
+          LOG.log(Level.WARNING, "Failed to create [{0}]", driverFolder.getAbsolutePath());
+        }
 
         final DriverFiles driverFiles = DriverFiles.fromJobSubmission(t, this.fileNames);
         driverFiles.copyTo(driverFolder);
 
         final Configuration driverConfiguration = this.driverConfigurationProvider
-            .getDriverConfiguration(jobFolder, t.getRemoteId(), t.getIdentifier(), t.getConfiguration());
+            .getDriverConfiguration(jobFolder.toURI(),
+                                    t.getRemoteId(),
+                                    t.getIdentifier(),
+                                    t.getConfiguration());
 
         this.configurationSerializer.toFile(driverConfiguration,
             new File(driverFolder, this.fileNames.getDriverConfigurationPath()));
-        this.driverLauncher.launch(driverFolder, t.getIdentifier(), t.getRemoteId());
+        this.driverLauncher.launch(driverFolder);
       } catch (final Exception e) {
         LOG.log(Level.SEVERE, "Unable to setup driver.", e);
         throw new RuntimeException("Unable to setup driver.", e);

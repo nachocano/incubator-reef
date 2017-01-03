@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Net;
@@ -45,11 +43,15 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         /// </summary>
         /// <param name="remoteEndpoint">The endpoint of the remote server to connect to</param>
         /// <param name="streamingCodec">Streaming codec</param>
-        internal StreamingTransportClient(IPEndPoint remoteEndpoint, IStreamingCodec<T> streamingCodec)
+        /// <param name="clientFactory">TcpClient factory</param>
+        internal StreamingTransportClient(IPEndPoint remoteEndpoint, IStreamingCodec<T> streamingCodec, ITcpClientConnectionFactory clientFactory)
         {
-            Exceptions.ThrowIfArgumentNull(remoteEndpoint, "remoteEndpoint", Logger);
+            if (remoteEndpoint == null)
+            {
+                Exceptions.Throw(new ArgumentNullException("remoteEndpoint"), Logger);
+            }
 
-            _link = new StreamingLink<T>(remoteEndpoint, streamingCodec);
+            _link = new StreamingLink<T>(remoteEndpoint, streamingCodec, clientFactory);
             _cancellationSource = new CancellationTokenSource();
             _disposed = false;
         }
@@ -61,13 +63,23 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         /// <param name="remoteEndpoint">The endpoint of the remote server to connect to</param>
         /// <param name="observer">Callback used when receiving responses from remote host</param>
         /// <param name="streamingCodec">Streaming codec</param>
+        /// <param name="clientFactory">TcpClient factory</param>
         internal StreamingTransportClient(IPEndPoint remoteEndpoint,
             IObserver<TransportEvent<T>> observer,
-            IStreamingCodec<T> streamingCodec)
-            : this(remoteEndpoint, streamingCodec)
+            IStreamingCodec<T> streamingCodec, 
+            ITcpClientConnectionFactory clientFactory)
+            : this(remoteEndpoint, streamingCodec, clientFactory)
         {
             _observer = observer;
-            Task.Run(() => ResponseLoop());
+            try
+            {
+                Task.Factory.StartNew(() => ResponseLoop(), TaskCreationOptions.LongRunning);
+            }
+            catch (Exception e)
+            {
+                Logger.Log(Level.Warning, "StreamingTransportClient get exception from ResponseLoop: {0}.", e.GetType());
+                throw e;
+            }            
         }
 
         /// <summary>
@@ -99,6 +111,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         {
             if (!_disposed)
             {
+                _cancellationSource.Cancel();
                 _link.Dispose();
                 _disposed = true;
             }
@@ -109,16 +122,24 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         /// </summary>
         private async Task ResponseLoop()
         {
-            while (!_cancellationSource.IsCancellationRequested)
+            try
             {
-                T message = await _link.ReadAsync(_cancellationSource.Token);
-                if (message == null)
+                while (!_cancellationSource.IsCancellationRequested)
                 {
-                    break;
-                }
+                    T message = await _link.ReadAsync(_cancellationSource.Token);
+                    if (message == null)
+                    {
+                        break;
+                    }
 
-                TransportEvent<T> transportEvent = new TransportEvent<T>(message, _link);
-                _observer.OnNext(transportEvent);
+                    TransportEvent<T> transportEvent = new TransportEvent<T>(message, _link);
+                    _observer.OnNext(transportEvent);
+                }
+            }
+            catch (Exception e)
+            {
+                Logger.Log(Level.Warning, "StreamingTransportClient get exception in ResponseLoop: {0}.", e.GetType());
+                throw e;
             }
         }
     }

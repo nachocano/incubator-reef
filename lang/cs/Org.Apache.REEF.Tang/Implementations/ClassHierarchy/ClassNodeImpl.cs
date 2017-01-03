@@ -1,23 +1,20 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
-using System;
 using System.Collections.Generic;
 using System.Text;
 using Org.Apache.REEF.Tang.Exceptions;
@@ -27,7 +24,7 @@ using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
 {
-    public class ClassNodeImpl : AbstractNode, IClassNode
+    internal sealed class ClassNodeImpl : AbstractNode, IClassNode
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(ClassNodeImpl));
 
@@ -37,16 +34,15 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
         private readonly IList<IConstructorDef> injectableConstructors;
         private readonly IList<IConstructorDef> allConstructors;
         private readonly MonotonicSet<IClassNode> knownImpls;
-        private readonly String defaultImpl;
+        private readonly string defaultImpl;
 
-        public ClassNodeImpl(INode parent, String simpleName, String fullName,
+        public ClassNodeImpl(INode parent, string simpleName, string fullName,
             bool unit, bool injectable, bool externalConstructor,
             IList<IConstructorDef> injectableConstructors,
             IList<IConstructorDef> allConstructors,
-            String defaultImplementation)
+            string defaultImplementation)
             : base(parent, simpleName, fullName)
         {
-
             this.unit = unit;
             this.injectable = injectable;
             this.externalConstructor = externalConstructor;
@@ -76,7 +72,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             return externalConstructor;
         }
 
-        public override String ToString()
+        public override string ToString()
         {
             StringBuilder sb = new StringBuilder(base.ToString() + ": ");
             if (GetInjectableConstructors() != null)
@@ -149,7 +145,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             return false;
         }
 
-        public String GetDefaultImplementation()
+        public string GetDefaultImplementation()
         {
             return defaultImpl;
         }

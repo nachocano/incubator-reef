@@ -21,6 +21,7 @@ package org.apache.reef.client;
 import org.apache.reef.annotations.Provided;
 import org.apache.reef.annotations.audience.ClientSide;
 import org.apache.reef.annotations.audience.Public;
+import org.apache.reef.driver.ProgressProvider;
 import org.apache.reef.driver.context.ActiveContext;
 import org.apache.reef.driver.context.ClosedContext;
 import org.apache.reef.driver.context.ContextMessage;
@@ -31,6 +32,8 @@ import org.apache.reef.driver.evaluator.FailedEvaluator;
 import org.apache.reef.driver.parameters.*;
 import org.apache.reef.driver.task.*;
 import org.apache.reef.runtime.common.driver.DriverRuntimeConfiguration;
+import org.apache.reef.runtime.common.driver.parameters.EvaluatorIdlenessThreadPoolSize;
+import org.apache.reef.runtime.common.driver.parameters.EvaluatorIdlenessWaitInMilliseconds;
 import org.apache.reef.tang.formats.*;
 import org.apache.reef.wake.EventHandler;
 import org.apache.reef.wake.time.Clock;
@@ -176,6 +179,13 @@ public final class DriverConfiguration extends ConfigurationModuleBuilder {
    */
   public static final OptionalImpl<EventHandler<ContextMessage>> ON_CONTEXT_MESSAGE = new OptionalImpl<>();
 
+  // ***** MISC
+
+  /**
+   * Progress provider. See {@link ProgressProvider}.
+   */
+  public static final OptionalImpl<ProgressProvider> PROGRESS_PROVIDER = new OptionalImpl<>();
+
   /**
    * Number of threads allocated per evaluator to dispatch events from this Evaluator.
    */
@@ -185,6 +195,18 @@ public final class DriverConfiguration extends ConfigurationModuleBuilder {
    * The number of submissions that the resource manager will attempt to submit the application. Defaults to 1.
    */
   public static final OptionalParameter<Integer> MAX_APPLICATION_SUBMISSIONS = new OptionalParameter<>();
+
+  /**
+   * The number of Threads in a Driver to verify the completion of Evaluators.
+   * Used by {@link org.apache.reef.runtime.common.driver.evaluator.EvaluatorIdlenessThreadPool}.
+   */
+  public static final OptionalParameter<Integer> EVALUATOR_IDLENESS_THREAD_POOL_SIZE = new OptionalParameter<>();
+
+  /**
+   * The number of Threads in a Driver to verify the completion of Evaluators.
+   * Used by {@link org.apache.reef.runtime.common.driver.evaluator.EvaluatorIdlenessThreadPool}.
+   */
+  public static final OptionalParameter<Long> EVALUATOR_IDLENESS_WAIT_IN_MS = new OptionalParameter<>();
 
   /**
    * ConfigurationModule to fill out to get a legal Driver Configuration.
@@ -229,5 +251,8 @@ public final class DriverConfiguration extends ConfigurationModuleBuilder {
 
           // Various parameters
       .bindNamedParameter(EvaluatorDispatcherThreads.class, EVALUATOR_DISPATCHER_THREADS)
+      .bindNamedParameter(EvaluatorIdlenessThreadPoolSize.class, EVALUATOR_IDLENESS_THREAD_POOL_SIZE)
+      .bindNamedParameter(EvaluatorIdlenessWaitInMilliseconds.class, EVALUATOR_IDLENESS_WAIT_IN_MS)
+      .bindImplementation(ProgressProvider.class, PROGRESS_PROVIDER)
       .build();
 }

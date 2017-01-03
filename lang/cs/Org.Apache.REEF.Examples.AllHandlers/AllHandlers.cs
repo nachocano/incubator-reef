@@ -1,34 +1,29 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.IO;
 using Org.Apache.REEF.Client.API;
 using Org.Apache.REEF.Client.Common;
 using Org.Apache.REEF.Client.Local;
-using Org.Apache.REEF.Client.YARN;
-using Org.Apache.REEF.Common.Evaluator;
+using Org.Apache.REEF.Client.Yarn;
+using Org.Apache.REEF.Common.Evaluator.DriverConnectionConfigurationProviders;
 using Org.Apache.REEF.Driver;
-using Org.Apache.REEF.Driver.Bridge;
 using Org.Apache.REEF.Driver.Defaults;
-using Org.Apache.REEF.Examples.Tasks.HelloTask;
-using Org.Apache.REEF.Network.Naming;
 using Org.Apache.REEF.Tang.Annotations;
 using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Interface;
@@ -42,16 +37,16 @@ namespace Org.Apache.REEF.Examples.AllHandlers
         private const string Local = "local";
         private const string YARN = "yarn";
         private readonly IREEFClient _reefClient;
-        private readonly JobSubmissionBuilderFactory _jobSubmissionBuilderFactory;
+        private readonly JobRequestBuilder _jobRequestBuilder;
 
         [Inject]
-        private AllHandlers(IREEFClient reefClient, JobSubmissionBuilderFactory jobSubmissionBuilderFactory)
+        private AllHandlers(IREEFClient reefClient, JobRequestBuilder jobRequestBuilder)
         {
             _reefClient = reefClient;
-            _jobSubmissionBuilderFactory = jobSubmissionBuilderFactory;
+            _jobRequestBuilder = jobRequestBuilder;
         }
 
-        private IDriverHttpEndpoint Run()
+        private IJobSubmissionResult Run()
         {
             var helloDriverConfiguration = DriverConfiguration.ConfigurationModule
                 .Set(DriverConfiguration.OnEvaluatorAllocated, GenericType<HelloAllocatedEvaluatorHandler>.Class)
@@ -61,30 +56,27 @@ namespace Org.Apache.REEF.Examples.AllHandlers
                 .Set(DriverConfiguration.OnEvaluatorFailed, GenericType<HelloFailedEvaluatorHandler>.Class)
                 .Set(DriverConfiguration.OnTaskFailed, GenericType<HelloFailedTaskHandler>.Class)
                 .Set(DriverConfiguration.OnTaskRunning, GenericType<HelloRunningTaskHandler>.Class)
+                .Set(DriverConfiguration.OnTaskCompleted, GenericType<HelloTaskCompletedHandler>.Class)
                 .Set(DriverConfiguration.OnDriverStarted, GenericType<HelloDriverStartHandler>.Class)
                 .Set(DriverConfiguration.OnHttpEvent, GenericType<HelloHttpHandler>.Class)
                 .Set(DriverConfiguration.OnEvaluatorCompleted, GenericType<HelloCompletedEvaluatorHandler>.Class)
                 .Set(DriverConfiguration.CustomTraceListeners, GenericType<DefaultCustomTraceListener>.Class)
                 .Set(DriverConfiguration.CustomTraceLevel, Level.Info.ToString())
                 .Set(DriverConfiguration.OnDriverRestarted, GenericType<HelloRestartHandler>.Class)
-                .Set(DriverConfiguration.OnDriverReconnect, GenericType<DefaultLocalHttpDriverConnection>.Class)
+                .Set(DriverConfiguration.DriverReconnectionConfigurationProvider, 
+                    GenericType<LocalHttpDriverReconnConfigProvider>.Class)
                 .Set(DriverConfiguration.OnDriverRestartContextActive, GenericType<HelloDriverRestartActiveContextHandler>.Class)
                 .Set(DriverConfiguration.OnDriverRestartTaskRunning, GenericType<HelloDriverRestartRunningTaskHandler>.Class)
                 .Build();
 
-            var driverCondig = TangFactory.GetTang().NewConfigurationBuilder(helloDriverConfiguration)
-                .BindSetEntry<DriverBridgeConfigurationOptions.SetOfAssemblies, string>(typeof(HelloTask).Assembly.GetName().Name)
-                .BindSetEntry<DriverBridgeConfigurationOptions.SetOfAssemblies, string>(typeof(NameClient).Assembly.GetName().Name)
-                .Build();
-
-            var helloJobSubmission = _jobSubmissionBuilderFactory.GetJobSubmissionBuilder()
-                .AddDriverConfiguration(driverCondig)
+            var helloJobSubmission = _jobRequestBuilder
+                .AddDriverConfiguration(helloDriverConfiguration)
                 .AddGlobalAssemblyForType(typeof(HelloDriverStartHandler))
                 .SetJobIdentifier("HelloDriver")
                 .Build();
 
-            IDriverHttpEndpoint driverHttpEndpoint = _reefClient.SubmitAndGetDriverUrl(helloJobSubmission);
-            return driverHttpEndpoint;
+            IJobSubmissionResult jobSubmissionResult = _reefClient.SubmitAndGetJobStatus(helloJobSubmission);
+            return jobSubmissionResult;
         }
 
         /// <summary></summary>
@@ -124,12 +116,12 @@ namespace Org.Apache.REEF.Examples.AllHandlers
         /// args[0] specify either running local or YARN. Default is local
         /// args[1] specify running folder. Default is REEF_LOCAL_RUNTIME
         /// </remarks>
-        public static IDriverHttpEndpoint Run(string[] args)
+        public static IJobSubmissionResult Run(string[] args)
         {
             string runOnYarn = args.Length > 0 ? args[0] : Local;
             string runtimeFolder = args.Length > 1 ? args[1] : "REEF_LOCAL_RUNTIME";
-            IDriverHttpEndpoint driverEndPoint = TangFactory.GetTang().NewInjector(GetRuntimeConfiguration(runOnYarn, runtimeFolder)).GetInstance<AllHandlers>().Run();
-            return driverEndPoint;
+            IJobSubmissionResult jobSubmissionResult = TangFactory.GetTang().NewInjector(GetRuntimeConfiguration(runOnYarn, runtimeFolder)).GetInstance<AllHandlers>().Run();
+            return jobSubmissionResult;
         }
     }
 }

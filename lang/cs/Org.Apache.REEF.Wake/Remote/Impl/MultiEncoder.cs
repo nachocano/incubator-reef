@@ -1,21 +1,19 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -31,7 +29,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
     /// </summary>
     public class MultiEncoder<T> : IEncoder<T>
     {
-        private static readonly Logger _logger = Logger.GetLogger(typeof(MultiEncoder<>));
+        private static readonly Logger Logger = Logger.GetLogger(typeof(MultiEncoder<>));
         private readonly Dictionary<Type, object> _encoderMap;
         private readonly Dictionary<Type, string> _nameMap;
 
@@ -54,7 +52,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         {
             _encoderMap[typeof(U)] = encoder;
             _nameMap[typeof(U)] = name;
-            _logger.Log(Level.Verbose, "Registering name for " + name);
+            Logger.Log(Level.Verbose, "Registering name for " + name);
         }
 
         /// <summary>Encodes an object to a byte array</summary>
@@ -71,13 +69,13 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
             // Invoke encoder for this type
             Type handlerType = typeof(IEncoder<>).MakeGenericType(new[] { obj.GetType() });
             MethodInfo info = handlerType.GetMethod("Encode");
-            byte[] data = (byte[]) info.Invoke(encoder, new[] { (object) obj });
+            byte[] data = (byte[])info.Invoke(encoder, new[] { (object)obj });
 
             // Serialize object type and object data into well known tuple
             // To decode, deserialize the tuple, get object type, and look up the
             // decoder for that type
             string name = _nameMap[obj.GetType()];
-            _logger.Log(Level.Verbose, "Encoding name for " + name);
+            Logger.Log(Level.Verbose, "Encoding name for " + name);
             WakeTuplePBuf pbuf = new WakeTuplePBuf { className = name, data = data };
             pbuf.className = name;
             pbuf.data = data; 

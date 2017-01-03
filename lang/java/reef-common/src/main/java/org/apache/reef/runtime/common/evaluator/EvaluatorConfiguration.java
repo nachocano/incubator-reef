@@ -18,6 +18,8 @@
  */
 package org.apache.reef.runtime.common.evaluator;
 
+import org.apache.reef.io.TempFileCreator;
+import org.apache.reef.io.WorkingDirectoryTempFileCreator;
 import org.apache.reef.runtime.common.evaluator.parameters.*;
 import org.apache.reef.runtime.common.launch.parameters.ErrorHandlerRID;
 import org.apache.reef.runtime.common.launch.parameters.LaunchID;
@@ -39,6 +41,7 @@ public final class EvaluatorConfiguration extends ConfigurationModuleBuilder {
   public static final RequiredParameter<String> DRIVER_REMOTE_IDENTIFIER = new RequiredParameter<>();
   public static final RequiredParameter<String> EVALUATOR_IDENTIFIER = new RequiredParameter<>();
   public static final RequiredParameter<String> ROOT_CONTEXT_CONFIGURATION = new RequiredParameter<>();
+  public static final OptionalParameter<String> EVALUATOR_CONFIGURATION = new OptionalParameter<>();
   public static final OptionalParameter<String> ROOT_SERVICE_CONFIGURATION = new OptionalParameter<>();
   public static final OptionalParameter<String> TASK_CONFIGURATION = new OptionalParameter<>();
   public static final OptionalParameter<Integer> HEARTBEAT_PERIOD = new OptionalParameter<>();
@@ -52,6 +55,8 @@ public final class EvaluatorConfiguration extends ConfigurationModuleBuilder {
       .bindNamedParameter(ErrorHandlerRID.class, DRIVER_REMOTE_IDENTIFIER)
       .bindNamedParameter(EvaluatorIdentifier.class, EVALUATOR_IDENTIFIER)
       .bindNamedParameter(HeartbeatPeriod.class, HEARTBEAT_PERIOD)
+      .bindNamedParameter(org.apache.reef.runtime.common.evaluator.parameters.EvaluatorConfiguration.class,
+          EVALUATOR_CONFIGURATION)
       .bindNamedParameter(RootContextConfiguration.class, ROOT_CONTEXT_CONFIGURATION)
       .bindNamedParameter(InitialTaskConfiguration.class, TASK_CONFIGURATION)
       .bindNamedParameter(RootServiceConfiguration.class, ROOT_SERVICE_CONFIGURATION)
@@ -67,6 +72,7 @@ public final class EvaluatorConfiguration extends ConfigurationModuleBuilder {
    * This is ConfigurationModule for Java Evaluator.
    */
   public static final ConfigurationModule CONF = EVALUATOR_CONFIG_MODULE_BUILDER
+      .bindImplementation(TempFileCreator.class, WorkingDirectoryTempFileCreator.class)
       .bindSetEntry(Clock.RuntimeStartHandler.class, EvaluatorRuntime.RuntimeStartHandler.class)
       .bindSetEntry(Clock.RuntimeStopHandler.class, EvaluatorRuntime.RuntimeStopHandler.class)
       .bindConstructor(ExecutorService.class, ExecutorServiceConstructor.class)

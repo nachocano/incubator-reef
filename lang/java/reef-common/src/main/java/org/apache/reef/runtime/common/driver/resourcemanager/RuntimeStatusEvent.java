@@ -21,13 +21,14 @@ package org.apache.reef.runtime.common.driver.resourcemanager;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.annotations.audience.RuntimeAuthor;
 import org.apache.reef.proto.ReefServiceProtos;
+import org.apache.reef.runtime.common.driver.evaluator.pojos.State;
 import org.apache.reef.tang.annotations.DefaultImplementation;
 import org.apache.reef.util.Optional;
 
 import java.util.List;
 
 /**
- * Event from Driver Runtime -> Driver Process.
+ * Event from Driver Runtime to Driver Process.
  * A status update from the Driver Runtime to the Driver Process
  */
 @RuntimeAuthor
@@ -42,7 +43,7 @@ public interface RuntimeStatusEvent {
   /**
    * @return State of the Runtime
    */
-  ReefServiceProtos.State getState();
+  State getState();
 
   /**
    * @return List of allocated containers

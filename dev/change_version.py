@@ -23,7 +23,6 @@ python change_version <reef_home> <reef_version_for_pom.xml> -s <true or false> 
 
 -s option changes value of 'IsSnapshot' in lang/cs/build.props.
 If you use the option "-s false", bulid.props changes as,
- <RemoveIncubating>true</RemoveIncubating>
  <IsSnapshot>false</IsSnapshot>
  <SnapshotNumber>00</SnapshotNumber>
 
@@ -34,9 +33,9 @@ If you use "-p", then only the "pom.xml" files are changed.
 You can also see how to run the script with "python change_version.py -h"
 
 (Example)
-python change_version ~/incubator_reef 0.12.0-incubating -s true
-python change_version ~/incubator_reef 0.12.0-incubating -s false
-python change_version ~/incubator_reef 0.12.0-incubating -p -s true
+python change_version ~/reef 0.14.0 -s true
+python change_version ~/reef 0.14.0 -s false
+python change_version ~/reef 0.14.0 -p -s true
 """
 
 
@@ -49,7 +48,7 @@ import argparse
 Get list of path for every file in a directory
 """
 def get_filepaths(directory):
-    file_paths = []  
+    file_paths = []
 
     for root, directories, files in os.walk(directory):
         for filename in files:
@@ -86,13 +85,14 @@ def change_pom(file, new_version):
         if not line: 
             break
         changed_str += line
+    f.close()
 
     f = open(file, 'w')
     f.write(changed_str)
     f.close()
 
 """
-Change JavaBridgeJarFileName in lang/cs/Org.Apache.REEF.Driver/Constants.cs
+Change JavaBridgeJarFileName in lang/cs/Org.Apache.REEF.Driver/DriverConfigGenerator.cs
 """
 def change_constants_cs(file, new_version):
     changed_str = ""
@@ -103,7 +103,7 @@ def change_constants_cs(file, new_version):
         if not line:
             break
 
-        if "JavaBridgeJarFileName" in line:
+        if "JavaBridgeJarFileName =" in line:
             r = re.compile('"(.*?)"')
             m = r.search(line)
             old_version = m.group(1)
@@ -111,13 +111,14 @@ def change_constants_cs(file, new_version):
             changed_str += line.replace(old_version, new_version)
         else:
             changed_str += line
+    f.close()
 
     f = open(file, 'w')
     f.write(changed_str)
     f.close()
 
 """
-Change version in every AssemblyInfo.cs and lang/cs/Org.Apache.REEF.Bridge/AssemblyInfo.cpp
+Change version in SharedAssemblyInfo.cs and AssemblyInfo.cpp
 """
 def change_assembly_info_cs(file, new_version):
     changed_str = ""
@@ -138,6 +139,7 @@ def change_assembly_info_cs(file, new_version):
             changed_str += line.replace(old_version, new_version)
         else:
             changed_str += line
+    f.close()
 
     f = open(file, 'w')
     f.write(changed_str)
@@ -159,6 +161,7 @@ def read_is_snapshot(file):
                 return True
             else:
                 return False
+    f.close()
 
 """
 Change lang/cs/build.props for the release branch
@@ -167,25 +170,25 @@ def change_build_props(file, is_snapshot):
     changed_str = ""
 
     f = open(file, 'r')
-    r1 = re.compile('<RemoveIncubating>(.*?)</RemoveIncubating>')
-    r2 = re.compile('<IsSnapshot>(.*?)</IsSnapshot>')
-    r3 = re.compile('<SnapshotNumber>(.*?)</SnapshotNumber>')
+    r1 = re.compile('<IsSnapshot>(.*?)</IsSnapshot>')
+    r2 = re.compile('<SnapshotNumber>(.*?)</SnapshotNumber>')
 
     while True:
         line = f.readline()
         if not line:
             break
-        if "<RemoveIncubating>" and "</RemoveIncubating>" in line and is_snapshot=="false":
-            old_remove_incubating = r1.search(line).group(1)
-            changed_str += line.replace(old_remove_incubating, "true")
-        elif "<IsSnapshot>" in line and "</IsSnapshot>" in line:
-            old_is_snapshot = r2.search(line).group(1)
+        if "<IsSnapshot>" in line and "</IsSnapshot>" in line:
+            old_is_snapshot = r1.search(line).group(1)
             changed_str += line.replace(old_is_snapshot, is_snapshot)
-        elif "<SnapshotNumber>" in line and "</SnapshotNumber>" in line and is_snapshot=="false":
-            old_snapshot_number = r3.search(line).group(1)
-            changed_str += line.replace(old_snapshot_number, "00")
+        elif "<SnapshotNumber>" in line and "</SnapshotNumber>" in line:
+            old_snapshot_number = r2.search(line).group(1)
+            if is_snapshot=="false":
+              changed_str += line.replace(old_snapshot_number, "00")
+            else:
+              changed_str += line.replace(old_snapshot_number, "01")
         else:
             changed_str += line
+    f.close()
 
     f = open(file, 'w')
     f.write(changed_str)
@@ -214,14 +217,41 @@ def change_shaded_jar_name(file, new_version):
             changed_str += line.replace(m2.group(1), new_version)
         else:
             changed_str += line
+    f.close()
 
     f = open(file, 'w')
     f.write(changed_str)
     f.close()
 
 """
-Change version of every pom.xml, every AsssemblyInfo.cs, 
-Constants.cs, AssemblyInfo.cpp, run.cmd and Resources.xml
+Change the version in Doxyfile
+"""
+def change_project_number_Doxyfile(file, new_version):
+    changed_str = ""
+
+    f = open(file, 'r')
+    while True:
+        line = f.readline()
+        if not line:
+            break
+
+        if "PROJECT_NUMBER         = " in line:
+            r = re.compile('= (.*?)$')
+            m = r.search(line)
+            old_version = m.group(1)
+            changed_str += line.replace(old_version, new_version)
+        else:
+            changed_str += line
+    f.close()
+
+    f = open(file, 'w')
+    f.write(changed_str)
+    f.close()
+
+
+"""
+Change version of every pom.xml, SharedAssemblyInfo.cs,
+AssemblyInfo.cpp, run.cmd and Resources.xml
 """
 def change_version(reef_home, new_version, pom_only):
     if pom_only:
@@ -235,15 +265,18 @@ def change_version(reef_home, new_version, pom_only):
             if "pom.xml" in fi:
                 print fi
                 change_pom(fi, new_version)
-            if "AssemblyInfo.cs" in fi:
+            if "SharedAssemblyInfo.cs" in fi:
                 print fi
                 change_assembly_info_cs(fi, new_version)
 
         change_assembly_info_cs(reef_home + "/lang/cs/Org.Apache.REEF.Bridge/AssemblyInfo.cpp", new_version)
         print reef_home + "/lang/cs/Org.Apache.REEF.Bridge/AssemblyInfo.cpp"
 
-        change_constants_cs(reef_home + "/lang/cs/Org.Apache.REEF.Driver/Constants.cs", new_version)
-        print reef_home + "/lang/cs/Org.Apache.REEF.Driver/Constants.cs"
+        change_assembly_info_cs(reef_home + "/lang/cs/Org.Apache.REEF.ClrDriver/AssemblyInfo.cpp", new_version)
+        print reef_home + "/lang/cs/Org.Apache.REEF.ClrDriver/AssemblyInfo.cpp"
+
+        change_constants_cs(reef_home + "/lang/cs/Org.Apache.REEF.Driver/DriverConfigGenerator.cs", new_version)
+        print reef_home + "/lang/cs/Org.Apache.REEF.Driver/DriverConfigGenerator.cs"
 
         change_shaded_jar_name(reef_home + "/lang/cs/Org.Apache.REEF.Client/Properties/Resources.xml", new_version)
         print reef_home + "/lang/cs/Org.Apache.REEF.Client/Properties/Resources.xml"
@@ -251,10 +284,11 @@ def change_version(reef_home, new_version, pom_only):
         change_shaded_jar_name(reef_home + "/lang/cs/Org.Apache.REEF.Client/run.cmd", new_version)
         print reef_home + "/lang/cs/Org.Apache.REEF.Client/run.cmd"
 
+        change_project_number_Doxyfile(reef_home + "/Doxyfile", new_version)
+        print reef_home + "/Doxyfile"
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Script for changing version of every pom.xml, " \
-        + "every AssemblyInfo.cs, Constants.cs, and AssemblyInfo.cpp")    
+    parser = argparse.ArgumentParser(description="Script for changing REEF version in all files that use it")
     parser.add_argument("reef_home", type=str, help="REEF home")
     parser.add_argument("reef_version", type=str, help="REEF version")
     parser.add_argument("-s", "--isSnapshot", type=str, metavar="<true or false>", help="Change 'IsSnapshot' to true or false", required=True)

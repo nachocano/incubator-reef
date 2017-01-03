@@ -71,20 +71,19 @@ public class TestClassHierarchy {
     Node n = null;
     try {
       n = ns.getNode("java");
-    } catch (final NameResolutionException e) {
+    } catch (final NameResolutionException expected) {
     }
     Assert.assertNull(n);
     try {
       n = ns.getNode("java.lang");
-    } catch (final NameResolutionException e) {
+    } catch (final NameResolutionException expected) {
     }
     Assert.assertNull(n);
     Assert.assertNotNull(ns.getNode("java.lang.String"));
     try {
       ns.getNode("com.microsoft");
       Assert.fail("Didn't get expected exception");
-    } catch (final NameResolutionException e) {
-
+    } catch (final NameResolutionException expected) {
     }
   }
 
@@ -372,7 +371,7 @@ public class TestClassHierarchy {
   @Test
   public void testNonInjectableParam() throws NameResolutionException {
     thrown.expect(ClassHierarchyException.class);
-    thrown.expectMessage("public org.apache.reef.tang.implementation.NonInjectableParam(int) is not injectable, " +
+    thrown.expectMessage("org.apache.reef.tang.implementation.NonInjectableParam(int) is not injectable, " +
         "but it has an @Parameter annotation.");
     ns.getNode(s(NonInjectableParam.class));
   }
@@ -390,25 +389,25 @@ class BadName implements Name<String> {
 class SimpleConstructors {
 
   @Inject
-  public SimpleConstructors() {
+  SimpleConstructors() {
   }
 
   @Inject
-  public SimpleConstructors(final int x) {
+  SimpleConstructors(final int x) {
   }
 
-  public SimpleConstructors(final String x) {
+  SimpleConstructors(final String x) {
   }
 
   @Inject
-  public SimpleConstructors(final int x, final String y) {
+  SimpleConstructors(final int x, final String y) {
   }
 }
 
 class NamedParameterConstructors {
 
   @Inject
-  public NamedParameterConstructors(final String x, @Parameter(X.class) final String y) {
+  NamedParameterConstructors(final String x, @Parameter(X.class) final String y) {
   }
 
   @NamedParameter()
@@ -418,7 +417,7 @@ class NamedParameterConstructors {
 
 class RepeatConstructorArg {
   @Inject
-  public RepeatConstructorArg(final int x, final int y) {
+  RepeatConstructorArg(final int x, final int y) {
   }
 }
 
@@ -427,7 +426,7 @@ class A {
 
 class RepeatConstructorArgClasses {
   @Inject
-  public RepeatConstructorArgClasses(final A x, final A y) {
+  RepeatConstructorArgClasses(final A x, final A y) {
   }
 }
 
@@ -460,15 +459,15 @@ class BB implements Name<A> {
 
 class NamedRepeatConstructorArgClasses {
   @Inject
-  public NamedRepeatConstructorArgClasses(@Parameter(AA.class) final A x,
-                                          @Parameter(BB.class) final A y) {
+  NamedRepeatConstructorArgClasses(@Parameter(AA.class) final A x,
+                                   @Parameter(BB.class) final A y) {
   }
 }
 
 class DocumentedLocalNamedParameter {
 
   @Inject
-  public DocumentedLocalNamedParameter(@Parameter(Foo.class) final String s) {
+  DocumentedLocalNamedParameter(@Parameter(Foo.class) final String s) {
   }
 
   @NamedParameter(doc = "doc stuff", default_value = "some value")
@@ -479,7 +478,7 @@ class DocumentedLocalNamedParameter {
 class NamedParameterTypeMismatch {
 
   @Inject
-  public NamedParameterTypeMismatch(@Parameter(Foo.class) final String s) {
+  NamedParameterTypeMismatch(@Parameter(Foo.class) final String s) {
   }
 
   @NamedParameter(doc = "doc.stuff", default_value = "1")
@@ -519,7 +518,7 @@ final class NameWithConstructor implements Name<Object> {
 @NamedParameter()
 class NameWithZeroArgInject implements Name<Object> {
   @Inject
-  public NameWithZeroArgInject() {
+  NameWithZeroArgInject() {
   }
 }
 
@@ -655,6 +654,6 @@ class SomeName implements Name<Integer> {
 }
 
 class NonInjectableParam {
-  public NonInjectableParam(@Parameter(SomeName.class) final int i) {
+  NonInjectableParam(@Parameter(SomeName.class) final int i) {
   }
 }

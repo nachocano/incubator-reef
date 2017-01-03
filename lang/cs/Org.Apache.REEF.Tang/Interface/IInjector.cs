@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using Org.Apache.REEF.Tang.Annotations;
@@ -75,7 +73,7 @@ namespace Org.Apache.REEF.Tang.Interface
         /// </summary>
         /// <param name="name">The name.</param>
         /// <returns></returns>
-        InjectionPlan GetInjectionPlan(String name);
+        InjectionPlan GetInjectionPlan(string name);
 
         /// <summary>
         /// Binds the aspect.
@@ -105,7 +103,7 @@ namespace Org.Apache.REEF.Tang.Interface
         /// <returns>
         ///   <c>true</c> if [is parameter set] [the specified name]; otherwise, <c>false</c>.
         /// </returns>
-        bool IsParameterSet(String name);
+        bool IsParameterSet(string name);
 
         /// <summary>
         /// Determines whether the specified clazz is injectable.

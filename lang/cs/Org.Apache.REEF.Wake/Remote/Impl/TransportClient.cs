@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Net;
@@ -39,8 +37,9 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         /// Used to send messages to the specified remote endpoint.
         /// </summary>
         /// <param name="remoteEndpoint">The endpoint of the remote server to connect to</param>
-        /// <param name="codec">Codec to decode/encodec</param>
-        public TransportClient(IPEndPoint remoteEndpoint, ICodec<T> codec) 
+        /// <param name="codec">Codec to decode/encode</param>
+        /// <param name="clientFactory">TcpClient factory</param>
+        public TransportClient(IPEndPoint remoteEndpoint, ICodec<T> codec, ITcpClientConnectionFactory clientFactory) 
         {
             if (remoteEndpoint == null)
             {
@@ -50,8 +49,12 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
             {
                 throw new ArgumentNullException("codec");
             }
+            if (clientFactory == null)
+            {
+                throw new ArgumentNullException("clientFactory");
+            }
 
-            _link = new Link<T>(remoteEndpoint, codec);
+            _link = new Link<T>(remoteEndpoint, codec, clientFactory);
             _cancellationSource = new CancellationTokenSource();
             _disposed = false;
         }
@@ -63,10 +66,12 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         /// <param name="remoteEndpoint">The endpoint of the remote server to connect to</param>
         /// <param name="codec">Codec to decode/encodec</param>
         /// <param name="observer">Callback used when receiving responses from remote host</param>
-        public TransportClient(IPEndPoint remoteEndpoint, 
-                               ICodec<T> codec, 
-                               IObserver<TransportEvent<T>> observer) 
-                                   : this(remoteEndpoint, codec)
+        /// <param name="clientFactory">TcpClient factory</param>
+        public TransportClient(IPEndPoint remoteEndpoint,
+            ICodec<T> codec,
+            IObserver<TransportEvent<T>> observer,
+            ITcpClientConnectionFactory clientFactory)
+            : this(remoteEndpoint, codec, clientFactory)
         {
             _observer = observer;
             Task.Run(() => ResponseLoop());
@@ -107,6 +112,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         {
             if (!_disposed && disposing)
             {
+                _cancellationSource.Cancel();
                 _link.Dispose();
                 _disposed = true;
             }

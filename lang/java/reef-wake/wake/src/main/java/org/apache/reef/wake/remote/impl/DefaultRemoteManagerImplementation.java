@@ -24,7 +24,6 @@ import org.apache.reef.wake.EventHandler;
 import org.apache.reef.wake.impl.StageManager;
 import org.apache.reef.wake.remote.*;
 import org.apache.reef.wake.remote.address.LocalAddressProvider;
-import org.apache.reef.wake.remote.ports.RangeTcpPortProvider;
 import org.apache.reef.wake.remote.ports.TcpPortProvider;
 import org.apache.reef.wake.remote.transport.Transport;
 import org.apache.reef.wake.remote.transport.TransportFactory;
@@ -43,7 +42,7 @@ import java.util.logging.Logger;
 /**
  * Default remote manager implementation.
  */
-public class DefaultRemoteManagerImplementation implements RemoteManager {
+public final class DefaultRemoteManagerImplementation implements RemoteManager {
 
   private static final Logger LOG = Logger.getLogger(HandlerContainer.class.getName());
 
@@ -53,80 +52,61 @@ public class DefaultRemoteManagerImplementation implements RemoteManager {
    * The timeout used for the execute running in close().
    */
   private static final long CLOSE_EXECUTOR_TIMEOUT = 10000; //ms
-  private final AtomicBoolean closed = new AtomicBoolean(false);
-  private final String name;
-  private final Transport transport;
-  private final RemoteSenderStage reSendStage;
-  private final EStage<TransportEvent> reRecvStage;
-  private final HandlerContainer handlerContainer;
-  private final RemoteSeqNumGenerator seqGen = new RemoteSeqNumGenerator();
-  private RemoteIdentifier myIdentifier;
+
   /**
    * Indicates a hostname that isn't set or known.
    */
   public static final String UNKNOWN_HOST_NAME = NettyMessagingTransport.UNKNOWN_HOST_NAME;
 
-  /**
-   * @deprecated have an instance injected instead.
-   */
-  @Deprecated
-  @Inject
-  public <T> DefaultRemoteManagerImplementation(
-      @Parameter(RemoteConfiguration.ManagerName.class) final String name,
-      @Parameter(RemoteConfiguration.HostAddress.class) final String hostAddress,
-      @Parameter(RemoteConfiguration.Port.class) final int listeningPort,
-      @Parameter(RemoteConfiguration.MessageCodec.class) final Codec<T> codec,
-      @Parameter(RemoteConfiguration.ErrorHandler.class) final EventHandler<Throwable> errorHandler,
-      @Parameter(RemoteConfiguration.OrderingGuarantee.class) final boolean orderingGuarantee,
-      @Parameter(RemoteConfiguration.NumberOfTries.class) final int numberOfTries,
-      @Parameter(RemoteConfiguration.RetryTimeout.class) final int retryTimeout,
-      final LocalAddressProvider localAddressProvider,
-      final TransportFactory tpFactory) {
-      this(name, hostAddress, listeningPort, codec, errorHandler, orderingGuarantee, numberOfTries, retryTimeout,
-              localAddressProvider, tpFactory, RangeTcpPortProvider.Default);
-  }
+  private final AtomicBoolean closed = new AtomicBoolean(false);
+  private final RemoteSeqNumGenerator seqGen = new RemoteSeqNumGenerator();
+
+  private final String name;
+  private final Transport transport;
+  private final RemoteSenderStage reSendStage;
+  private final EStage<TransportEvent> reRecvStage;
+  private final HandlerContainer handlerContainer;
+
+  private RemoteIdentifier myIdentifier;
 
   @Inject
-    private <T> DefaultRemoteManagerImplementation(
-            @Parameter(RemoteConfiguration.ManagerName.class) final String name,
-            @Parameter(RemoteConfiguration.HostAddress.class) final String hostAddress,
-            @Parameter(RemoteConfiguration.Port.class) final int listeningPort,
-            @Parameter(RemoteConfiguration.MessageCodec.class) final Codec<T> codec,
-            @Parameter(RemoteConfiguration.ErrorHandler.class) final EventHandler<Throwable> errorHandler,
-            @Parameter(RemoteConfiguration.OrderingGuarantee.class) final boolean orderingGuarantee,
-            @Parameter(RemoteConfiguration.NumberOfTries.class) final int numberOfTries,
-            @Parameter(RemoteConfiguration.RetryTimeout.class) final int retryTimeout,
-            final LocalAddressProvider localAddressProvider,
-            final TransportFactory tpFactory,
-            final TcpPortProvider tcpPortProvider) {
+  private <T> DefaultRemoteManagerImplementation(
+        @Parameter(RemoteConfiguration.ManagerName.class) final String name,
+        @Parameter(RemoteConfiguration.HostAddress.class) final String hostAddress,
+        @Parameter(RemoteConfiguration.Port.class) final int listeningPort,
+        @Parameter(RemoteConfiguration.MessageCodec.class) final Codec<T> codec,
+        @Parameter(RemoteConfiguration.ErrorHandler.class) final EventHandler<Throwable> errorHandler,
+        @Parameter(RemoteConfiguration.OrderingGuarantee.class) final boolean orderingGuarantee,
+        @Parameter(RemoteConfiguration.NumberOfTries.class) final int numberOfTries,
+        @Parameter(RemoteConfiguration.RetryTimeout.class) final int retryTimeout,
+        final LocalAddressProvider localAddressProvider,
+        final TransportFactory tpFactory,
+        final TcpPortProvider tcpPortProvider) {
 
     this.name = name;
     this.handlerContainer = new HandlerContainer<>(name, codec);
 
     this.reRecvStage = orderingGuarantee ?
-                new OrderedRemoteReceiverStage(this.handlerContainer, errorHandler) :
-                new RemoteReceiverStage(this.handlerContainer, errorHandler, 10);
+        new OrderedRemoteReceiverStage(this.handlerContainer, errorHandler) :
+        new RemoteReceiverStage(this.handlerContainer, errorHandler, 10);
 
-    this.transport = tpFactory.newInstance(
-                hostAddress, listeningPort, this.reRecvStage, this.reRecvStage, numberOfTries, retryTimeout,
-                tcpPortProvider);
+    this.transport = tpFactory.newInstance(hostAddress, listeningPort,
+        this.reRecvStage, this.reRecvStage, numberOfTries, retryTimeout, tcpPortProvider);
 
     this.handlerContainer.setTransport(this.transport);
 
-    this.myIdentifier = new SocketRemoteIdentifier(
-                (InetSocketAddress) this.transport.getLocalAddress());
+    this.myIdentifier = new SocketRemoteIdentifier((InetSocketAddress)this.transport.getLocalAddress());
 
     this.reSendStage = new RemoteSenderStage(codec, this.transport, 10);
 
     StageManager.instance().register(this);
-    LOG.log(Level.FINEST, "RemoteManager {0} instantiated id {1} counter {2} listening on {3}:{4}. " +
-                "Binding address provided by {5}",
-                new Object[]{this.name, this.myIdentifier, COUNTER.incrementAndGet(),
-                        this.transport.getLocalAddress().toString(),
-                        this.transport.getListeningPort(), localAddressProvider}
-    );
-  }
 
+    final int counter = COUNTER.incrementAndGet();
+
+    LOG.log(Level.FINEST,
+        "RemoteManager {0} instantiated id {1} counter {2} listening on {3} Binding address provided by {4}",
+        new Object[] {this.name, this.myIdentifier, counter, this.transport.getLocalAddress(), localAddressProvider});
+  }
 
   /**
    * Returns a proxy event handler for a remote identifier and a message type.
@@ -137,7 +117,7 @@ public class DefaultRemoteManagerImplementation implements RemoteManager {
 
     if (LOG.isLoggable(Level.FINE)) {
       LOG.log(Level.FINE, "RemoteManager: {0} destinationIdentifier: {1} messageType: {2}",
-          new Object[]{this.name, destinationIdentifier, messageType.getName()});
+          new Object[] {this.name, destinationIdentifier, messageType.getName()});
     }
 
     return new ProxyEventHandler<>(this.myIdentifier, destinationIdentifier,
@@ -152,11 +132,12 @@ public class DefaultRemoteManagerImplementation implements RemoteManager {
   public <T, U extends T> AutoCloseable registerHandler(
       final RemoteIdentifier sourceIdentifier,
       final Class<U> messageType, final EventHandler<T> theHandler) {
+
     if (LOG.isLoggable(Level.FINE)) {
       LOG.log(Level.FINE, "RemoteManager: {0} remoteid: {1} messageType: {2} handler: {3}",
-          new Object[]{this.name, sourceIdentifier, messageType.getName(),
-              theHandler.getClass().getName()});
+          new Object[] {this.name, sourceIdentifier, messageType.getName(), theHandler.getClass().getName()});
     }
+
     return this.handlerContainer.registerHandler(sourceIdentifier, messageType, theHandler);
   }
 
@@ -166,23 +147,13 @@ public class DefaultRemoteManagerImplementation implements RemoteManager {
   @Override
   public <T, U extends T> AutoCloseable registerHandler(
       final Class<U> messageType, final EventHandler<RemoteMessage<T>> theHandler) {
+
     if (LOG.isLoggable(Level.FINE)) {
       LOG.log(Level.FINE, "RemoteManager: {0} messageType: {1} handler: {2}",
-          new Object[]{this.name, messageType.getName(), theHandler.getClass().getName()});
+          new Object[] {this.name, messageType.getName(), theHandler.getClass().getName()});
     }
-    return this.handlerContainer.registerHandler(messageType, theHandler);
-  }
 
-  /**
-   * Registers an exception handler and returns a subscription.
-   */
-  @Override
-  public AutoCloseable registerErrorHandler(final EventHandler<Exception> theHandler) {
-    if (LOG.isLoggable(Level.FINE)) {
-      LOG.log(Level.FINE, "RemoteManager: {0} handler: {1}",
-          new Object[]{this.name, theHandler.getClass().getName()});
-    }
-    return this.handlerContainer.registerErrorHandler(theHandler);
+    return this.handlerContainer.registerHandler(messageType, theHandler);
   }
 
   /**
@@ -195,63 +166,76 @@ public class DefaultRemoteManagerImplementation implements RemoteManager {
 
   @Override
   public void close() {
-    if (closed.compareAndSet(false, true)) {
 
-      LOG.log(Level.FINE, "RemoteManager: {0} Closing remote manager id: {1}",
-          new Object[]{this.name, this.myIdentifier});
+    LOG.log(Level.FINE, "RemoteManager: {0} Closing remote manager id: {1}",
+        new Object[] {this.name, this.myIdentifier});
 
-      final Runnable closeRunnable = new Runnable() {
-        @Override
-        public void run() {
-          try {
-            LOG.log(Level.FINE, "Closing sender stage {0}", myIdentifier);
-            reSendStage.close();
-            LOG.log(Level.FINE, "Closed the remote sender stage");
-          } catch (final Exception e) {
-            LOG.log(Level.SEVERE, "Unable to close the remote sender stage", e);
-          }
+    if (!this.closed.compareAndSet(false, true)) {
+      LOG.log(Level.FINE, "RemoteManager: {0} already closed", this.name);
+      return;
+    }
 
-          try {
-            LOG.log(Level.FINE, "Closing transport {0}", myIdentifier);
-            transport.close();
-            LOG.log(Level.FINE, "Closed the transport");
-          } catch (final Exception e) {
-            LOG.log(Level.SEVERE, "Unable to close the transport.", e);
-          }
+    final Runnable closeRunnable = new Runnable() {
+      @Override
+      public void run() {
 
-          try {
-            LOG.log(Level.FINE, "Closing receiver stage {0}", myIdentifier);
-            reRecvStage.close();
-            LOG.log(Level.FINE, "Closed the remote receiver stage");
-          } catch (final Exception e) {
-            LOG.log(Level.SEVERE, "Unable to close the remote receiver stage", e);
-          }
-        }
+        Thread.currentThread().setName(String.format("CLOSE:RemoteManager:%s:%s", name, myIdentifier));
 
-      };
-
-      final ExecutorService closeExecutor = Executors.newSingleThreadExecutor();
-      closeExecutor.submit(closeRunnable);
-      closeExecutor.shutdown();
-      if (!closeExecutor.isShutdown()) {
-        LOG.log(Level.SEVERE, "close executor did not shutdown properly.");
-      }
-
-      final long endTime = System.currentTimeMillis() + CLOSE_EXECUTOR_TIMEOUT;
-      while (!closeExecutor.isTerminated()) {
         try {
-          final long waitTime = endTime - System.currentTimeMillis();
-          closeExecutor.awaitTermination(waitTime, TimeUnit.MILLISECONDS);
-        } catch (final InterruptedException e) {
-          LOG.log(Level.FINE, "Interrupted", e);
+          LOG.log(Level.FINE, "Closing sender stage {0}", myIdentifier);
+          reSendStage.close();
+          LOG.log(Level.FINE, "Closed the remote sender stage");
+        } catch (final Exception e) {
+          LOG.log(Level.SEVERE, "Unable to close the remote sender stage", e);
+        }
+
+        try {
+          LOG.log(Level.FINE, "Closing transport {0}", myIdentifier);
+          transport.close();
+          LOG.log(Level.FINE, "Closed the transport");
+        } catch (final Exception e) {
+          LOG.log(Level.SEVERE, "Unable to close the transport.", e);
+        }
+
+        try {
+          LOG.log(Level.FINE, "Closing receiver stage {0}", myIdentifier);
+          reRecvStage.close();
+          LOG.log(Level.FINE, "Closed the remote receiver stage");
+        } catch (final Exception e) {
+          LOG.log(Level.SEVERE, "Unable to close the remote receiver stage", e);
         }
       }
+    };
 
-      if (closeExecutor.isTerminated()) {
-        LOG.log(Level.FINE, "Close executor terminated properly.");
-      } else {
-        LOG.log(Level.SEVERE, "Close executor did not terminate properly.");
+    final ExecutorService closeExecutor = Executors.newSingleThreadExecutor();
+
+    closeExecutor.submit(closeRunnable);
+    closeExecutor.shutdown();
+
+    if (!closeExecutor.isShutdown()) {
+      LOG.log(Level.SEVERE, "close executor did not shutdown properly.");
+    }
+
+    final long endTime = System.currentTimeMillis() + CLOSE_EXECUTOR_TIMEOUT;
+    while (!closeExecutor.isTerminated()) {
+      try {
+        final long waitTime = endTime - System.currentTimeMillis();
+        closeExecutor.awaitTermination(waitTime, TimeUnit.MILLISECONDS);
+      } catch (final InterruptedException e) {
+        LOG.log(Level.FINE, "Interrupted", e);
       }
     }
+
+    if (closeExecutor.isTerminated()) {
+      LOG.log(Level.FINE, "Close executor terminated properly.");
+    } else {
+      LOG.log(Level.SEVERE, "Close executor did not terminate properly.");
+    }
+  }
+
+  @Override
+  public String toString() {
+    return String.format("RemoteManager: { class:%s, name:%s, id:%s }",
+        this.getClass().getCanonicalName(), this.name, this.myIdentifier);
   }
 }

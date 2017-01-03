@@ -25,6 +25,7 @@ import org.apache.reef.io.TempFileCreator;
 import org.apache.reef.io.WorkingDirectoryTempFileCreator;
 import org.apache.reef.runtime.common.driver.api.*;
 import org.apache.reef.runtime.common.driver.parameters.ClientRemoteIdentifier;
+import org.apache.reef.runtime.common.driver.parameters.DefinedRuntimes;
 import org.apache.reef.runtime.common.driver.parameters.EvaluatorTimeout;
 import org.apache.reef.runtime.common.driver.parameters.JobIdentifier;
 import org.apache.reef.runtime.common.files.RuntimePathProvider;
@@ -35,7 +36,7 @@ import org.apache.reef.runtime.common.parameters.JVMHeapSlack;
 import org.apache.reef.runtime.hdinsight.HDInsightClasspathProvider;
 import org.apache.reef.runtime.hdinsight.HDInsightJVMPathProvider;
 import org.apache.reef.runtime.yarn.driver.*;
-import org.apache.reef.driver.parameters.JobSubmissionDirectory;
+import org.apache.reef.runtime.yarn.driver.parameters.JobSubmissionDirectory;
 import org.apache.reef.runtime.yarn.driver.parameters.YarnHeartbeatPeriod;
 import org.apache.reef.runtime.yarn.util.YarnConfigurationConstructor;
 import org.apache.reef.tang.formats.ConfigurationModule;
@@ -51,18 +52,24 @@ import org.apache.reef.tang.formats.RequiredParameter;
 public final class HDInsightDriverConfiguration extends ConfigurationModuleBuilder {
 
   /**
-   * @see org.apache.reef.runtime.yarn.driver.parameters.JobSubmissionDirectory
+   * @see org.apache.reef.driver.parameters.JobSubmissionDirectory
    */
   public static final RequiredParameter<String> JOB_SUBMISSION_DIRECTORY = new RequiredParameter<>();
+
   /**
-   * @see org.apache.reef.runtime.yarn.driver.parameters.YarnHeartbeatPeriod.class
+   * @see org.apache.reef.runtime.yarn.driver.parameters.YarnHeartbeatPeriod
    */
   public static final OptionalParameter<Integer> YARN_HEARTBEAT_INTERVAL = new OptionalParameter<>();
 
   /**
-   * @see JobIdentifier.class
+   * @see JobIdentifier
    */
   public static final RequiredParameter<String> JOB_IDENTIFIER = new RequiredParameter<>();
+
+  /**
+   * @see DefinedRuntimes
+   */
+  public static final RequiredParameter<String> RUNTIME_NAMES = new RequiredParameter<>();
 
   /**
    * The client remote identifier.
@@ -90,11 +97,11 @@ public final class HDInsightDriverConfiguration extends ConfigurationModuleBuild
       .bindConstructor(YarnConfiguration.class, YarnConfigurationConstructor.class)
       .bindImplementation(TempFileCreator.class, WorkingDirectoryTempFileCreator.class)
 
-          // Bind the YARN Configuration parameters
+      // Bind the YARN Configuration parameters
       .bindNamedParameter(JobSubmissionDirectory.class, JOB_SUBMISSION_DIRECTORY)
       .bindNamedParameter(YarnHeartbeatPeriod.class, YARN_HEARTBEAT_INTERVAL)
 
-          // Bind the fields bound in AbstractDriverRuntimeConfiguration
+      // Bind the fields bound in AbstractDriverRuntimeConfiguration
       .bindNamedParameter(JobIdentifier.class, JOB_IDENTIFIER)
       .bindNamedParameter(LaunchID.class, JOB_IDENTIFIER)
       .bindNamedParameter(ClientRemoteIdentifier.class, CLIENT_REMOTE_IDENTIFIER)
@@ -103,5 +110,6 @@ public final class HDInsightDriverConfiguration extends ConfigurationModuleBuild
       .bindNamedParameter(JVMHeapSlack.class, JVM_HEAP_SLACK)
       .bindImplementation(RuntimeClasspathProvider.class, HDInsightClasspathProvider.class)
       .bindImplementation(RuntimePathProvider.class, HDInsightJVMPathProvider.class)
+      .bindSetEntry(DefinedRuntimes.class, RUNTIME_NAMES)
       .build();
 }

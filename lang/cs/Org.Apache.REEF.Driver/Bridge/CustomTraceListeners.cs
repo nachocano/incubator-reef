@@ -15,25 +15,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using Org.Apache.REEF.Tang.Annotations;
 
 namespace Org.Apache.REEF.Driver.Bridge
 {
-    // TODO[REEF-711] Act on the obsoletes.
     public sealed class CustomTraceListeners
     {
-        [Obsolete("This constructor will be made `private` after 0.13.")]
         [Inject]
-        public CustomTraceListeners(
+        private CustomTraceListeners(
             [Parameter(typeof(DriverBridgeConfigurationOptions.TraceListenersSet))] ISet<TraceListener> listeners)
         {
             Listeners = listeners;
         }
 
-        [Obsolete("The setter will be made `private` after 0.13.")]
-        public ISet<TraceListener> Listeners { get; set; }
+        public ISet<TraceListener> Listeners { get; private set; }
     }
 }

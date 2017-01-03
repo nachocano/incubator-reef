@@ -106,7 +106,7 @@ public class InjectorImpl implements Injector {
       if (cn.getFullName().equals(ReflectionUtilities.getFullName(Injector.class))
           || cn.getFullName().equals(ReflectionUtilities.getFullName(InjectorImpl.class))) {
         // This would imply that we're treating injector as a singleton somewhere.  It should be copied fresh each time.
-        throw new IllegalStateException();
+        throw new IllegalStateException("Injector should be copied fresh each time.");
       }
       try {
         final ClassNode<?> newCn = (ClassNode<?>) i.namespace.getNode(cn
@@ -114,7 +114,7 @@ public class InjectorImpl implements Injector {
         i.instances.put(newCn, old.instances.get(cn));
       } catch (final BindException e) {
         throw new IllegalStateException("Could not resolve name "
-            + cn.getFullName() + " when copying injector");
+            + cn.getFullName() + " when copying injector", e);
       }
     }
     // Copy references to the remaining (which must have been set with
@@ -155,16 +155,16 @@ public class InjectorImpl implements Injector {
 
   /**
    * Produce a list of "interesting" constructors from a set of ClassNodes.
-   * <p/>
+   * <p>
    * Tang Constructors expose a isMoreSpecificThan function that embeds all
    * a skyline query over the lattices.  Precisely:
-   * <p/>
+   * <p>
    * Let candidateConstructors be the union of all constructors defined by
    * ClassNodes in candidateImplementations.
-   * <p/>
+   * <p>
    * This function returns a set called filteredImplementations, defined as
    * follows:
-   * <p/>
+   * <p>
    * For each member f of filteredConstructors, there does not exist
    * a g in candidateConstructors s.t. g.isMoreSpecificThan(f).
    */
@@ -183,7 +183,7 @@ public class InjectorImpl implements Injector {
           .addAll(Arrays.asList(thisCN.getInjectableConstructors()));
 
       for (final ConstructorDef<T> def : constructorList) {
-        final List<InjectionPlan<?>> args = new ArrayList<InjectionPlan<?>>();
+        final List<InjectionPlan<?>> args = new ArrayList<>();
         final ConstructorArg[] defArgs = def.getArgs();
 
         for (final ConstructorArg arg : defArgs) {
@@ -199,8 +199,7 @@ public class InjectorImpl implements Injector {
             }
           } else {
             try {
-              args.add(new InjectionFuturePlan<>(namespace.getNode(arg
-                  .getName())));
+              args.add(new InjectionFuturePlan<>(namespace.getNode(arg.getName())));
             } catch (final NameResolutionException e) {
               throw new IllegalStateException("Detected unresolvable "
                   + "constructor arg while building injection plan.  "
@@ -208,7 +207,7 @@ public class InjectorImpl implements Injector {
             }
           }
         }
-        final Constructor<T> constructor = new Constructor<T>(thisCN, def,
+        final Constructor<T> constructor = new Constructor<>(thisCN, def,
             args.toArray(new InjectionPlan[0]));
         constructors.add(constructor);
       }
@@ -227,10 +226,8 @@ public class InjectorImpl implements Injector {
       // by others.
       for (int i = 0; i < liveIndices.size(); i++) {
         for (int j = i + 1; j < liveIndices.size(); j++) {
-          final ConstructorDef<T> ci = constructors.get(liveIndices.get(i))
-              .getConstructorDef();
-          final ConstructorDef<T> cj = constructors.get(liveIndices.get(j))
-              .getConstructorDef();
+          final ConstructorDef<T> ci = constructors.get(liveIndices.get(i)).getConstructorDef();
+          final ConstructorDef<T> cj = constructors.get(liveIndices.get(j)).getConstructorDef();
 
           if (ci.isMoreSpecificThan(cj)) {
             liveIndices.remove(j);
@@ -293,7 +290,7 @@ public class InjectorImpl implements Injector {
                                                   final int selectedIndex) {
     if (list.size() == 0) {
       return new Subplan<>(infeasibleNode);
-    } else if ((!forceAmbiguous) && list.size() == 1) {
+    } else if (!forceAmbiguous && list.size() == 1) {
       return list.get(0);
     } else {
       return new Subplan<>(infeasibleNode, selectedIndex, list.toArray(new InjectionPlan[0]));
@@ -321,7 +318,7 @@ public class InjectorImpl implements Injector {
           } catch (final ParseException e) {
             // Parsability is now pre-checked in bindSet, so it should not be reached!
             throw new IllegalStateException("Could not parse " + o + " which was passed into " + np +
-                " FIXME: Parsability is not currently checked by bindSetEntry(Node,String)");
+                " FIXME: Parsability is not currently checked by bindSetEntry(Node,String)", e);
           }
         } else if (o instanceof Node) {
           ret2.add((T) o);
@@ -342,7 +339,7 @@ public class InjectorImpl implements Injector {
           } catch (final ParseException e) {
             // Parsability is now pre-checked in bindList, so it should not be reached!
             throw new IllegalStateException("Could not parse " + o + " which was passed into " + np + " FIXME: " +
-                "Parsability is not currently checked by bindList(Node,List)");
+                "Parsability is not currently checked by bindList(Node,List)", e);
           }
         } else if (o instanceof Node) {
           ret2.add((T) o);
@@ -391,9 +388,9 @@ public class InjectorImpl implements Injector {
     if (memo.containsKey(n)) {
       if (BUILDING == memo.get(n)) {
         final StringBuilder loopyList = new StringBuilder("[");
-        for (final Node node : memo.keySet()) {
-          if (memo.get(node) == BUILDING) {
-            loopyList.append(" " + node.getFullName());
+        for (final Map.Entry<Node, InjectionPlan<?>> node : memo.entrySet()) {
+          if (node.getValue() == BUILDING) {
+            loopyList.append(" ").append(node.getKey().getFullName());
           }
         }
         loopyList.append(" ]");
@@ -580,7 +577,7 @@ public class InjectorImpl implements Injector {
    * registered by callees after each recursive invocation of injectFromPlan or
    * constructor invocations. The error handling currently bails if the thing we
    * just instantiated should be discarded.
-   * <p/>
+   * <p>
    * This could happen if (for instance), a constructor did a
    * bindVolatileInstance of its own class to an instance, or somehow triggered
    * an injection of itself with a different plan (an injection of itself with
@@ -611,7 +608,7 @@ public class InjectorImpl implements Injector {
         pendingFutures.add(ret);
         return (T) ret;
       } catch (final ClassNotFoundException e) {
-        throw new InjectionException("Could not get class for " + key);
+        throw new InjectionException("Could not get class for " + key, e);
       }
     } else if (plan.getNode() instanceof ClassNode && null != getCachedInstance((ClassNode<T>) plan.getNode())) {
       return getCachedInstance((ClassNode<T>) plan.getNode());
@@ -631,7 +628,7 @@ public class InjectorImpl implements Injector {
         concurrentModificationGuard = true;
         T ret;
         try {
-          final ConstructorDef<T> def = (ConstructorDef<T>) constructor.getConstructorDef();
+          final ConstructorDef<T> def = constructor.getConstructorDef();
           final java.lang.reflect.Constructor<T> construct = getConstructor(def);
 
           if (aspect != null) {
@@ -725,8 +722,8 @@ public class InjectorImpl implements Injector {
         namedParameterInstances.put(np, o);
       } catch (final IllegalArgumentException e) {
         throw new BindException(
-            "Attempt to re-bind named parameter " + ReflectionUtilities.getFullName(cl) + ".  Old value was [" + old
-                + "] new value is [" + o + "]");
+            "Attempt to bind named parameter " + ReflectionUtilities.getFullName(cl) + " failed. "
+                + "Value is [" + o + "]", e);
 
       }
     } else {

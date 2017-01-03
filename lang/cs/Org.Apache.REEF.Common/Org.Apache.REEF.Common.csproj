@@ -37,13 +37,13 @@ under the License.
       <HintPath>$(PackagesDir)\Newtonsoft.Json.$(NewtonsoftJsonVersion)\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="protobuf-net">
-      <HintPath>$(PackagesDir)\protobuf-net.2.0.0.668\lib\net40\protobuf-net.dll</HintPath>
+      <HintPath>$(PackagesDir)\protobuf-net.$(ProtobufVersion)\lib\net40\protobuf-net.dll</HintPath>
     </Reference>
     <Reference Include="System.Reactive.Core">
-      <HintPath>$(PackagesDir)\Rx-Core.2.2.5\lib\net45\System.Reactive.Core.dll</HintPath>
+      <HintPath>$(PackagesDir)\Rx-Core.$(RxVersion)\lib\net45\System.Reactive.Core.dll</HintPath>
     </Reference>
     <Reference Include="System.Reactive.Interfaces">
-      <HintPath>$(PackagesDir)\Rx-Interfaces.2.2.5\lib\net45\System.Reactive.Interfaces.dll</HintPath>
+      <HintPath>$(PackagesDir)\Rx-Interfaces.$(RxVersion)\lib\net45\System.Reactive.Interfaces.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -51,16 +51,27 @@ under the License.
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="$(SolutionDir)\SharedAssemblyInfo.cs">
+      <Link>Properties\SharedAssemblyInfo.cs</Link>
+    </Compile>
     <Compile Include="Api\AbstractFailure.cs" />
     <Compile Include="Api\IAbstractFailure.cs" />
     <Compile Include="Api\IFailure.cs" />
-    <Compile Include="Attributes\UnstableAttribute.cs" />
-    <Compile Include="Avro\AvroDriverInfo.cs" />
-    <Compile Include="Avro\AvroHttpRequest.cs" />
+    <Compile Include="Avro\AvroDriverInfo.cs">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
+    <Compile Include="Avro\AvroFailedTask.cs" />
+    <Compile Include="Avro\AvroHttpRequest.cs">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
     <Compile Include="Avro\AvroHttpSerializer.cs" />
     <Compile Include="Avro\AvroJsonSerializer.cs" />
-    <Compile Include="Avro\AvroReefServiceInfo.cs" />
-    <Compile Include="Avro\HeaderEntry.cs" />
+    <Compile Include="Avro\AvroReefServiceInfo.cs">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
+    <Compile Include="Avro\HeaderEntry.cs">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
     <Compile Include="Catalog\Capabilities\CPU.cs" />
     <Compile Include="Catalog\Capabilities\ICapability.cs" />
     <Compile Include="Catalog\Capabilities\RAM.cs" />
@@ -71,22 +82,35 @@ under the License.
     <Compile Include="Catalog\RackDescriptorImpl.cs" />
     <Compile Include="Catalog\ResourceCatalogImpl.cs" />
     <Compile Include="Constants.cs" />
+    <Compile Include="Context\ContextConfiguration.cs" />
+    <Compile Include="Context\ContextConfigurationOptions.cs" />
     <Compile Include="Context\ContextMessage.cs" />
+    <Compile Include="Context\Defaults\DefaultContextMessageSource.cs" />
+    <Compile Include="Context\Defaults\DefaultContextStartHandler.cs" />
+    <Compile Include="Context\Defaults\DefaultContextStopHandler.cs" />
     <Compile Include="Context\IContextMessage.cs" />
     <Compile Include="Context\IContextMessageHandler.cs" />
     <Compile Include="Context\IContextMessageSource.cs" />
+    <Compile Include="Evaluator\DriverConnectionConfigurationProviders\DefaultDriverReconnConfigProvider.cs" />
     <Compile Include="Evaluator\DefaultLocalHttpDriverConnection.cs" />
     <Compile Include="Evaluator\DefaultYarnClusterHttpDriverConnection.cs" />
     <Compile Include="Evaluator\DefaultYarnOneBoxHttpDriverConnection.cs" />
+    <Compile Include="Evaluator\DriverConnectionConfigurationProviders\LocalHttpDriverReconnConfigProvider.cs" />
+    <Compile Include="Evaluator\DriverConnectionConfigurationProviders\YarnOneBoxHttpDriverReconnConfigProvider.cs" />
     <Compile Include="Evaluator\DriverInformation.cs" />
     <Compile Include="Evaluator\EvaluatorOperationState.cs" />
     <Compile Include="Evaluator\EvaluatorRuntimeState.cs" />
     <Compile Include="Evaluator\EvaluatorType.cs" />
     <Compile Include="Evaluator\IDriverConnection.cs" />
+    <Compile Include="Evaluator\DriverConnectionConfigurationProviders\IDriverReconnConfigProvider.cs" />
+    <Compile Include="Evaluator\MissingDriverConnection.cs" />
     <Compile Include="Evaluator\Parameters\EvaluatorConfigurationProviders.cs" />
+    <Compile Include="Evaluator\DriverConnectionConfigurationProviders\YarnClusterHttpDriverReconnConfigProvider.cs" />
     <Compile Include="Events\IContextStart.cs" />
     <Compile Include="Events\IContextStop.cs" />
     <Compile Include="Exceptions\JobException.cs" />
+    <Compile Include="Exceptions\NonSerializableEvaluatorException.cs" />
+    <Compile Include="Exceptions\NonSerializableTaskException.cs" />
     <Compile Include="Files\PathUtilities.cs" />
     <Compile Include="IContextAndTaskSubmittable.cs" />
     <Compile Include="IContextSubmittable.cs" />
@@ -95,29 +119,95 @@ under the License.
     <Compile Include="Io\NamingConfiguration.cs" />
     <Compile Include="Io\NamingConfigurationOptions.cs" />
     <Compile Include="Io\TcpPortConfigurationProvider.cs" />
+    <Compile Include="Jar\ResourceHelper.cs" />
     <Compile Include="ITaskSubmittable.cs" />
+    <Compile Include="Client\Parameters\DriverConfigurationProviders.cs" />
+    <Compile Include="Metrics\Api\ImmutableMetricImpl.cs" />
+    <Compile Include="Metrics\Api\IImmutableMetric.cs" />
+    <Compile Include="Metrics\Api\IMetricsCollector.cs" />
+    <Compile Include="Metrics\Api\IMetricsFilter.cs" />
+    <Compile Include="Metrics\Api\IMetricsInfo.cs" />
+    <Compile Include="Metrics\Api\IMetricsRecord.cs" />
+    <Compile Include="Metrics\Api\IMetricsRecordBuilder.cs" />
+    <Compile Include="Metrics\Api\IMetricsSource.cs" />
+    <Compile Include="Metrics\Api\IMetricsSystem.cs" />
+    <Compile Include="Metrics\Api\IMetricsVisitor.cs" />
+    <Compile Include="Metrics\Api\MetricsInfoImpl.cs" />
+    <Compile Include="Metrics\Api\MetricsException.cs" />
+    <Compile Include="Metrics\Api\MetricsTag.cs" />
+    <Compile Include="Metrics\Api\MetricType.cs" />
+    <Compile Include="Metrics\Api\SnapshotRequest.cs" />
+    <Compile Include="Metrics\MetricsSystem\DefaultMetricsFilter.cs" />
+    <Compile Include="Metrics\MetricsSystem\IMetricsCollectorMutable.cs" />
+    <Compile Include="Metrics\MetricsSystem\ImmutableCounter.cs" />
+    <Compile Include="Metrics\MetricsSystem\ImmutableDoubleGauge.cs" />
+    <Compile Include="Metrics\MetricsSystem\ImmutableLongGauge.cs" />
+    <Compile Include="Metrics\MetricsSystem\MetricsCollectorMutable.cs" />
+    <Compile Include="Metrics\MetricsSystem\MetricsRecord.cs" />
+    <Compile Include="Metrics\MetricsSystem\MetricsRecordBuilder.cs" />
+    <Compile Include="Metrics\MetricsSystem\MetricsSystemConstants.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\DefaultMetricsFactoryImpl.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\DefaultMetricsSourceConfiguration.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\DefaultMetricsSourceImpl.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\ICounter.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\IDoubleGauge.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\IExtendedMutableMetric.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\ILongGauge.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\IMetricsFactory.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\IMutableMetric.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\IRate.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\IStat.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\MutableCounter.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\MutableDoubleGauge.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\MutableLongGauge.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\MutableMetricBase.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\IMetricContainer.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\MutableMetricContainer.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\MutableRate.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\MutableStat.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\DefaultMetricsSourceParameters.cs" />
+    <Compile Include="Metrics\MutableMetricsLayer\StatsHelperClass.cs" />
+    <Compile Include="Poison\PoisonedEventHandler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Protobuf\ReefProtocol\ClientRuntime.pb.cs" />
-    <Compile Include="Protobuf\ReefProtocol\DriverRuntime.pb.cs" />
+    <Compile Include="Protobuf\ReefProtocol\ClientRuntime.pb.cs">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
+    <Compile Include="Protobuf\ReefProtocol\DriverRuntime.pb.cs">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
     <Compile Include="Protobuf\ReefProtocol\EvaluatorHeartbeatProtoCodec.cs" />
-    <Compile Include="Protobuf\ReefProtocol\EvaluatorRunTime.pb.cs" />
+    <Compile Include="Protobuf\ReefProtocol\EvaluatorRunTime.pb.cs">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
     <Compile Include="Protobuf\ReefProtocol\REEFMessageCodec.cs" />
-    <Compile Include="Protobuf\ReefProtocol\ReefProtocol.pb.cs" />
-    <Compile Include="Protobuf\ReefProtocol\ReefService.pb.cs" />
+    <Compile Include="Protobuf\ReefProtocol\ReefProtocol.pb.cs">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
+    <Compile Include="Protobuf\ReefProtocol\ReefService.pb.cs">
+      <ExcludeFromStyleCop>true</ExcludeFromStyleCop>
+    </Compile>
     <Compile Include="Protobuf\ReefProtocol\Serializer.cs" />
     <Compile Include="Files\REEFFileNames.cs" />
     <Compile Include="Runtime\Evaluator\Constants.cs" />
     <Compile Include="Runtime\Evaluator\Context\ContextClientCodeException.cs" />
-    <Compile Include="Runtime\Evaluator\Context\ContextConfiguration.cs" />
+    <Compile Include="Runtime\Evaluator\Context\ContextException.cs" />
     <Compile Include="Runtime\Evaluator\Context\ContextLifeCycle.cs" />
     <Compile Include="Runtime\Evaluator\Context\ContextManager.cs" />
     <Compile Include="Runtime\Evaluator\Context\ContextRuntime.cs" />
+    <Compile Include="Runtime\Evaluator\Context\ContextStartHandlerException.cs" />
     <Compile Include="Runtime\Evaluator\Context\ContextStartImpl.cs" />
+    <Compile Include="Runtime\Evaluator\Context\ContextStopHandlerException.cs" />
     <Compile Include="Runtime\Evaluator\Context\ContextStopImpl.cs" />
     <Compile Include="Runtime\Evaluator\Context\RootContextLauncher.cs" />
+    <Compile Include="Runtime\Evaluator\EvaluatorExitLogger.cs" />
     <Compile Include="Runtime\Evaluator\EvaluatorRuntime.cs" />
     <Compile Include="Runtime\Evaluator\EvaluatorSettings.cs" />
     <Compile Include="Runtime\Evaluator\HeartBeatManager.cs" />
+    <Compile Include="Runtime\Evaluator\IHeartBeatManager.cs" />
+    <Compile Include="Runtime\Evaluator\Parameters\EvaluatorHeartbeatPeriodInMs.cs" />
+    <Compile Include="Runtime\Evaluator\Parameters\HeartbeatMaxRetryForNonRecoveryMode.cs" />
+    <Compile Include="Runtime\Evaluator\Parameters\HeartbeatMaxRetry.cs" />
+    <Compile Include="Runtime\Evaluator\PIDStoreHandler.cs" />
     <Compile Include="Runtime\Evaluator\ReefMessageProtoObserver.cs" />
     <Compile Include="Runtime\Evaluator\Task\CloseEventImpl.cs" />
     <Compile Include="Runtime\Evaluator\Task\DriverMessageImpl.cs" />
@@ -125,24 +215,32 @@ under the License.
     <Compile Include="Runtime\Evaluator\Task\TaskClientCodeException.cs" />
     <Compile Include="Runtime\Evaluator\Task\TaskLifeCycle.cs" />
     <Compile Include="Runtime\Evaluator\Task\TaskRuntime.cs" />
+    <Compile Include="Runtime\Evaluator\Task\TaskStartHandlerException.cs" />
     <Compile Include="Runtime\Evaluator\Task\TaskStartImpl.cs" />
     <Compile Include="Runtime\Evaluator\Task\TaskState.cs" />
     <Compile Include="Runtime\Evaluator\Task\TaskStatus.cs" />
+    <Compile Include="Runtime\Evaluator\Task\TaskStopHandlerException.cs" />
     <Compile Include="Runtime\Evaluator\Task\TaskStopImpl.cs" />
-    <Compile Include="Runtime\Evaluator\Utils\EvaluatorConfigurations.cs" />
-    <Compile Include="Runtime\Evaluator\Utils\RemoteManager.cs" />
+    <Compile Include="Runtime\Evaluator\Utils\NamedparameterAlias.cs" />
     <Compile Include="runtime\MachineStatus.cs" />
-    <Compile Include="Services\IService.cs" />
+    <Compile Include="Runtime\RuntimeName.cs" />
     <Compile Include="Services\ServiceConfiguration.cs" />
-    <Compile Include="Services\ServicesConfigurationOptions.cs" />
+    <Compile Include="Tasks\Defaults\DefaultTaskCloseHandler.cs" />
+    <Compile Include="Tasks\Defaults\DefaultDriverConnectionMessageHandler.cs" />
     <Compile Include="Tasks\Defaults\DefaultDriverMessageHandler.cs" />
+    <Compile Include="Tasks\Defaults\DefaultSuspendHandler.cs" />
     <Compile Include="Tasks\Defaults\DefaultTaskMessageSource.cs" />
+    <Compile Include="Tasks\DriverConnectionState.cs" />
+    <Compile Include="Tasks\DriverConnectionMessageImpl.cs" />
     <Compile Include="Tasks\Events\ICloseEvent.cs" />
     <Compile Include="Tasks\Events\IDriverMessage.cs" />
     <Compile Include="Tasks\Events\ISuspendEvent.cs" />
     <Compile Include="Tasks\Events\ITaskStart.cs" />
     <Compile Include="Tasks\Events\ITaskStop.cs" />
+    <Compile Include="Tasks\Exceptions\TaskCloseHandlerNotBoundException.cs" />
+    <Compile Include="Tasks\IDriverConnectionMessageHandler.cs" />
     <Compile Include="Tasks\IDriverMessageHandler.cs" />
+    <Compile Include="Tasks\IDriverConnectionMessage.cs" />
     <Compile Include="Tasks\ITask.cs" />
     <Compile Include="Tasks\ITaskMessageSource.cs" />
     <Compile Include="Tasks\TaskConfiguration.cs" />
@@ -150,6 +248,7 @@ under the License.
     <Compile Include="Tasks\TaskMessage.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Avro\README.md" />
     <None Include="Org.Apache.REEF.Common.nuspec" />
     <None Include="packages.config" />
     <None Include="Protobuf\Proto\client_runtime.proto" />
@@ -174,11 +273,5 @@ under the License.
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+  <Import Project="$(PackagesDir)\StyleCop.MSBuild.$(StyleCopVersion)\build\StyleCop.MSBuild.Targets" Condition="Exists('$(PackagesDir)\StyleCop.MSBuild.$(StyleCopVersion)\build\StyleCop.MSBuild.Targets')" />
 </Project>

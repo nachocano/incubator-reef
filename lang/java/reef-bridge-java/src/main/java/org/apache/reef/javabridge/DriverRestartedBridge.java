@@ -20,7 +20,9 @@ package org.apache.reef.javabridge;
 
 import org.apache.reef.annotations.Unstable;
 import org.apache.reef.annotations.audience.DriverSide;
+import org.apache.reef.annotations.audience.Interop;
 import org.apache.reef.annotations.audience.Private;
+import org.apache.reef.driver.restart.DriverRestarted;
 
 import java.util.Set;
 
@@ -30,16 +32,25 @@ import java.util.Set;
 @Private
 @DriverSide
 @Unstable
+@Interop(
+    CppFiles = { "Clr2JavaImpl.h", "DriverRestartedClr2Java.cpp" },
+    CsFiles = { "IDriverRestartedClr2Java.cs", "DriverRestarted.cs" })
 public final class DriverRestartedBridge extends NativeBridge {
-  // Used by bridge to extract field. Please take this into consideration when changing the name of the field.
   private final String[] expectedEvaluatorIds;
+  private final int resubmissionAttempts;
 
-  public DriverRestartedBridge(final Set<String> expectedEvaluatorIds) {
-    this.expectedEvaluatorIds = expectedEvaluatorIds.toArray(new String[expectedEvaluatorIds.size()]);
+  public DriverRestartedBridge(final DriverRestarted driverRestarted) {
+    final Set<String> evaluatorIds = driverRestarted.getExpectedEvaluatorIds();
+    this.expectedEvaluatorIds = evaluatorIds.toArray(new String[evaluatorIds.size()]);
+    this.resubmissionAttempts = driverRestarted.getResubmissionAttempts();
   }
 
   public String[] getExpectedEvaluatorIds() {
     return expectedEvaluatorIds;
+  }
+
+  public int getResubmissionAttempts() {
+    return resubmissionAttempts;
   }
 
   @Override

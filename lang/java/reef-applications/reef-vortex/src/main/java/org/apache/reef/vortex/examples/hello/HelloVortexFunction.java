@@ -20,17 +20,15 @@ package org.apache.reef.vortex.examples.hello;
 
 import org.apache.reef.vortex.api.VortexFunction;
 
-import java.io.Serializable;
-
 /**
  * Prints to stdout.
  */
-final class HelloVortexFunction implements VortexFunction {
+final class HelloVortexFunction implements VortexFunction<Void, Void> {
   /**
    * Prints to stdout.
    */
   @Override
-  public Serializable call(final Serializable serializable) throws Exception {
+  public Void call(final Void input) throws Exception {
     System.out.println("Hello, Vortex!");
     return null;
   }

@@ -1,31 +1,29 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.Apache.REEF.Tang.Annotations;
 using Org.Apache.REEF.Tang.Formats;
 using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Util;
+using Xunit;
 
 namespace Org.Apache.REEF.Tang.Tests.Injection
 {
@@ -40,10 +38,9 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
         TimeSpan TimeshiftSpan { get; }
     }
 
-    [TestClass]
     public class TestSetInjection
     {
-        [TestMethod]
+        [Fact]
         public void TestStringInjectDefault()
         {
             Box b = (Box)TangFactory.GetTang().NewInjector().GetInstance(typeof(Box));
@@ -55,20 +52,20 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             expected.Add("two");
             expected.Add("three");
 
-            Assert.IsTrue(actual.Contains("one"));
-            Assert.IsTrue(actual.Contains("two"));
-            Assert.IsTrue(actual.Contains("three"));
+            Assert.True(actual.Contains("one"));
+            Assert.True(actual.Contains("two"));
+            Assert.True(actual.Contains("three"));
         }
 
-        [TestMethod]
+        [Fact]
         public void TestStringInjectNoDefault()
         {
             BoxNoDefault b = (BoxNoDefault)TangFactory.GetTang().NewInjector().GetInstance(typeof(BoxNoDefault));
             ISet<string> actual = b.Numbers; 
-            Assert.AreEqual(actual.Count, 0);
+            Assert.Equal(actual.Count, 0);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestStringInjectNoDefaultWithValue()
         {
             var cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -77,10 +74,10 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
             ISet<string> actual = b.Numbers;
 
-            Assert.AreEqual(actual.Count, 1);
+            Assert.Equal(actual.Count, 1);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestObjectInjectDefault()
         {
             IInjector i = TangFactory.GetTang().NewInjector();
@@ -91,12 +88,12 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             expected.Add(new Integer(42));
             expected.Add(new Float(42.0001f));
 
-            Assert.IsTrue(actual.Contains(new Integer(42)));
-            Assert.IsTrue(actual.Contains(new Float(42.0001f)));
-            Assert.AreEqual(actual.Count, expected.Count);
+            Assert.True(actual.Contains(new Integer(42)));
+            Assert.True(actual.Contains(new Float(42.0001f)));
+            Assert.Equal(actual.Count, expected.Count);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestBindVolatileParameterForSet()
         {
             IInjector i = TangFactory.GetTang().NewInjector();
@@ -106,11 +103,11 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             i.BindVolatileParameter(GenericType<SetOfClasses>.Class, numbers);
             ISet<INumber> actual = ((Pool)i.GetInstance(typeof(Pool))).Numbers;
 
-            Assert.IsTrue(actual.Contains(new Integer(42)));
-            Assert.IsTrue(actual.Contains(new Float(42.0001f)));
+            Assert.True(actual.Contains(new Integer(42)));
+            Assert.True(actual.Contains(new Float(42.0001f)));
         }
 
-        [TestMethod]
+        [Fact]
         public void TestInjectionWithSetFromSameInterface()
         {
             IConfiguration c = TangFactory.GetTang()
@@ -125,11 +122,11 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             i.BindVolatileParameter(GenericType<SetOfClasses>.Class, numbers);
             var actual = ((PoolNumber)i.GetInstance(typeof(INumber))).Numbers;
            
-            Assert.IsTrue(actual.Contains(new Integer(42)));
-            Assert.IsTrue(actual.Contains(new Float(42.0001f)));
+            Assert.True(actual.Contains(new Integer(42)));
+            Assert.True(actual.Contains(new Float(42.0001f)));
         }
 
-        [TestMethod]
+        [Fact]
         public void TestStringInjectBound()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -144,13 +141,13 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             expected.Add("five");
             expected.Add("six");
 
-            Assert.IsTrue(actual.Contains("four"));
-            Assert.IsTrue(actual.Contains("five"));
-            Assert.IsTrue(actual.Contains("six"));
-            Assert.AreEqual(actual.Count, expected.Count);
+            Assert.True(actual.Contains("four"));
+            Assert.True(actual.Contains("five"));
+            Assert.True(actual.Contains("six"));
+            Assert.Equal(actual.Count, expected.Count);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestObjectInjectBound()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -165,15 +162,15 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             ISet<INumber> expected = new HashSet<INumber>();
             expected.Add(new Integer(4));
             expected.Add(new Float(42.0001f));
-            Assert.IsTrue(Utilities.Utilities.Equals<INumber>(actual, expected));
+            Assert.True(Utilities.Utilities.Equals<INumber>(actual, expected));
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSetOfClassBound()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
-            cb.BindSetEntry<SetOfClasses, Integer1, INumber>(GenericType<SetOfClasses>.Class, GenericType<Integer1>.Class)  //bind an impl to the interface of the set
-              .BindNamedParameter<Integer1.NamedInt, int>(GenericType<Integer1.NamedInt>.Class, "4"); //bind parameter for the impl
+            cb.BindSetEntry<SetOfClasses, Integer1, INumber>(GenericType<SetOfClasses>.Class, GenericType<Integer1>.Class)  // bind an impl to the interface of the set
+              .BindNamedParameter<Integer1.NamedInt, int>(GenericType<Integer1.NamedInt>.Class, "4"); // bind parameter for the impl
 
             IInjector i = TangFactory.GetTang().NewInjector(cb.Build());
 
@@ -181,20 +178,20 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             ISet<INumber> expected = new HashSet<INumber>();
             expected.Add(new Integer1(4));
 
-            Assert.IsTrue(Utilities.Utilities.Equals<INumber>(actual, expected));
+            Assert.True(Utilities.Utilities.Equals<INumber>(actual, expected));
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSetOfClassWithDefault()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
             IInjector i = TangFactory.GetTang().NewInjector(cb.Build());
 
             ISet<INumber> actual = i.GetInstance<Pool1>().Numbers;
-            Assert.IsNotNull(actual);
+            Assert.NotNull(actual);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSetOfTimeshift()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -206,15 +203,15 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IInjector i = TangFactory.GetTang().NewInjector(cb.Build());
 
             ISet<ITimeshift> actual = i.GetInstance<SetofTimeShiftClass>().Timeshifts;
-            Assert.IsTrue(actual.Count == 1);
+            Assert.True(actual.Count == 1);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSetOfTimeshiftMultipleInstances()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
 
-            //when adding another Timeshift into the set for named parameter SetOfTimeshifts, it ends up the same entry. 
+            // when adding another Timeshift into the set for named parameter SetOfTimeshifts, it ends up the same entry. 
             cb.BindSetEntry<SetOfTimeshifts, Timeshift, ITimeshift>(GenericType<SetOfTimeshifts>.Class, GenericType<Timeshift>.Class);
             cb.BindSetEntry<SetOfTimeshifts, Timeshift, ITimeshift>(GenericType<SetOfTimeshifts>.Class, GenericType<Timeshift>.Class);
             cb.BindNamedParameter<Timeshift.TimeshiftLinkId, string>(GenericType<Timeshift.TimeshiftLinkId>.Class, "123")
@@ -223,15 +220,15 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IInjector i = TangFactory.GetTang().NewInjector(cb.Build());
 
             ISet<ITimeshift> actual = i.GetInstance<SetofTimeShiftClass>().Timeshifts;
-            Assert.IsTrue(actual.Count == 1);
+            Assert.True(actual.Count == 1);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSetOfTimeshiftMultipleSubClasses()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
 
-            //Adding implementations from different subclasses
+            // Adding implementations from different subclasses
             cb.BindSetEntry<SetOfTimeshifts, Timeshift, ITimeshift>(GenericType<SetOfTimeshifts>.Class, GenericType<Timeshift>.Class);
             cb.BindSetEntry<SetOfTimeshifts, Timeshift1, ITimeshift>(GenericType<SetOfTimeshifts>.Class, GenericType<Timeshift1>.Class);
 
@@ -244,10 +241,10 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IInjector i = TangFactory.GetTang().NewInjector(cb.Build());
 
             ISet<ITimeshift> actual = i.GetInstance<SetofTimeShiftClass>().Timeshifts;
-            Assert.IsTrue(actual.Count == 2);
+            Assert.True(actual.Count == 2);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSetOfTimeshiftWithDefault()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -255,10 +252,10 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IInjector i = TangFactory.GetTang().NewInjector(cb.Build());
 
             ISet<ITimeshift> actual = i.GetInstance<SetofTimeShiftClass>().Timeshifts;
-            Assert.IsTrue(actual.Count == 1);
+            Assert.True(actual.Count == 1);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSetOfTimeshiftWithEmptySet()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -266,10 +263,10 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             IInjector i = TangFactory.GetTang().NewInjector(cb.Build());
 
             ISet<ITimeshift> actual = i.GetInstance<SetofTimeShiftClassWithoutDefault>().Timeshifts;
-            Assert.IsTrue(actual.Count == 0);
+            Assert.True(actual.Count == 0);
         }        
 
-        [TestMethod]
+        [Fact]
         public void TestObjectInjectRoundTrip()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -287,10 +284,10 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             ISet<INumber> expected = new HashSet<INumber>();
             expected.Add(new Integer(4));
             expected.Add(new Float(42.0001f));
-            Assert.IsTrue(Utilities.Utilities.Equals<INumber>(actual, expected));
+            Assert.True(Utilities.Utilities.Equals<INumber>(actual, expected));
         }
 
-        [TestMethod]
+        [Fact]
         public void TestStringInjectRoundTrip()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -305,12 +302,12 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             ISet<string> actual =
                 ((Box)TangFactory.GetTang().NewInjector(cb2.Build()).GetInstance(typeof(Box))).Numbers;
 
-            Assert.IsTrue(actual.Contains("four"));
-            Assert.IsTrue(actual.Contains("five"));
-            Assert.IsTrue(actual.Contains("six"));
+            Assert.True(actual.Contains("four"));
+            Assert.True(actual.Contains("five"));
+            Assert.True(actual.Contains("six"));
         }
 
-        [TestMethod]
+        [Fact]
         public void TestDefaultAsClass()
         {
             IInjector i = TangFactory.GetTang().NewInjector();
@@ -322,11 +319,11 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
             ISet<INumber> expected = new HashSet<INumber>();
             expected.Add(new Integer(1));
-            Assert.AreEqual(expected.Count, actual.Count);
-            Assert.IsTrue(actual.Contains(new Integer(1)));
+            Assert.Equal(expected.Count, actual.Count);
+            Assert.True(actual.Contains(new Integer(1)));
         }
 
-        [TestMethod]
+        [Fact]
         public void TestInjectionExtension()
         {
             IInjector i = TangFactory.GetTang().NewInjector();
@@ -338,8 +335,8 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
             ISet<INumber> expected = new HashSet<INumber>();
             expected.Add(new Integer(1));
-            Assert.AreEqual(expected.Count, actual.Count);
-            Assert.IsTrue(actual.Contains(new Integer(1)));
+            Assert.Equal(expected.Count, actual.Count);
+            Assert.True(actual.Contains(new Integer(1)));
         }
 
         [NamedParameter(DefaultValues = new string[] { "one", "two", "three" })]
@@ -347,7 +344,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
         {
         }
 
-        [NamedParameter()]
+        [NamedParameter]
         public class SetOfNumbersNoDefault : Name<ISet<string>>
         {
         }

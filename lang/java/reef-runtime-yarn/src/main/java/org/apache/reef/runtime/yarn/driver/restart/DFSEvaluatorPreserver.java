@@ -21,18 +21,22 @@ package org.apache.reef.runtime.yarn.driver.restart;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.yarn.api.records.ApplicationId;
 import org.apache.reef.annotations.Unstable;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.annotations.audience.RuntimeAuthor;
-import org.apache.reef.driver.parameters.DriverJobSubmissionDirectory;
 import org.apache.reef.driver.parameters.FailDriverOnEvaluatorLogErrors;
 import org.apache.reef.exception.DriverFatalRuntimeException;
 import org.apache.reef.runtime.common.driver.EvaluatorPreserver;
 import org.apache.reef.runtime.common.driver.evaluator.EvaluatorManager;
+import org.apache.reef.runtime.yarn.driver.parameters.JobSubmissionDirectory;
+import org.apache.reef.runtime.yarn.util.YarnUtilities;
 import org.apache.reef.tang.annotations.Parameter;
+import org.apache.reef.util.CloseableIterable;
 
 import javax.inject.Inject;
 import java.io.*;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.logging.Level;
@@ -53,7 +57,7 @@ public final class DFSEvaluatorPreserver implements EvaluatorPreserver, AutoClos
 
   private final boolean failDriverOnEvaluatorLogErrors;
 
-  private DFSEvaluatorLogWriter writer;
+  private DFSEvaluatorLogReaderWriter readerWriter;
 
   private Path changeLogLocation;
 
@@ -61,15 +65,16 @@ public final class DFSEvaluatorPreserver implements EvaluatorPreserver, AutoClos
 
   private boolean writerClosed = false;
 
-  @Inject DFSEvaluatorPreserver(@Parameter(FailDriverOnEvaluatorLogErrors.class)
-                                final boolean failDriverOnEvaluatorLogErrors) {
-    this(failDriverOnEvaluatorLogErrors, "/ReefApplications/" + EvaluatorManager.getJobIdentifier());
+  @Inject
+  DFSEvaluatorPreserver(@Parameter(FailDriverOnEvaluatorLogErrors.class)
+                        final boolean failDriverOnEvaluatorLogErrors) {
+    this(failDriverOnEvaluatorLogErrors, "/ReefApplications/" + getEvaluatorChangeLogFolderLocation());
   }
 
   @Inject
   private DFSEvaluatorPreserver(@Parameter(FailDriverOnEvaluatorLogErrors.class)
                                 final boolean failDriverOnEvaluatorLogErrors,
-                                @Parameter(DriverJobSubmissionDirectory.class)
+                                @Parameter(JobSubmissionDirectory.class)
                                 final String jobSubmissionDirectory) {
 
     this.failDriverOnEvaluatorLogErrors = failDriverOnEvaluatorLogErrors;
@@ -78,14 +83,14 @@ public final class DFSEvaluatorPreserver implements EvaluatorPreserver, AutoClos
       final org.apache.hadoop.conf.Configuration config = new org.apache.hadoop.conf.Configuration();
       this.fileSystem = FileSystem.get(config);
       this.changeLogLocation =
-          new Path(StringUtils.stripEnd(jobSubmissionDirectory, "/") + "/evaluatorsChangesLog");
+          new Path("/" + StringUtils.strip(jobSubmissionDirectory, "/") + "/evaluatorsChangesLog");
 
       boolean appendSupported = config.getBoolean("dfs.support.append", false);
 
       if (appendSupported) {
-        this.writer = new DFSEvaluatorLogAppendWriter(this.fileSystem, this.changeLogLocation);
+        this.readerWriter = new DFSEvaluatorLogAppendReaderWriter(this.fileSystem, this.changeLogLocation);
       } else {
-        this.writer = new DFSEvaluatorLogOverwriteWriter(this.fileSystem, this.changeLogLocation);
+        this.readerWriter = new DFSEvaluatorLogOverwriteReaderWriter(this.fileSystem, this.changeLogLocation);
       }
     } catch (final IOException e) {
       final String errMsg = "Cannot read from log file with Exception " + e +
@@ -95,13 +100,29 @@ public final class DFSEvaluatorPreserver implements EvaluatorPreserver, AutoClos
       this.handleException(e, errMsg, fatalMsg);
       this.fileSystem = null;
       this.changeLogLocation = null;
-      this.writer = null;
+      this.readerWriter = null;
     }
   }
 
   /**
+   * @return the folder for Evaluator changelog.
+   */
+  private static String getEvaluatorChangeLogFolderLocation() {
+    final ApplicationId appId = YarnUtilities.getApplicationId();
+    if (appId != null) {
+      return appId.toString();
+    }
+
+    final String jobIdentifier = EvaluatorManager.getJobIdentifier();
+    if (jobIdentifier != null) {
+      return jobIdentifier;
+    }
+
+    throw new RuntimeException("Could not retrieve a suitable DFS folder for preserving Evaluator changelog.");
+  }
+
+  /**
    * Recovers the set of evaluators that are alive.
-   * @return
    */
   @Override
   public synchronized Set<String> recoverEvaluators() {
@@ -113,14 +134,8 @@ public final class DFSEvaluatorPreserver implements EvaluatorPreserver, AutoClos
         return expectedContainers;
       }
 
-      if (!this.fileSystem.exists(this.changeLogLocation)) {
-        // empty set
-        return expectedContainers;
-      } else {
-        final BufferedReader br =
-            new BufferedReader(new InputStreamReader(this.fileSystem.open(this.changeLogLocation)));
-        String line = br.readLine();
-        while (line != null) {
+      try (final CloseableIterable<String> evaluatorLogIterable = readerWriter.readFromEvaluatorLog()) {
+        for (final String line : evaluatorLogIterable) {
           if (line.startsWith(ADD_FLAG)) {
             final String containerId = line.substring(ADD_FLAG.length());
             if (expectedContainers.contains(containerId)) {
@@ -137,18 +152,16 @@ public final class DFSEvaluatorPreserver implements EvaluatorPreserver, AutoClos
             }
             expectedContainers.remove(containerId);
           }
-          line = br.readLine();
         }
-        br.close();
       }
-    } catch (final IOException e) {
+    } catch (final Exception e) {
       final String errMsg = "Cannot read from log file with Exception " + e +
           ", evaluators will not be recovered.";
 
       final String fatalMsg = "Cannot read from evaluator log.";
-
       this.handleException(e, errMsg, fatalMsg);
     }
+
     return expectedContainers;
   }
 
@@ -178,7 +191,7 @@ public final class DFSEvaluatorPreserver implements EvaluatorPreserver, AutoClos
 
   private void logContainerChange(final String entry) {
     try {
-      this.writer.writeToEvaluatorLog(entry);
+      this.readerWriter.writeToEvaluatorLog(entry);
     } catch (final IOException e) {
       final String errorMsg = "Unable to log the change of container [" + entry +
           "] to the container log. Driver restart won't work properly.";
@@ -191,39 +204,32 @@ public final class DFSEvaluatorPreserver implements EvaluatorPreserver, AutoClos
 
   private void handleException(final Exception e, final String errorMsg, final String fatalMsg){
     if (this.failDriverOnEvaluatorLogErrors) {
-      final Level logLevel;
-      if (this.failDriverOnEvaluatorLogErrors) {
-        logLevel = Level.SEVERE;
+      LOG.log(Level.SEVERE, errorMsg, e);
+
+      try {
+        this.close();
+      } catch (Exception e1) {
+        LOG.log(Level.SEVERE, "Failed on closing resource with " + Arrays.toString(e1.getStackTrace()));
+      }
+
+      if (fatalMsg != null) {
+        throw new DriverFatalRuntimeException(fatalMsg, e);
       } else {
-        logLevel = Level.WARNING;
+        throw new DriverFatalRuntimeException("Driver failed on Evaluator log error.", e);
       }
-
-      LOG.log(logLevel, errorMsg, e);
-
-      if (this.failDriverOnEvaluatorLogErrors) {
-        try {
-          this.close();
-        } catch (Exception e1) {
-          LOG.log(Level.SEVERE, "Failed on closing resource with " + e1.getStackTrace());
-        }
-
-        if (fatalMsg != null) {
-          throw new DriverFatalRuntimeException(fatalMsg, e);
-        } else {
-          throw new DriverFatalRuntimeException("Driver failed on Evaluator log error.", e);
-        }
-      }
+    } else {
+      LOG.log(Level.WARNING, errorMsg, e);
     }
   }
 
   /**
-   * Closes the writer, which in turn closes the FileSystem.
+   * Closes the readerWriter, which in turn closes the FileSystem.
    * @throws Exception
    */
   @Override
   public synchronized void close() throws Exception {
-    if (this.writer != null && !this.writerClosed) {
-      this.writer.close();
+    if (this.readerWriter != null && !this.writerClosed) {
+      this.readerWriter.close();
       this.writerClosed = true;
     }
   }

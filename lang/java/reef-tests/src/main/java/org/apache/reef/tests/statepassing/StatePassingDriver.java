@@ -26,8 +26,6 @@ import org.apache.reef.driver.evaluator.AllocatedEvaluator;
 import org.apache.reef.driver.task.CompletedTask;
 import org.apache.reef.driver.task.TaskConfiguration;
 import org.apache.reef.tang.Configuration;
-import org.apache.reef.tang.JavaConfigurationBuilder;
-import org.apache.reef.tang.Tang;
 import org.apache.reef.tang.annotations.Unit;
 import org.apache.reef.tang.exceptions.BindException;
 import org.apache.reef.wake.EventHandler;
@@ -36,6 +34,9 @@ import javax.inject.Inject;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Driver for StatePassingTest.
+ */
 @Unit
 public class StatePassingDriver {
 
@@ -74,7 +75,6 @@ public class StatePassingDriver {
   final class EvaluatorAllocatedHandler implements EventHandler<AllocatedEvaluator> {
     @Override
     public void onNext(final AllocatedEvaluator eb) {
-      final JavaConfigurationBuilder b = Tang.Factory.getTang().newConfigurationBuilder();
       try {
         final Configuration contextConfiguration = ContextConfiguration.CONF
             .set(ContextConfiguration.IDENTIFIER, "StatePassingContext")

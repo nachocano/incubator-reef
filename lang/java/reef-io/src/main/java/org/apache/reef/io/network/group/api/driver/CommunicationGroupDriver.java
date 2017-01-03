@@ -23,16 +23,19 @@ import org.apache.reef.io.network.group.impl.config.BroadcastOperatorSpec;
 import org.apache.reef.io.network.group.impl.config.GatherOperatorSpec;
 import org.apache.reef.io.network.group.impl.config.ReduceOperatorSpec;
 import org.apache.reef.io.network.group.impl.config.ScatterOperatorSpec;
+import org.apache.reef.io.network.group.impl.driver.CommunicationGroupDriverImpl;
 import org.apache.reef.tang.Configuration;
+import org.apache.reef.tang.annotations.DefaultImplementation;
 import org.apache.reef.tang.annotations.Name;
 
 /**
  * The driver side interface of a Communication Group
- * Lets one add opertaors and tasks.
+ * Lets one add operators and tasks.
  * Main function is to extract the configuration related
  * to the Group Communication for a task in the comm group
  */
 @DriverSide
+@DefaultImplementation(CommunicationGroupDriverImpl.class)
 public interface CommunicationGroupDriver {
 
   /**

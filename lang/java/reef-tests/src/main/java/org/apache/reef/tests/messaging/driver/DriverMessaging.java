@@ -29,9 +29,13 @@ import org.apache.reef.util.Optional;
 import org.apache.reef.wake.EventHandler;
 
 import javax.inject.Inject;
+import java.nio.charset.StandardCharsets;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Runner for DriverMessagingTest.
+ */
 @Unit
 public final class DriverMessaging {
 
@@ -107,13 +111,15 @@ public final class DriverMessaging {
     }
 
     this.reef.close();
-    return this.status;
+    synchronized (this) {
+      return this.status;
+    }
   }
 
   final class JobMessageHandler implements EventHandler<JobMessage> {
     @Override
     public void onNext(final JobMessage message) {
-      final String msg = new String(message.get());
+      final String msg = new String(message.get(), StandardCharsets.UTF_8);
       synchronized (DriverMessaging.this) {
         if (!msg.equals(DriverMessaging.this.lastMessage)) {
           LOG.log(Level.SEVERE, "Expected {0} but got {1}",
@@ -133,7 +139,7 @@ public final class DriverMessaging {
         DriverMessaging.this.status = LauncherStatus.RUNNING;
         DriverMessaging.this.theJob = Optional.of(job);
         DriverMessaging.this.lastMessage = "Hello, REEF!";
-        DriverMessaging.this.theJob.get().send(DriverMessaging.this.lastMessage.getBytes());
+        DriverMessaging.this.theJob.get().send(DriverMessaging.this.lastMessage.getBytes(StandardCharsets.UTF_8));
       }
     }
   }

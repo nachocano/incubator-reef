@@ -39,6 +39,7 @@ import java.util.logging.Logger;
 public final class REEFErrorHandler implements EventHandler<Throwable>, AutoCloseable {
 
   private static final Logger LOG = Logger.getLogger(REEFErrorHandler.class.getName());
+  private static final String CLASS_NAME = REEFErrorHandler.class.getCanonicalName();
 
   // This class is used as the ErrorHandler in the RemoteManager. Hence, we need an InjectionFuture here.
   private final InjectionFuture<RemoteManager> remoteManager;
@@ -47,10 +48,12 @@ public final class REEFErrorHandler implements EventHandler<Throwable>, AutoClos
   private final ExceptionCodec exceptionCodec;
 
   @Inject
-  REEFErrorHandler(final InjectionFuture<RemoteManager> remoteManager,
-                   @Parameter(ErrorHandlerRID.class) final String errorHandlerRID,
-                   @Parameter(LaunchID.class) final String launchID,
-                   final ExceptionCodec exceptionCodec) {
+  REEFErrorHandler(
+      @Parameter(ErrorHandlerRID.class) final String errorHandlerRID,
+      @Parameter(LaunchID.class) final String launchID,
+      final InjectionFuture<RemoteManager> remoteManager,
+      final ExceptionCodec exceptionCodec) {
+
     this.errorHandlerRID = errorHandlerRID;
     this.remoteManager = remoteManager;
     this.launchID = launchID;
@@ -58,44 +61,55 @@ public final class REEFErrorHandler implements EventHandler<Throwable>, AutoClos
   }
 
   @Override
-  public void onNext(final Throwable e) {
-    LOG.log(Level.SEVERE, "Uncaught exception.", e);
-    // TODO: This gets a new EventHandler each time an exception is caught. It would be better to cache the handler. But
-    // that introduces threading issues and isn't really worth it, as the JVM typically will be killed once we catch an
-    // Exception in here.
-    if (!this.errorHandlerRID.equals(ErrorHandlerRID.NONE)) {
-      final EventHandler<ReefServiceProtos.RuntimeErrorProto> runtimeErrorHandler = this.remoteManager.get()
-          .getHandler(errorHandlerRID, ReefServiceProtos.RuntimeErrorProto.class);
-      final ReefServiceProtos.RuntimeErrorProto message = ReefServiceProtos.RuntimeErrorProto.newBuilder()
-          .setName("reef")
-          .setIdentifier(launchID)
-          .setMessage(e.getMessage())
-          .setException(ByteString.copyFrom(this.exceptionCodec.toBytes(e)))
-          .build();
-      try {
-        runtimeErrorHandler.onNext(message);
-      } catch (final Throwable t) {
-        LOG.log(Level.SEVERE, "Unable to send the error upstream", t);
-      }
-    } else {
+  @SuppressWarnings("checkstyle:illegalcatch")
+  public void onNext(final Throwable ex) {
+
+    LOG.log(Level.SEVERE, "Uncaught exception.", ex);
+
+    if (this.errorHandlerRID.equals(ErrorHandlerRID.NONE)) {
       LOG.log(Level.SEVERE, "Caught an exception from Wake we cannot send upstream because there is no upstream");
+      return;
+    }
+
+    try {
+
+      final EventHandler<ReefServiceProtos.RuntimeErrorProto> runtimeErrorHandler =
+          this.remoteManager.get().getHandler(this.errorHandlerRID, ReefServiceProtos.RuntimeErrorProto.class);
+
+      final ReefServiceProtos.RuntimeErrorProto message =
+          ReefServiceProtos.RuntimeErrorProto.newBuilder()
+              .setName("reef")
+              .setIdentifier(this.launchID)
+              .setMessage(ex.getMessage())
+              .setException(ByteString.copyFrom(this.exceptionCodec.toBytes(ex)))
+              .build();
+
+      runtimeErrorHandler.onNext(message);
+      LOG.log(Level.INFO, "Successfully sent the error upstream: {0}", ex.toString());
+
+    } catch (final Throwable t) {
+      LOG.log(Level.SEVERE, "Unable to send the error upstream", t);
     }
   }
 
+  @SuppressWarnings("checkstyle:illegalcatch")
   public void close() {
+
+    LOG.entering(CLASS_NAME, "close");
+
     try {
       this.remoteManager.get().close();
     } catch (final Throwable ex) {
       LOG.log(Level.SEVERE, "Unable to close the remote manager", ex);
     }
+
+    LOG.exiting(CLASS_NAME, "close");
   }
 
   @Override
   public String toString() {
-    return "REEFErrorHandler{" +
-        "remoteManager=" + remoteManager +
-        ", launchID='" + launchID + '\'' +
-        ", errorHandlerRID='" + errorHandlerRID + '\'' +
-        '}';
+    return String.format(
+        "REEFErrorHandler: { remoteManager:{%s}, launchID:%s, errorHandlerRID:%s }",
+        this.remoteManager.get(), this.launchID, this.errorHandlerRID);
   }
 }

@@ -47,6 +47,9 @@ import java.net.UnknownHostException;
 import java.util.*;
 import java.util.logging.Level;
 
+/**
+ * Tests for remote event.
+ */
 public class RemoteTest {
   private final LocalAddressProvider localAddressProvider;
   private final TransportFactory tpFactory;
@@ -66,13 +69,13 @@ public class RemoteTest {
   public void testRemoteEventCodec() throws UnknownHostException {
     System.out.println(LOG_PREFIX + name.getMethodName());
 
-    final ObjectSerializableCodec<TestEvent> codec = new ObjectSerializableCodec<TestEvent>();
+    final ObjectSerializableCodec<TestEvent> codec = new ObjectSerializableCodec<>();
 
-    final RemoteEventCodec<TestEvent> reCodec = new RemoteEventCodec<TestEvent>(codec);
+    final RemoteEventCodec<TestEvent> reCodec = new RemoteEventCodec<>(codec);
     final SocketAddress localAddr = new InetSocketAddress(this.localAddressProvider.getLocalAddress(), 8000);
     final SocketAddress remoteAddr = new InetSocketAddress(this.localAddressProvider.getLocalAddress(), 9000);
 
-    final RemoteEvent<TestEvent> e1 = new RemoteEvent<TestEvent>(
+    final RemoteEvent<TestEvent> e1 = new RemoteEvent<>(
         localAddr, remoteAddr, 1, new TestEvent("hello", 0.0));
     System.out.println(e1);
 
@@ -114,23 +117,20 @@ public class RemoteTest {
     final Monitor monitor = new Monitor();
     final TimerStage timer = new TimerStage(new TimeoutHandler(monitor), 5000, 5000);
 
-    // port
-    final int port = 9101;
-
     // receiver stage
     // decoder map
-    final Map<Class<?>, Decoder<?>> clazzToDecoderMap = new HashMap<Class<?>, Decoder<?>>();
+    final Map<Class<?>, Decoder<?>> clazzToDecoderMap = new HashMap<>();
     clazzToDecoderMap.put(TestEvent.class, new ObjectSerializableCodec<TestEvent>());
     clazzToDecoderMap.put(TestEvent2.class, new ObjectSerializableCodec<TestEvent2>());
-    final Decoder<Object> decoder = new MultiDecoder<Object>(clazzToDecoderMap);
+    final Decoder<Object> decoder = new MultiDecoder<>(clazzToDecoderMap);
 
     // receive handlers
     final int finalSize = 6; // 6 events will be sent
-    final Map<Class<?>, EventHandler<?>> clazzToHandlerMap = new HashMap<Class<?>, EventHandler<?>>();
-    final Set<Object> set = Collections.synchronizedSet(new HashSet<Object>());
+    final Map<Class<?>, EventHandler<?>> clazzToHandlerMap = new HashMap<>();
+    final Set<Object> set = Collections.synchronizedSet(new HashSet<>());
     clazzToHandlerMap.put(TestEvent.class, new ConsoleEventHandler<TestEvent>("recvEH1", set, finalSize, monitor));
     clazzToHandlerMap.put(TestEvent2.class, new ConsoleEventHandler<TestEvent2>("recvEH2", set, finalSize, monitor));
-    final EventHandler<Object> handler = new MultiEventHandler<Object>(clazzToHandlerMap);
+    final EventHandler<Object> handler = new MultiEventHandler<>(clazzToHandlerMap);
 
     // receiver stage
     final RemoteReceiverStage reRecvStage = new RemoteReceiverStage(
@@ -139,13 +139,16 @@ public class RemoteTest {
     final String hostAddress = this.localAddressProvider.getLocalAddress();
 
     // transport
-    final Transport transport = tpFactory.newInstance(hostAddress, port, reRecvStage, reRecvStage, 1, 10000);
+    final Transport transport = tpFactory.newInstance(hostAddress, 0, reRecvStage, reRecvStage, 1, 10000);
+
+    // port
+    final int port = transport.getListeningPort();
 
     // mux encoder with encoder map
-    final Map<Class<?>, Encoder<?>> clazzToEncoderMap = new HashMap<Class<?>, Encoder<?>>();
+    final Map<Class<?>, Encoder<?>> clazzToEncoderMap = new HashMap<>();
     clazzToEncoderMap.put(TestEvent.class, new ObjectSerializableCodec<TestEvent>());
     clazzToEncoderMap.put(TestEvent2.class, new ObjectSerializableCodec<TestEvent2>());
-    final Encoder<Object> encoder = new MultiEncoder<Object>(clazzToEncoderMap);
+    final Encoder<Object> encoder = new MultiEncoder<>(clazzToEncoderMap);
 
     // sender stage
     final RemoteSenderStage reSendStage = new RemoteSenderStage(encoder, transport, 10);
@@ -156,17 +159,17 @@ public class RemoteTest {
 
     final RemoteSeqNumGenerator seqGen = new RemoteSeqNumGenerator();
     // proxy handler for a remotely running handler
-    final ProxyEventHandler<TestEvent> proxyHandler1 = new ProxyEventHandler<TestEvent>(
+    final ProxyEventHandler<TestEvent> proxyHandler1 = new ProxyEventHandler<>(
         myId, remoteId, "recvEH1", reSendStage.<TestEvent>getHandler(), seqGen);
     proxyHandler1.onNext(new TestEvent("hello1", 0.0));
     proxyHandler1.onNext(new TestEvent("hello2", 0.0));
 
-    final ProxyEventHandler<TestEvent2> proxyHandler2 = new ProxyEventHandler<TestEvent2>(
+    final ProxyEventHandler<TestEvent2> proxyHandler2 = new ProxyEventHandler<>(
         myId, remoteId, "recvEH2", reSendStage.<TestEvent2>getHandler(), seqGen);
     proxyHandler2.onNext(new TestEvent2("hello1", 1.0));
     proxyHandler2.onNext(new TestEvent2("hello2", 1.0));
 
-    final ProxyEventHandler<TestEvent> proxyHandler3 = new ProxyEventHandler<TestEvent>(
+    final ProxyEventHandler<TestEvent> proxyHandler3 = new ProxyEventHandler<>(
         myId, remoteId, "recvEH3", reSendStage.<TestEvent>getHandler(), seqGen);
     proxyHandler3.onNext(new TestEvent("hello1", 1.0));
     proxyHandler3.onNext(new TestEvent("hello2", 1.0));

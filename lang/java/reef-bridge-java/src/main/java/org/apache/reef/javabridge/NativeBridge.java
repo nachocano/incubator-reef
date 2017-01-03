@@ -18,12 +18,18 @@
  */
 package org.apache.reef.javabridge;
 
+import org.apache.reef.annotations.audience.Private;
+
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Abstract bridge class.
+ */
+@Private
 public abstract class NativeBridge implements AutoCloseable {
 
-  private static final Logger LOG = Logger.getLogger(ActiveContextBridge.class.getName());
+  private static final Logger LOG = Logger.getLogger(NativeBridge.class.getName());
 
   public void onError(final String errorMessage) {
     LOG.log(Level.SEVERE, "Bridge received error from CLR: " + errorMessage);

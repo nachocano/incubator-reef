@@ -36,6 +36,9 @@ import org.junit.rules.TestName;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Tests for RemoteIdentifierFactory.
+ */
 public class RemoteIdentifierFactoryTest {
   @Rule
   public final TestName name = new TestName();
@@ -46,7 +49,7 @@ public class RemoteIdentifierFactoryTest {
   public void testRemoteIdentifierFactory() {
     System.out.println(LOG_PREFIX + name.getMethodName());
 
-    final Map<String, Class<? extends Identifier>> typeToIdMap = new HashMap<String, Class<? extends Identifier>>();
+    final Map<String, Class<? extends Identifier>> typeToIdMap = new HashMap<>();
     typeToIdMap.put("test", TestRemoteIdentifier.class);
     final IdentifierFactory factory = new DefaultIdentifierFactory(typeToIdMap);
 
@@ -62,14 +65,13 @@ public class RemoteIdentifierFactoryTest {
     final RemoteManagerFactory remoteManagerFactory = Tang.Factory.getTang().newInjector()
         .getInstance(RemoteManagerFactory.class);
 
-    final int port = 9100;
-    final Map<Class<?>, Codec<?>> clazzToCodecMap = new HashMap<Class<?>, Codec<?>>();
+    final Map<Class<?>, Codec<?>> clazzToCodecMap = new HashMap<>();
     clazzToCodecMap.put(TestEvent.class, new TestEventCodec());
     final Codec<?> codec = new MultiCodec<Object>(clazzToCodecMap);
 
 
     try (final RemoteManager rm =
-             remoteManagerFactory.getInstance("TestRemoteManager", port, codec, new LoggingEventHandler<Throwable>())) {
+             remoteManagerFactory.getInstance("TestRemoteManager", 0, codec, new LoggingEventHandler<Throwable>())) {
       final RemoteIdentifier id = rm.getMyIdentifier();
 
       final IdentifierFactory factory = new DefaultIdentifierFactory();

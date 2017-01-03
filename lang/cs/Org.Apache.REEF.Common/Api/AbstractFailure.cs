@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Globalization;
@@ -28,10 +26,6 @@ namespace Org.Apache.REEF.Common.Api
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(AbstractFailure));
 
-        public AbstractFailure()
-        {
-        }
-
         /// <summary>
         /// Most detailed error message constructor that takes all parameters possible.
         /// </summary>
@@ -40,7 +34,7 @@ namespace Org.Apache.REEF.Common.Api
         /// <param name="description">Long error description. Can be null.</param>
         /// <param name="cause">Exception that caused the error. Can be null.</param>
         /// <param name="data">byte array that contains serialized version of the error. Can be null.</param>
-        public AbstractFailure(string id, string message, string description, Exception cause, byte[] data)
+        protected AbstractFailure(string id, string message, string description, Exception cause, byte[] data)
         {
             if (string.IsNullOrEmpty(id))
             {
@@ -62,7 +56,7 @@ namespace Org.Apache.REEF.Common.Api
         /// </summary>
         /// <param name="id"></param>
         /// <param name="message"></param>
-        public AbstractFailure(string id, string message)
+        protected AbstractFailure(string id, string message)
             : this(id, message, null, null, null)
         {
         }
@@ -74,7 +68,7 @@ namespace Org.Apache.REEF.Common.Api
         /// </summary>
         /// <param name="id"></param>
         /// <param name="cause"></param>
-        public AbstractFailure(string id, Exception cause)
+        protected AbstractFailure(string id, Exception cause)
         {
             if (string.IsNullOrEmpty(id))
             {
@@ -93,7 +87,7 @@ namespace Org.Apache.REEF.Common.Api
         /// <param name="id"></param>
         /// <param name="message"></param>
         /// <param name="description"></param>
-        public AbstractFailure(string id, string message, string description)
+        protected AbstractFailure(string id, string message, string description)
             : this(id, message, description, null, null)
         {
         }

@@ -37,9 +37,9 @@ import java.util.Set;
 
 public abstract class ConfigurationModuleBuilder {
 
-  private static final Set<Class<?>> PARAM_BLACKLIST = new MonotonicHashSet<Class<?>>(
+  private static final Set<Class<?>> PARAM_BLACKLIST = new MonotonicHashSet<>(
       Param.class, Impl.class);
-  private static final Set<Class<?>> PARAM_TYPES = new MonotonicHashSet<Class<?>>(
+  private static final Set<Class<?>> PARAM_TYPES = new MonotonicHashSet<>(
       RequiredImpl.class, OptionalImpl.class, RequiredParameter.class,
       OptionalParameter.class);
   protected final JavaConfigurationBuilder b = Tang.Factory.getTang()
@@ -127,6 +127,9 @@ public abstract class ConfigurationModuleBuilder {
   /**
    * TODO: It would be nice if this incorporated d by reference so that static analysis / documentation tools
    * could document the dependency between c and d.
+   *
+   * @param d a configuration module to merge
+   * @return the merged configuration module builder
    */
   public final ConfigurationModuleBuilder merge(final ConfigurationModule d) {
     if (d == null) {

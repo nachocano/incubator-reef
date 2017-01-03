@@ -37,13 +37,13 @@ import java.util.logging.Logger;
 
 /**
  * Stage that executes the observer with a thread pool.
- * <p/>
+ * <p>
  * {@code onNext}'s will be arbitrarily subject to reordering, as with most stages.
- * <p/>
+ * <p>
  * All {@code onNext}'s for which returning from the method call
  * happens-before the call to {@code onComplete} will maintain
  * this relationship when passed to the observer.
- * <p/>
+ * <p>
  * Any {@code onNext} whose return is not ordered before
  * {@code onComplete} may or may not get dropped.
  *
@@ -153,8 +153,9 @@ public final class RxThreadPoolStage<T> extends AbstractRxStage<T> {
         try {
           // no timeout for completion, only close()
           if (!executor.awaitTermination(3153600000L, TimeUnit.SECONDS)) {
-            LOG.log(Level.SEVERE, "Executor terminated due to unrequired timeout");
-            observer.onError(new TimeoutException());
+            TimeoutException e = new TimeoutException("Executor terminated due to unrequired timeout");
+            LOG.log(Level.SEVERE, e.getMessage());
+            observer.onError(e);
           }
         } catch (final InterruptedException e) {
           e.printStackTrace();
@@ -167,8 +168,6 @@ public final class RxThreadPoolStage<T> extends AbstractRxStage<T> {
 
   /**
    * Closes the stage.
-   *
-   * @return Exception
    */
   @Override
   public void close() throws Exception {

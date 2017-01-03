@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -49,8 +47,8 @@ namespace Org.Apache.REEF.Examples.DriverRestart
         IObserver<IFailedEvaluator>
     {
         private static readonly Logger Logger = Logger.GetLogger(typeof(HelloRestartDriver));
-        private const int NumberOfTasksToSubmit = 1;
-        private const int NumberOfTasksToSubmitOnRestart = 1;
+        private const int NumberOfTasksToSubmit = 3;
+        private const int NumberOfTasksToSubmitOnRestart = 3;
 
         private readonly IEvaluatorRequestor _evaluatorRequestor;
 
@@ -65,7 +63,7 @@ namespace Org.Apache.REEF.Examples.DriverRestart
         {
             _exceptionTimer = new Timer(obj =>
             {
-                throw new Exception("Expected driver to be finished by now.");
+                throw new ApplicationException("Expected driver to be finished by now.");
             }, new object(), TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(10));
 
             _evaluatorRequestor = evaluatorRequestor;
@@ -85,6 +83,7 @@ namespace Org.Apache.REEF.Examples.DriverRestart
                 .Set(TaskConfiguration.Identifier, "HelloRestartTask")
                 .Set(TaskConfiguration.Task, GenericType<HelloRestartTask>.Class)
                 .Set(TaskConfiguration.OnMessage, GenericType<HelloRestartTask>.Class)
+                .Set(TaskConfiguration.OnDriverConnectionChanged, GenericType<HelloRestartTask>.Class)
                 .Build();
 
             allocatedEvaluator.SubmitTask(taskConfiguration);
@@ -105,6 +104,11 @@ namespace Org.Apache.REEF.Examples.DriverRestart
         /// </summary>
         public void OnNext(IDriverRestarted value)
         {
+            if (value.ResubmissionAttempts != 1)
+            {
+                throw new ApplicationException("Only expected the driver to restart once.");
+            }
+
             _isRestart = true;
             Logger.Log(Level.Info, "Hello! HelloRestartDriver has restarted! Expecting these Evaluator IDs [{0}]", string.Join(", ", value.ExpectedEvaluatorIds));
             foreach (var expectedEvaluatorId in value.ExpectedEvaluatorIds)
@@ -139,7 +143,6 @@ namespace Org.Apache.REEF.Examples.DriverRestart
                 Logger.Log(Level.Info, "{0} running task with ID [{1}] from evaluator with ID [{2}]",
                     _evaluators[evaluatorId], value.Id, evaluatorId);
 
-
                 if (_evaluators[evaluatorId] == EvaluatorState.Expected)
                 {
                     value.Send(Encoding.UTF8.GetBytes("Hello from driver!"));
@@ -150,6 +153,7 @@ namespace Org.Apache.REEF.Examples.DriverRestart
                     _evaluators[evaluatorId] = EvaluatorState.NewRunning;
 
                     var newRunningCount = CountState(EvaluatorState.NewRunning);
+
                     // Kill itself in order for the driver to restart it.
                     if (!_isRestart && newRunningCount == NumberOfTasksToSubmit)
                     {
@@ -170,7 +174,7 @@ namespace Org.Apache.REEF.Examples.DriverRestart
 
         public void OnNext(IDriverRestartCompleted value)
         {
-            var timedOutStr = (value.IsTimedOut ? " due to timeout" : string.Empty);
+            var timedOutStr = value.IsTimedOut ? " due to timeout" : string.Empty;
             Logger.Log(Level.Info, "Driver restart has completed" + timedOutStr + ".");
         }
 

@@ -47,8 +47,7 @@ public final class JavaNodeFactory {
     final String simpleName = ReflectionUtilities.getSimpleName(clazz);
     final String fullName = ReflectionUtilities.getFullName(clazz);
     final boolean isStatic = Modifier.isStatic(clazz.getModifiers());
-    final boolean parentIsUnit = ((parent instanceof ClassNode) && !isStatic) ?
-        ((ClassNode<?>) parent).isUnit() : false;
+    final boolean parentIsUnit = parent instanceof ClassNode && !isStatic && ((ClassNode<?>) parent).isUnit();
 
     if (clazz.isLocalClass() || clazz.isMemberClass()) {
       if (!isStatic) {
@@ -82,8 +81,7 @@ public final class JavaNodeFactory {
     final MonotonicSet<ConstructorDef<T>> injectableConstructors = new MonotonicSet<>();
     final ArrayList<ConstructorDef<T>> allConstructors = new ArrayList<>();
     for (int k = 0; k < constructors.length; k++) {
-      final boolean constructorAnnotatedInjectable = (constructors[k]
-          .getAnnotation(Inject.class) != null);
+      final boolean constructorAnnotatedInjectable = constructors[k].getAnnotation(Inject.class) != null;
       if (constructorAnnotatedInjectable && constructors[k].isSynthetic()) {
         // Not sure if we *can* unit test this one.
         throw new ClassHierarchyException(
@@ -174,11 +172,11 @@ public final class JavaNodeFactory {
     final boolean hasStringDefault, hasClassDefault, hasStringSetDefault, hasClassSetDefault;
 
     int defaultCount = 0;
-    if (!namedParameter.default_value().isEmpty()) {
+    if (namedParameter.default_value().equals(NamedParameter.REEF_UNINITIALIZED_VALUE)) {
+      hasStringDefault = false;
+    } else {
       hasStringDefault = true;
       defaultCount++;
-    } else {
-      hasStringDefault = false;
     }
     if (namedParameter.default_class() != Void.class) {
       hasClassDefault = true;
@@ -224,7 +222,10 @@ public final class JavaNodeFactory {
     } else if (hasStringSetDefault) {
       defaultInstanceAsStrings = namedParameter.default_values();
     } else {
-      throw new IllegalStateException();
+      throw new IllegalStateException("The named parameter " + namedParameter.short_name() + " has a default value,"
+              + " but the value cannot be retrieved. The defaultCount is " + defaultCount
+              + ", but hasClassDefault, hasStringDefault, hasClassSetDefault, hasStringSetDefault"
+              + " conditions are all false");
     }
 
     final String documentation = namedParameter.doc();
@@ -274,12 +275,12 @@ public final class JavaNodeFactory {
       }
     }
 
-    if (!(isSubclass)) {
+    if (!isSubclass) {
       throw new ClassHierarchyException(namedParameter + " defines a default class "
           + ReflectionUtilities.getFullName(defaultClass)
           + " with a raw type that does not extend of its target's raw type " + argRawClass);
     }
-    if (!(isGenericSubclass)) {
+    if (!isGenericSubclass) {
       throw new ClassHierarchyException(namedParameter + " defines a default class "
           + ReflectionUtilities.getFullName(defaultClass)
           + " with a type that does not extend its target's type " + argClass);
@@ -305,7 +306,10 @@ public final class JavaNodeFactory {
     final Type[] genericParamTypes = constructor.getGenericParameterTypes();
     final Annotation[][] paramAnnotations = constructor.getParameterAnnotations();
     if (paramTypes.length != paramAnnotations.length) {
-      throw new IllegalStateException();
+      throw new IllegalStateException("The paramTypes.length is " + paramTypes.length
+              + ", and paramAnnotations.length is " + paramAnnotations.length
+              + ". These values should be equal."
+      );
     }
     final ConstructorArg[] args = new ConstructorArg[genericParamTypes.length];
     for (int i = 0; i < genericParamTypes.length; i++) {
@@ -325,7 +329,7 @@ public final class JavaNodeFactory {
       for (int j = 0; j < paramAnnotations[i].length; j++) {
         final Annotation annotation = paramAnnotations[i][j];
         if (annotation instanceof Parameter) {
-          if ((!isClassInjectionCandidate) || !injectable) {
+          if (!isClassInjectionCandidate || !injectable) {
             throw new ClassHierarchyException(constructor + " is not injectable, but it has an @Parameter annotation.");
           }
           named = (Parameter) annotation;

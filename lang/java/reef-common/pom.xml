@@ -23,15 +23,31 @@ under the License.
     <parent>
         <groupId>org.apache.reef</groupId>
         <artifactId>reef-project</artifactId>
-        <version>0.13.0-incubating-SNAPSHOT</version>
+        <version>0.16.0-SNAPSHOT</version>
         <relativePath>../../..</relativePath>
     </parent>
+
+    <properties>
+        <rootPath>${basedir}/../../..</rootPath>
+        <protoPath>${rootPath}/lang/common/proto</protoPath>
+    </properties>
 
     <artifactId>reef-common</artifactId>
     <name>REEF Common</name>
 
 
     <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-checkstyle-plugin</artifactId>
+                    <configuration>
+                        <configLocation>lang/java/reef-common/src/main/resources/checkstyle-strict.xml</configLocation>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
         <plugins>
             <plugin>
                 <artifactId>maven-antrun-plugin</artifactId>
@@ -40,7 +56,7 @@ under the License.
                         <id>generate-sources</id>
                         <phase>generate-sources</phase>
                         <configuration>
-                            <tasks>
+                            <target>
                                 <exec executable="protoc" outputproperty="protoc.version">
                                     <arg value="--version"/>
                                 </exec>
@@ -53,14 +69,14 @@ under the License.
                                 </fail>
                                 <mkdir dir="target/generated-sources/proto"/>
                                 <exec executable="protoc">
-                                    <arg value="--proto_path=src/main/proto/"/>
+                                    <arg value="--proto_path=${protoPath}"/>
                                     <arg value="--java_out=target/generated-sources/proto"/>
-                                    <arg value="src/main/proto/reef_service_protos.proto"/>
-                                    <arg value="src/main/proto/evaluator_runtime.proto"/>
-                                    <arg value="src/main/proto/client_runtime.proto"/>
-                                    <arg value="src/main/proto/reef_protocol.proto"/>
+                                    <arg value="${protoPath}/reef_service_protos.proto"/>
+                                    <arg value="${protoPath}/evaluator_runtime.proto"/>
+                                    <arg value="${protoPath}/client_runtime.proto"/>
+                                    <arg value="${protoPath}/reef_protocol.proto"/>
                                 </exec>
-                            </tasks>
+                            </target>
                             <sourceRoot>target/generated-sources/proto</sourceRoot>
                         </configuration>
                         <goals>
@@ -146,6 +162,11 @@ under the License.
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <version>${jsr305.version}</version>
         </dependency>
     </dependencies>
 

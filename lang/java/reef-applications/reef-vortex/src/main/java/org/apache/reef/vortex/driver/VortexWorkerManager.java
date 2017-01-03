@@ -21,11 +21,15 @@ package org.apache.reef.vortex.driver;
 import net.jcip.annotations.NotThreadSafe;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.driver.task.RunningTask;
-import org.apache.reef.vortex.common.TaskletExecutionRequest;
+import org.apache.reef.vortex.api.VortexAggregateFunction;
+import org.apache.reef.vortex.api.VortexAggregatePolicy;
+import org.apache.reef.vortex.api.VortexFunction;
+import org.apache.reef.vortex.protocol.mastertoworker.TaskletAggregateExecutionRequest;
+import org.apache.reef.vortex.protocol.mastertoworker.TaskletAggregationRequest;
+import org.apache.reef.vortex.protocol.mastertoworker.TaskletCancellationRequest;
+import org.apache.reef.vortex.protocol.mastertoworker.TaskletExecutionRequest;
 
-import java.io.Serializable;
-import java.util.Collection;
-import java.util.HashMap;
+import java.util.*;
 
 /**
  * Representation of a VortexWorkerManager in Driver.
@@ -42,27 +46,59 @@ class VortexWorkerManager {
     this.reefTask = reefTask;
   }
 
-  <TInput extends Serializable, TOutput extends Serializable>
-      void launchTasklet(final Tasklet<TInput, TOutput> tasklet) {
-    assert(!runningTasklets.containsKey(tasklet.getId()));
+  /**
+   * Sends an {@link VortexAggregateFunction} and its {@link VortexFunction} to a
+   * {@link org.apache.reef.vortex.evaluator.VortexWorker}.
+   */
+  <TInput, TOutput> void sendAggregateFunction(final int aggregateFunctionId,
+                                               final VortexAggregateFunction<TOutput> aggregateFunction,
+                                               final VortexFunction<TInput, TOutput> function,
+                                               final VortexAggregatePolicy policy) {
+    final TaskletAggregationRequest<TInput, TOutput> taskletAggregationRequest =
+        new TaskletAggregationRequest<>(aggregateFunctionId, aggregateFunction, function, policy);
+
+    // The send is synchronous such that we make sure that the aggregate function is sent to the
+    // target worker before attempting to launch an aggregateable tasklet on it.
+    vortexRequestor.send(reefTask, taskletAggregationRequest);
+  }
+
+
+  /**
+   * Sends a request to launch a Tasklet on a {@link org.apache.reef.vortex.evaluator.VortexWorker}.
+   */
+  <TInput, TOutput> void launchTasklet(final Tasklet<TInput, TOutput> tasklet) {
+    assert !runningTasklets.containsKey(tasklet.getId());
     runningTasklets.put(tasklet.getId(), tasklet);
-    final TaskletExecutionRequest<TInput, TOutput> taskletExecutionRequest
-        = new TaskletExecutionRequest<>(tasklet.getId(), tasklet.getUserFunction(), tasklet.getInput());
-    vortexRequestor.send(reefTask, taskletExecutionRequest);
+
+    if (tasklet.getAggregateFunctionId().isPresent()) {
+      // function is aggregateable.
+      final TaskletAggregateExecutionRequest<TInput> taskletAggregateExecutionRequest =
+          new TaskletAggregateExecutionRequest<>(tasklet.getId(), tasklet.getAggregateFunctionId().get(),
+              tasklet.getInput());
+      vortexRequestor.sendAsync(reefTask, taskletAggregateExecutionRequest);
+    } else {
+      // function is not aggregateable.
+      final TaskletExecutionRequest<TInput, TOutput> taskletExecutionRequest
+          = new TaskletExecutionRequest<>(tasklet.getId(), tasklet.getUserFunction(), tasklet.getInput());
+      vortexRequestor.sendAsync(reefTask, taskletExecutionRequest);
+    }
   }
 
-  <TOutput extends Serializable> Tasklet taskletCompleted(final Integer taskletId, final TOutput result) {
-    final Tasklet<?, TOutput> tasklet = runningTasklets.remove(taskletId);
-    assert(tasklet != null); // Tasklet should complete/error only once
-    tasklet.completed(result);
-    return tasklet;
+  /**
+   * Sends a request to cancel a Tasklet on a {@link org.apache.reef.vortex.evaluator.VortexWorker}.
+   */
+  void cancelTasklet(final int taskletId) {
+    final TaskletCancellationRequest cancellationRequest = new TaskletCancellationRequest(taskletId);
+    vortexRequestor.sendAsync(reefTask, cancellationRequest);
   }
 
-  Tasklet taskletThrewException(final Integer taskletId, final Exception exception) {
-    final Tasklet tasklet = runningTasklets.remove(taskletId);
-    assert(tasklet != null); // Tasklet should complete/error only once
-    tasklet.threwException(exception);
-    return tasklet;
+  List<Tasklet> taskletsDone(final List<Integer> taskletIds) {
+    final List<Tasklet> taskletList = new ArrayList<>();
+    for (final int taskletId : taskletIds) {
+      taskletList.add(runningTasklets.remove(taskletId));
+    }
+
+    return Collections.unmodifiableList(taskletList);
   }
 
   Collection<Tasklet> removed() {

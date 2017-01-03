@@ -19,29 +19,30 @@
 package org.apache.reef.io.network.group.impl.driver;
 
 import org.apache.reef.io.network.group.impl.GroupCommunicationMessage;
-import org.apache.reef.io.network.group.impl.utils.BroadcastingEventHandler;
 import org.apache.reef.io.network.group.impl.utils.Utils;
 import org.apache.reef.tang.annotations.Name;
+import org.apache.reef.wake.AbstractEStage;
 import org.apache.reef.wake.EventHandler;
+import org.apache.reef.wake.impl.SingleThreadStage;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
 
 /**
- * The network handler for the group communcation service on the driver side.
+ * The network handler for the group communication service on the driver side.
  */
 public class GroupCommMessageHandler implements EventHandler<GroupCommunicationMessage> {
 
   private static final Logger LOG = Logger.getLogger(GroupCommMessageHandler.class.getName());
 
-  private final Map<Class<? extends Name<String>>, BroadcastingEventHandler<GroupCommunicationMessage>>
-      commGroupMessageHandlers = new HashMap<>();
+  private final Map<Class<? extends Name<String>>, AbstractEStage<GroupCommunicationMessage>>
+      commGroupMessageStages = new HashMap<>();
 
   public void addHandler(final Class<? extends Name<String>> groupName,
-                         final BroadcastingEventHandler<GroupCommunicationMessage> handler) {
-    LOG.entering("GroupCommMessageHandler", "addHandler", new Object[]{Utils.simpleName(groupName), handler});
-    commGroupMessageHandlers.put(groupName, handler);
+                         final SingleThreadStage<GroupCommunicationMessage> stage) {
+    LOG.entering("GroupCommMessageHandler", "addHandler", new Object[]{Utils.simpleName(groupName), stage});
+    commGroupMessageStages.put(groupName, stage);
     LOG.exiting("GroupCommMessageHandler", "addHandler", Utils.simpleName(groupName));
   }
 
@@ -49,7 +50,7 @@ public class GroupCommMessageHandler implements EventHandler<GroupCommunicationM
   public void onNext(final GroupCommunicationMessage msg) {
     LOG.entering("GroupCommMessageHandler", "onNext", msg);
     final Class<? extends Name<String>> groupName = Utils.getClass(msg.getGroupname());
-    commGroupMessageHandlers.get(groupName).onNext(msg);
+    commGroupMessageStages.get(groupName).onNext(msg);
     LOG.exiting("GroupCommMessageHandler", "onNext", msg);
   }
 }

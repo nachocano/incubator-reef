@@ -1,25 +1,24 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading;
 using Org.Apache.REEF.Network.Group.Config;
 using Org.Apache.REEF.Network.Group.Operators;
 using Org.Apache.REEF.Network.Group.Operators.Impl;
@@ -35,9 +34,9 @@ namespace Org.Apache.REEF.Network.Group.Task.Impl
     /// <summary>
     ///  Used by Tasks to fetch Group Communication Operators in the group configured by the driver.
     /// </summary>
-    public class CommunicationGroupClient : ICommunicationGroupClientInternal
+    internal sealed class CommunicationGroupClient : ICommunicationGroupClientInternal
     {
-        private readonly Logger LOGGER = Logger.GetLogger(typeof(CommunicationGroupClient));
+        private static readonly Logger LOGGER = Logger.GetLogger(typeof(CommunicationGroupClient));
         private readonly Dictionary<string, object> _operators;
 
         /// <summary>
@@ -45,25 +44,18 @@ namespace Org.Apache.REEF.Network.Group.Task.Impl
         /// </summary>
         /// <param name="groupName">The name of the CommunicationGroup</param>
         /// <param name="operatorConfigs">The serialized operator configurations</param>
-        /// <param name="groupCommNetworkObserver">The handler for all incoming messages
-        /// across all Communication Groups</param>
         /// <param name="configSerializer">Used to deserialize operator configuration.</param>
-        /// <param name="commGroupNetworkHandler">Communication group network observer that holds all the handlers for each operator.</param>
         /// <param name="injector">injector forked from the injector that creates this instance</param>
         [Inject]
         private CommunicationGroupClient(
             [Parameter(typeof(GroupCommConfigurationOptions.CommunicationGroupName))] string groupName,
             [Parameter(typeof(GroupCommConfigurationOptions.SerializedOperatorConfigs))] ISet<string> operatorConfigs,
-            IGroupCommNetworkObserver groupCommNetworkObserver,
             AvroConfigurationSerializer configSerializer,
-            ICommunicationGroupNetworkObserver commGroupNetworkHandler,
             IInjector injector)
         {
             _operators = new Dictionary<string, object>();
 
             GroupName = groupName;
-            groupCommNetworkObserver.Register(groupName, commGroupNetworkHandler);
-
             foreach (string operatorConfigStr in operatorConfigs)
             {                
                 IConfiguration operatorConfig = configSerializer.FromString(operatorConfigStr);
@@ -174,18 +166,18 @@ namespace Org.Apache.REEF.Network.Group.Task.Impl
                 Exceptions.Throw(new ArgumentException("Operator is not added at Driver side:" + operatorName), LOGGER);
             }
 
-            return (T) op;
+            return (T)op;
         }
 
         /// <summary>
-        /// Call each Operator to easure all the nodes in the topology group has been registered
+        /// Call each Operator to ensure all the nodes in the topology group has been registered
         /// </summary>
-        void ICommunicationGroupClientInternal.WaitingForRegistration()
+        void ICommunicationGroupClientInternal.WaitingForRegistration(CancellationTokenSource cancellationSource)
         {
             foreach (var op in _operators.Values)
             {
                 var method = op.GetType().GetMethod("Org.Apache.REEF.Network.Group.Operators.IGroupCommOperatorInternal.WaitForRegistration", BindingFlags.NonPublic | BindingFlags.Instance);
-                method.Invoke(op, null);
+                method.Invoke(op, new object[] { cancellationSource });
             }
         }
     }

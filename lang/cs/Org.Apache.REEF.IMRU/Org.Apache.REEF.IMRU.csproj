@@ -25,12 +25,15 @@ under the License.
     <AssemblyName>Org.Apache.REEF.IMRU</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <RestorePackages>true</RestorePackages>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..</SolutionDir>
   </PropertyGroup>
   <Import Project="$(SolutionDir)\build.props" />
+  <PropertyGroup>
+    <RestorePackages>true</RestorePackages>
+  </PropertyGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
+  <Import Project="$(PackagesDir)\StyleCop.MSBuild.$(StyleCopVersion)\build\StyleCop.MSBuild.Targets" Condition="Exists('$(PackagesDir)\StyleCop.MSBuild.$(StyleCopVersion)\build\StyleCop.MSBuild.Targets')" />
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
@@ -41,7 +44,12 @@ under the License.
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="$(SolutionDir)\SharedAssemblyInfo.cs">
+      <Link>Properties\SharedAssemblyInfo.cs</Link>
+    </Compile>
     <Compile Include="API\IIMRUClient.cs" />
+    <Compile Include="API\IIMRUResultHandler.cs" />
+    <Compile Include="API\IJobCancelledDetector.cs" />
     <Compile Include="API\IMapFunction.cs" />
     <Compile Include="API\IMRUCodecConfiguration.cs" />
     <Compile Include="API\IMRUPipelineDataConverterConfiguration.cs" />
@@ -53,6 +61,7 @@ under the License.
     <Compile Include="API\IMRUUpdateConfiguration.cs" />
     <Compile Include="API\IUpdateFunction.cs" />
     <Compile Include="API\IPerMapperConfigGenerator.cs" />
+    <Compile Include="OnREEF\Driver\JobCancellationDetectorAlwaysFalse.cs" />
     <Compile Include="API\PerMapConfigGeneratorSet.cs" />
     <Compile Include="API\UpdateResult.cs" />
     <Compile Include="InProcess\IMRURunner.cs" />
@@ -66,20 +75,50 @@ under the License.
     <Compile Include="OnREEF\Client\REEFIMRUClient.cs" />
     <Compile Include="OnREEF\Driver\ConfigurationManager.cs" />
     <Compile Include="OnREEF\Driver\ContextAndServiceConfiguration.cs" />
+    <Compile Include="OnREEF\Driver\ActiveContextManager.cs" />
+    <Compile Include="OnREEF\Driver\DataLoadingContext.cs" />
+    <Compile Include="OnREEF\Driver\EvaluatorManager.cs" />
+    <Compile Include="OnREEF\Driver\EvaluatorSpecification.cs" />
+    <Compile Include="OnREEF\Driver\IJobLifeCycleManager.cs" />
+    <Compile Include="OnREEF\Driver\JobCancelled.cs" />
+    <Compile Include="OnREEF\Driver\JobLifeCycleManager.cs" />
+    <Compile Include="OnREEF\Driver\IMRUSystemException.cs" />
     <Compile Include="OnREEF\Driver\IMRUConstants.cs" />
     <Compile Include="OnREEF\Driver\IMRUDriver.cs" />
     <Compile Include="OnREEF\Driver\ServiceAndContextConfigurationProvider.cs" />
+    <Compile Include="OnREEF\Driver\StateMachine\TaskStateMachine.cs" />
+    <Compile Include="OnREEF\Driver\StateMachine\StateTransition.cs" />
+    <Compile Include="OnREEF\Driver\StateMachine\SystemState.cs" />
+    <Compile Include="OnREEF\Driver\StateMachine\SystemStateEvent.cs" />
+    <Compile Include="OnREEF\Driver\StateMachine\SystemStateMachine.cs" />
+    <Compile Include="OnREEF\Driver\StateMachine\SystemStateTransitionException.cs" />
+    <Compile Include="OnREEF\Driver\StateMachine\TaskStateEvent.cs" />
+    <Compile Include="OnREEF\Driver\StateMachine\TaskState.cs" />
+    <Compile Include="OnREEF\Driver\StateMachine\TaskStateTransitionException.cs" />
+    <Compile Include="OnREEF\Driver\TaskInfo.cs" />
+    <Compile Include="OnREEF\Driver\TaskManager.cs" />
+    <Compile Include="OnREEF\Driver\TaskStateService.cs" />
+    <Compile Include="OnREEF\IMRUTasks\IMRUTaskAppException.cs" />
+    <Compile Include="OnREEF\IMRUTasks\IMRUTaskGroupCommunicationException.cs" />
+    <Compile Include="OnREEF\IMRUTasks\IMRUTaskSystemException.cs" />
+    <Compile Include="OnREEF\IMRUTasks\ITaskState.cs" />
     <Compile Include="OnREEF\IMRUTasks\MapTaskHost.cs" />
+    <Compile Include="OnREEF\IMRUTasks\TaskCloseCoordinator.cs" />
+    <Compile Include="OnREEF\IMRUTasks\TaskHostBase.cs" />
     <Compile Include="OnREEF\IMRUTasks\UpdateTaskHost.cs" />
     <Compile Include="OnREEF\MapInputWithControlMessage\MapControlMessage.cs" />
     <Compile Include="OnREEF\MapInputWithControlMessage\MapInputWithControlMessage.cs" />
     <Compile Include="OnREEF\MapInputWithControlMessage\MapInputWithControlMessageCodec.cs" />
     <Compile Include="OnREEF\MapInputWithControlMessage\MapInputwithControlMessagePipelineDataConverter.cs" />
+    <Compile Include="OnREEF\Parameters\InvokeGC .cs" />
     <Compile Include="OnREEF\Parameters\AllowedFailedEvaluatorsFraction.cs" />
     <Compile Include="OnREEF\Parameters\CoresForUpdateTask.cs" />
     <Compile Include="OnREEF\Parameters\CoresPerMapper.cs" />
+    <Compile Include="OnREEF\Parameters\MaxRetryNumberInRecovery.cs" />
     <Compile Include="OnREEF\Parameters\MemoryForUpdateTask.cs" />
     <Compile Include="OnREEF\Parameters\MemoryPerMapper.cs" />
+    <Compile Include="OnREEF\Parameters\SerializedMapTaskStateConfiguration.cs" />
+    <Compile Include="OnREEF\Parameters\SerializedResultHandlerConfiguration.cs" />
     <Compile Include="OnREEF\Parameters\SerializedMapConfiguration.cs" />
     <Compile Include="OnREEF\Parameters\SerializedMapInputCodecConfiguration.cs" />
     <Compile Include="OnREEF\Parameters\SerializedMapInputPipelineDataConverterConfiguration.cs" />
@@ -87,6 +126,13 @@ under the License.
     <Compile Include="OnREEF\Parameters\SerializedReduceConfiguration.cs" />
     <Compile Include="OnREEF\Parameters\SerializedUpdateConfiguration.cs" />
     <Compile Include="OnREEF\Parameters\SerializedUpdateFunctionCodecsConfiguration.cs" />
+    <Compile Include="OnREEF\Parameters\SerializedUpdateTaskStateConfiguration.cs" />
+    <Compile Include="OnREEF\Parameters\SleepIntervalParameter.cs" />
+    <Compile Include="OnREEF\Parameters\MinTaskWaitingForCloseTimeout.cs" />
+    <Compile Include="OnREEF\Parameters\TimeoutMonitoringInterval.cs" />
+    <Compile Include="OnREEF\ResultHandler\DefaultResultHandler.cs" />
+    <Compile Include="OnREEF\ResultHandler\ResultOutputLocation.cs" />
+    <Compile Include="OnREEF\ResultHandler\WriteResultHandler.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -129,6 +175,7 @@ under the License.
   </ItemGroup>
   <ItemGroup>
     <None Include="Org.Apache.REEF.IMRU.nuspec" />
+    <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup />
 </Project>

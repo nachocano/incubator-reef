@@ -19,29 +19,30 @@
 package org.apache.reef.vortex.driver;
 
 import org.apache.reef.annotations.audience.DriverSide;
+import org.apache.reef.util.Optional;
 import org.apache.reef.vortex.api.VortexFunction;
-import org.apache.reef.vortex.api.VortexFuture;
-
-import java.io.Serializable;
 
 /**
  * Representation of user task in Driver.
  */
 @DriverSide
-class Tasklet<TInput extends Serializable, TOutput extends Serializable> implements Serializable {
+class Tasklet<TInput, TOutput> {
   private final int taskletId;
   private final VortexFunction<TInput, TOutput> userTask;
+  private final Optional<Integer> aggregateFunctionId;
   private final TInput input;
-  private final VortexFuture<TOutput> vortexFuture;
+  private final VortexFutureDelegate delegate;
 
   Tasklet(final int taskletId,
+          final Optional<Integer> aggregateFunctionId,
           final VortexFunction<TInput, TOutput> userTask,
           final TInput input,
-          final VortexFuture<TOutput> vortexFuture) {
+          final VortexFutureDelegate delegate) {
+    this.aggregateFunctionId = aggregateFunctionId;
     this.taskletId = taskletId;
     this.userTask = userTask;
     this.input = input;
-    this.vortexFuture = vortexFuture;
+    this.delegate = delegate;
   }
 
   /**
@@ -49,6 +50,13 @@ class Tasklet<TInput extends Serializable, TOutput extends Serializable> impleme
    */
   int getId() {
     return taskletId;
+  }
+
+  /**
+   * @return aggregate function id of the tasklet, not present if the tasklet is not aggregate-able
+   */
+  Optional<Integer> getAggregateFunctionId() {
+    return aggregateFunctionId;
   }
 
   /**
@@ -66,24 +74,10 @@ class Tasklet<TInput extends Serializable, TOutput extends Serializable> impleme
   }
 
   /**
-   * Called by VortexMaster to let the user know that the task completed.
+   * Called by {@link RunningWorkers} to cancel the Tasklet before launch.
    */
-  void completed(final TOutput result) {
-    vortexFuture.completed(result);
-  }
-
-  /**
-   * Called by VortexMaster to let the user know that the task threw an exception.
-   */
-  void threwException(final Exception exception) {
-    vortexFuture.threwException(exception);
-  }
-
-  /**
-   * For tests.
-   */
-  boolean isCompleted() {
-    return vortexFuture.isDone();
+  void cancelled() {
+    delegate.cancelled(taskletId);
   }
 
   /**

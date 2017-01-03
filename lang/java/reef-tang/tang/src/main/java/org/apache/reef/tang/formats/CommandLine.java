@@ -33,6 +33,7 @@ import org.apache.reef.tang.util.ReflectionUtilities;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 public final class CommandLine {
 
@@ -86,8 +87,9 @@ public final class CommandLine {
   private Options getCommandLineOptions() {
 
     final Options opts = new Options();
-    for (final String shortName : shortNames.keySet()) {
-      final String longName = shortNames.get(shortName);
+    for (final Entry<String, String> entry : shortNames.entrySet()) {
+      final String shortName = entry.getKey();
+      final String longName = entry.getValue();
       try {
         opts.addOption(OptionBuilder
             .withArgName(conf.classPrettyDefaultString(longName)).hasArg()
@@ -113,14 +115,16 @@ public final class CommandLine {
   }
 
   /**
-   * @param args
+   * Process command line arguments.
+   *
+   * @param <T> a type
+   * @param args the command line arguments to be parsed
+   * @param argClasses the target named classes to be set
    * @return Selfie if the command line parsing succeeded, null (or exception) otherwise.
-   * @throws IOException
-   * @throws NumberFormatException
-   * @throws ParseException
+   * @throws IOException if parsing fails
+   * @throws BindException if a binding of short-named parameter fails
    */
   @SafeVarargs
-  @SuppressWarnings("checkstyle:redundantmodifier")
   public final <T> CommandLine processCommandLine(
       final String[] args, final Class<? extends Name<?>>... argClasses)
       throws IOException, BindException {
@@ -166,7 +170,7 @@ public final class CommandLine {
 
   /**
    * Utility method to quickly parse a command line to a Configuration.
-   * <p/>
+   * <p>
    * This is equivalent to
    * <code>parseToConfigurationBuilder(args, argClasses).build()</code>
    *
@@ -183,7 +187,7 @@ public final class CommandLine {
 
   /**
    * Utility method to quickly parse a command line to a ConfigurationBuilder.
-   * <p/>
+   * <p>
    * This is equivalent to
    * <code>new CommandLine().processCommandLine(args, argClasses).getBuilder()</code>, but with additional checks.
    *
@@ -192,6 +196,9 @@ public final class CommandLine {
    * @return a ConfigurationBuilder with the parsed parameters
    * @throws ParseException if the parsing  of the commandline fails.
    */
+
+  // ParseException constructor does not accept a cause Exception, hence
+  @SuppressWarnings("checkstyle:avoidhidingcauseexception")
   public static ConfigurationBuilder parseToConfigurationBuilder(final String[] args,
                                                                  final Class<? extends Name<?>>... argClasses)
       throws ParseException {

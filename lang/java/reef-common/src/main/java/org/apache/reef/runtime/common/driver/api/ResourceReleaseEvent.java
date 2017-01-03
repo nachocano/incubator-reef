@@ -23,7 +23,7 @@ import org.apache.reef.annotations.audience.RuntimeAuthor;
 import org.apache.reef.tang.annotations.DefaultImplementation;
 
 /**
- * Event from Driver Process -> Driver Runtime.
+ * Event from Driver Process to Driver Runtime.
  * A request to the Driver Runtime to release this resource
  */
 @RuntimeAuthor
@@ -34,4 +34,9 @@ public interface ResourceReleaseEvent {
    * @return Id of the resource to release
    */
   String getIdentifier();
+
+  /**
+   * @return name of the runtime that this resource belongs to
+   */
+  String getRuntimeName();
 }

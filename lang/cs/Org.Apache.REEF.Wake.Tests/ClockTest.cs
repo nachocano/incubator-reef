@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -23,21 +21,21 @@ using System.Linq;
 using System.Reactive;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Util;
+using Org.Apache.REEF.Wake.Time;
 using Org.Apache.REEF.Wake.Time.Event;
 using Org.Apache.REEF.Wake.Time.Runtime;
+using Xunit;
 
 namespace Org.Apache.REEF.Wake.Tests
 {
-    [TestClass]
     public class ClockTest
     {
-        [TestMethod]
+        [Fact]
         public void TestClock()
         {
-            using (RuntimeClock clock = BuildClock())
+            using (IClock clock = BuildClock())
             {
                 Task.Run(new Action(clock.Run));
 
@@ -45,14 +43,14 @@ namespace Org.Apache.REEF.Wake.Tests
                 heartBeat.OnNext(null);
                 Thread.Sleep(5000);
 
-                Assert.AreEqual(100, heartBeat.EventCount);
+                Assert.Equal(100, heartBeat.EventCount);
             }
         }
 
-        [TestMethod]
+        [Fact]
         public void TestAlarmRegistrationRaceConditions()
         {
-            using (RuntimeClock clock = BuildClock())
+            using (IClock clock = BuildClock())
             {
                 Task.Run(new Action(clock.Run));
 
@@ -72,23 +70,23 @@ namespace Org.Apache.REEF.Wake.Tests
 
                 // The earlier alarm should not have fired after 1 second
                 Thread.Sleep(1000);
-                Assert.AreEqual(0, events1.Count);
+                Assert.Equal(0, events1.Count);
 
                 // The earlier alarm will have fired after another 1.5 seconds, but the later will have not
                 Thread.Sleep(1500);
-                Assert.AreEqual(1, events1.Count);
-                Assert.AreEqual(0, events2.Count);
+                Assert.Equal(1, events1.Count);
+                Assert.Equal(0, events2.Count);
 
                 // The later alarm will have fired after 2 seconds
                 Thread.Sleep(2000);
-                Assert.AreEqual(1, events1.Count);
+                Assert.Equal(1, events1.Count);
             }
         }
 
-        [TestMethod]
-        public void TestSimulatenousAlarms()
+        [Fact]
+        public void TestSimultaneousAlarms()
         {
-            using (RuntimeClock clock = BuildClock())
+            using (IClock clock = BuildClock())
             {
                 Task.Run(new Action(clock.Run));
 
@@ -100,14 +98,14 @@ namespace Org.Apache.REEF.Wake.Tests
                 clock.ScheduleAlarm(1000, eventRecorder);
 
                 Thread.Sleep(1500);
-                Assert.AreEqual(3, events.Count);
+                Assert.Equal(3, events.Count);
             }
         }
 
-        [TestMethod]
+        [Fact]
         public void TestAlarmOrder()
         {
-            using (RuntimeClock clock = BuildLogicalClock())
+            using (IClock clock = BuildLogicalClock())
             {
                 Task.Run(new Action(clock.Run));
 
@@ -115,40 +113,40 @@ namespace Org.Apache.REEF.Wake.Tests
                 List<long> recordedTimestamps = new List<long>();
                 IObserver<Alarm> eventRecorder = Observer.Create<Alarm>(alarm => recordedTimestamps.Add(alarm.TimeStamp));
 
-                //  Schedule 10 alarms every 100 ms 
+                // Schedule 10 alarms every 100 ms 
                 List<long> expectedTimestamps = Enumerable.Range(0, 10).Select(offset => (long)offset * 100).ToList();
                 expectedTimestamps.ForEach(offset => clock.ScheduleAlarm(offset, eventRecorder));
     
                 // Check that the recorded timestamps are in the same order that they were scheduled
                 Thread.Sleep(1500);
-                Assert.IsTrue(expectedTimestamps.SequenceEqual(recordedTimestamps));
+                Assert.True(expectedTimestamps.SequenceEqual(recordedTimestamps));
             }
         }
 
-        private RuntimeClock BuildClock()
+        private IClock BuildClock()
         {
             var builder = TangFactory.GetTang().NewConfigurationBuilder();
 
             return TangFactory.GetTang()
                               .NewInjector(builder.Build())
-                              .GetInstance<RuntimeClock>();
+                              .GetInstance<IClock>();
         }
 
-        private RuntimeClock BuildLogicalClock()
+        private IClock BuildLogicalClock()
         {
             var builder = TangFactory.GetTang().NewConfigurationBuilder();
             builder.BindImplementation(GenericType<ITimer>.Class, GenericType<LogicalTimer>.Class);
 
             return TangFactory.GetTang()
                               .NewInjector(builder.Build())
-                              .GetInstance<RuntimeClock>();
+                              .GetInstance<IClock>();
         }
 
         private class HeartbeatObserver : IObserver<Alarm>
         {
-            private readonly RuntimeClock _clock;
+            private readonly IClock _clock;
 
-            public HeartbeatObserver(RuntimeClock clock)
+            public HeartbeatObserver(IClock clock)
             {
                 _clock = clock;
                 EventCount = 0;

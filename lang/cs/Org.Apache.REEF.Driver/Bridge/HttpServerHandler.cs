@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -32,7 +30,7 @@ namespace Org.Apache.REEF.Driver.Bridge
     /// <summary>
     ///  HttpServerHandler, the handler for all CLR http events
     /// </summary>
-    public class HttpServerHandler : IObserver<IHttpMessage>
+    internal sealed class HttpServerHandler : IObserver<IHttpMessage>
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(HttpServerHandler));
 
@@ -48,7 +46,7 @@ namespace Org.Apache.REEF.Driver.Bridge
         /// <param name="httpEventHandlers">The HTTP event handlers.</param>
         /// <param name="httpServerPort">The HTTP server port.</param>
         [Inject]
-        public HttpServerHandler([Parameter(Value = typeof(DriverBridgeConfigurationOptions.HttpEventHandlers))] ISet<IHttpHandler> httpEventHandlers,
+        private HttpServerHandler([Parameter(Value = typeof(DriverBridgeConfigurationOptions.HttpEventHandlers))] ISet<IHttpHandler> httpEventHandlers,
                                  HttpServerPort httpServerPort)
         {
             LOGGER.Log(Level.Info, "Constructing HttpServerHandler");       
@@ -60,7 +58,7 @@ namespace Org.Apache.REEF.Driver.Bridge
                     Exceptions.Throw(new ArgumentException("spec cannot contain :"), "The http spec given is " + spec, LOGGER);
                 }
                 LOGGER.Log(Level.Info, "HttpHandler spec:" + spec);   
-                eventHandlers.Add(spec.ToLower(CultureInfo.CurrentCulture), h);
+                eventHandlers.Add(CultureInfo.CurrentCulture.TextInfo.ToLower(spec), h);
             }
             this.httpServerPort = httpServerPort;
         }
@@ -85,7 +83,7 @@ namespace Org.Apache.REEF.Driver.Bridge
             {
                 LOGGER.Log(Level.Info, "HttpHandler OnNext, handling http request.");
                 byte[] byteData = httpMessage.GetQueryReuestData();
-                AvroHttpRequest avroHttpRequest = AvroHttpSerializer.FromBytesWithJoson(byteData);
+                AvroHttpRequest avroHttpRequest = AvroHttpSerializer.FromBytesWithJson(byteData);
                 LOGGER.Log(Level.Info, string.Format(CultureInfo.CurrentCulture, "HttpHandler OnNext, requestData:", avroHttpRequest));
 
                 string spec = GetSpecification(avroHttpRequest.PathInfo);
@@ -101,7 +99,7 @@ namespace Org.Apache.REEF.Driver.Bridge
                     ReefHttpResponse response = new ReefHttpResponse();
 
                     IHttpHandler handler;
-                    eventHandlers.TryGetValue(spec.ToLower(CultureInfo.CurrentCulture), out handler);
+                    eventHandlers.TryGetValue(CultureInfo.CurrentCulture.TextInfo.ToLower(spec), out handler);
 
                     byte[] responseData;
                     if (handler != null)

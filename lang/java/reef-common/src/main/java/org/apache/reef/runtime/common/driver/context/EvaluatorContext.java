@@ -26,8 +26,9 @@ import org.apache.reef.driver.context.ClosedContext;
 import org.apache.reef.driver.context.FailedContext;
 import org.apache.reef.driver.evaluator.EvaluatorDescriptor;
 import org.apache.reef.proto.EvaluatorRuntimeProtocol;
-import org.apache.reef.proto.ReefServiceProtos;
 import org.apache.reef.runtime.common.driver.evaluator.EvaluatorMessageDispatcher;
+import org.apache.reef.runtime.common.driver.evaluator.pojos.ContextState;
+import org.apache.reef.runtime.common.driver.evaluator.pojos.ContextStatusPOJO;
 import org.apache.reef.runtime.common.utils.ExceptionCodec;
 import org.apache.reef.tang.Configuration;
 import org.apache.reef.tang.formats.ConfigurationSerializer;
@@ -149,45 +150,41 @@ public final class EvaluatorContext implements ActiveContext {
 
   @Override
   public synchronized void submitContext(final Configuration contextConfiguration) {
+    submitContext(this.configurationSerializer.toString(contextConfiguration));
+  }
 
-    if (this.isClosed) {
-      throw new RuntimeException("Active context already closed");
-    }
-
-    LOG.log(Level.FINEST, "Submit new context: RunningEvaluator id[{0}] for context id[{1}]",
-        new Object[]{getEvaluatorId(), getId()});
-
-    final EvaluatorRuntimeProtocol.ContextControlProto contextControlProto =
-        EvaluatorRuntimeProtocol.ContextControlProto.newBuilder()
-            .setAddContext(
-                EvaluatorRuntimeProtocol.AddContextProto.newBuilder()
-                    .setParentContextId(getId())
-                    .setContextConfiguration(this.configurationSerializer.toString(contextConfiguration))
-                    .build())
-            .build();
-
-    this.contextControlHandler.send(contextControlProto);
+  public synchronized void submitContext(final String contextConf) {
+    submitContextAndService(contextConf, Optional.<String>empty());
   }
 
   @Override
   public synchronized void submitContextAndService(
       final Configuration contextConfiguration, final Configuration serviceConfiguration) {
+    submitContextAndService(
+        this.configurationSerializer.toString(contextConfiguration),
+        this.configurationSerializer.toString(serviceConfiguration));
+  }
 
+  public synchronized void submitContextAndService(final String contextConf, final String serviceConf) {
+    submitContextAndService(contextConf, Optional.ofNullable(serviceConf));
+  }
+
+  public synchronized void submitContextAndService(final String contextConf, final Optional<String> serviceConf) {
     if (this.isClosed) {
       throw new RuntimeException("Active context already closed");
     }
 
-    LOG.log(Level.FINEST, "Submit new context: RunningEvaluator id[{0}] for context id[{1}]",
-        new Object[]{getEvaluatorId(), getId()});
+    EvaluatorRuntimeProtocol.AddContextProto.Builder contextBuilder =
+        EvaluatorRuntimeProtocol.AddContextProto.newBuilder()
+            .setParentContextId(getId()).setContextConfiguration(contextConf);
+
+    if (serviceConf.isPresent()) {
+      contextBuilder = contextBuilder.setServiceConfiguration(serviceConf.get());
+    }
 
     final EvaluatorRuntimeProtocol.ContextControlProto contextControlProto =
         EvaluatorRuntimeProtocol.ContextControlProto.newBuilder()
-            .setAddContext(
-                EvaluatorRuntimeProtocol.AddContextProto.newBuilder()
-                    .setParentContextId(getId())
-                    .setContextConfiguration(this.configurationSerializer.toString(contextConfiguration))
-                    .setServiceConfiguration(this.configurationSerializer.toString(serviceConfiguration))
-                    .build())
+            .setAddContext(contextBuilder.build())
             .build();
 
     this.contextControlHandler.send(contextControlProto);
@@ -248,15 +245,15 @@ public final class EvaluatorContext implements ActiveContext {
   }
 
   public synchronized FailedContext getFailedContext(
-      final ReefServiceProtos.ContextStatusProto contextStatusProto) {
+      final ContextStatusPOJO contextStatus) {
 
-    assert (ReefServiceProtos.ContextStatusProto.State.FAIL == contextStatusProto.getContextState());
+    assert ContextState.FAIL == contextStatus.getContextState();
 
     final String id = this.getId();
     final Optional<String> description = Optional.empty();
 
-    final Optional<byte[]> data = contextStatusProto.hasError() ?
-        Optional.of(contextStatusProto.getError().toByteArray()) :
+    final Optional<byte[]> data = contextStatus.hasError() ?
+        Optional.of(contextStatus.getError()) :
         Optional.<byte[]>empty();
 
     final Optional<Throwable> cause = data.isPresent() ?

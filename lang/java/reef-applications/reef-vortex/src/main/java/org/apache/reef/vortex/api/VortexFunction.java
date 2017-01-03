@@ -20,18 +20,16 @@ package org.apache.reef.vortex.api;
 
 import org.apache.reef.annotations.Unstable;
 
-import java.io.Serializable;
-
 /**
- * Typed user function.
- * Implement your functions using this interface.
- * TODO[REEF-504]: Clean up Serializable in Vortex.
+ * Typed user function. Implement your functions using this interface.
+ * Note that Kryo should be able to serialize/deserialize your function and input.
+ * Please refer to Kryo project's GitHub repository for how to make Kryo-compatible objects.
  *
  * @param <TInput> input type
  * @param <TOutput> output type
  */
 @Unstable
-public interface VortexFunction<TInput extends Serializable, TOutput extends Serializable> extends Serializable {
+public interface VortexFunction<TInput, TOutput> {
   /**
    * @param input of the function
    * @return output of the function

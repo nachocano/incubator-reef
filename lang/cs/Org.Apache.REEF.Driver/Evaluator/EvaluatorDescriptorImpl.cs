@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -23,13 +21,16 @@ using System.Linq;
 using System.Net;
 using Org.Apache.REEF.Common.Catalog;
 using Org.Apache.REEF.Common.Evaluator;
+using Org.Apache.REEF.Common.Runtime;
 using Org.Apache.REEF.Driver.Bridge;
+using Org.Apache.REEF.Utilities.Attributes;
 using Org.Apache.REEF.Utilities.Diagnostics;
 using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Driver.Evaluator
 {
     // This class is `public` because it is called from C++ code.
+    [Private]
     public sealed class EvaluatorDescriptorImpl : IEvaluatorDescriptor
     {
         private const string DefaultRackName = "default_rack";
@@ -39,15 +40,19 @@ namespace Org.Apache.REEF.Driver.Evaluator
         private readonly int _megaBytes;
         private readonly INodeDescriptor _nodeDescriptor;
         private readonly string _rack;
+        private readonly RuntimeName _runtimeName;
 
-        internal EvaluatorDescriptorImpl(INodeDescriptor nodeDescriptor, EvaluatorType type, int megaBytes, int core,
-            string rack = DefaultRackName)
+        internal EvaluatorDescriptorImpl(INodeDescriptor nodeDescriptor, EvaluatorType type, int megaBytes, int core, string runtimeName, string rack = DefaultRackName)
         {
             _nodeDescriptor = nodeDescriptor;
             _evaluatorType = type;
             _megaBytes = megaBytes;
             _core = core;
             _rack = rack;
+            if (!string.IsNullOrWhiteSpace(runtimeName) && !Enum.TryParse(runtimeName, true, out _runtimeName))
+            {
+                throw new ArgumentException("Unknown runtime name received " + runtimeName);
+            }
         }
 
         /// <summary>
@@ -68,6 +73,20 @@ namespace Org.Apache.REEF.Driver.Evaluator
                 }
                 settings.Add(pair[0], pair[1]);
             }
+
+            string runtimeNameStr;
+            if (!settings.TryGetValue("RuntimeName", out runtimeNameStr))
+            {
+                Exceptions.Throw(new ArgumentException("cannot find RuntimeName entry"), LOGGER);
+            }
+
+            RuntimeName runtimeName;
+
+            if (!Enum.TryParse(runtimeNameStr, true, out runtimeName))
+            {
+                Exceptions.Throw(new ArgumentException("cannot parse RuntimeName entry"), LOGGER);
+            }
+
             string ipAddress;
             if (!settings.TryGetValue("IP", out ipAddress))
             {
@@ -104,10 +123,11 @@ namespace Org.Apache.REEF.Driver.Evaluator
 
             var ipEndPoint = new IPEndPoint(IPAddress.Parse(ipAddress), portNumber);
 
-            _nodeDescriptor = new NodeDescriptorImpl {InetSocketAddress = ipEndPoint, HostName = hostName};
+            _nodeDescriptor = new NodeDescriptorImpl { InetSocketAddress = ipEndPoint, HostName = hostName };
             _evaluatorType = EvaluatorType.CLR;
             _megaBytes = memoryInMegaBytes;
             _core = vCore;
+            _runtimeName = runtimeName;
         }
 
         public INodeDescriptor NodeDescriptor
@@ -135,6 +155,11 @@ namespace Org.Apache.REEF.Driver.Evaluator
             get { return _rack; }
         }
 
+        public RuntimeName RuntimeName
+        {
+            get { return _runtimeName; }
+        }
+
         public override bool Equals(object obj)
         {
             var other = obj as EvaluatorDescriptorImpl;
@@ -144,6 +169,7 @@ namespace Org.Apache.REEF.Driver.Evaluator
             }
 
             return EquivalentMemory(other);
+
             // we don't care about rack now;
             // && string.Equals(_rack, other.Rack, StringComparison.OrdinalIgnoreCase);
         }
@@ -158,9 +184,9 @@ namespace Org.Apache.REEF.Driver.Evaluator
             var granularity = ClrHandlerHelper.MemoryGranularity == 0
                 ? Constants.DefaultMemoryGranularity
                 : ClrHandlerHelper.MemoryGranularity;
-            var m1 = (Memory - 1)/granularity;
-            var m2 = (other.Memory - 1)/granularity;
-            return (m1 == m2);
+            var m1 = (Memory - 1) / granularity;
+            var m2 = (other.Memory - 1) / granularity;
+            return m1 == m2;
         }
     }
 }

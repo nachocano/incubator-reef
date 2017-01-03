@@ -284,7 +284,7 @@ public class ProtocolBufferClassHierarchy implements ClassHierarchy {
   }
 
   private static ConstructorDef<?> parseConstructorDef(
-      final org.apache.reef.tang.proto.ClassHierarchyProto.ConstructorDef def,
+      final ClassHierarchyProto.ConstructorDef def,
       final boolean isInjectable) {
     final List<ConstructorArg> args = new ArrayList<>();
     for (final ClassHierarchyProto.ConstructorArg arg : def.getArgsList()) {
@@ -310,7 +310,7 @@ public class ProtocolBufferClassHierarchy implements ClassHierarchy {
     if (j == 1) {
       return str;
     } else {
-      throw new ArrayIndexOutOfBoundsException();
+      throw new ArrayIndexOutOfBoundsException("The value of j should be 1, but actually is " + j);
     }
   }
 
@@ -337,7 +337,7 @@ public class ProtocolBufferClassHierarchy implements ClassHierarchy {
           iface.putImpl((ClassNode) getNode(impl));
         } catch (final NameResolutionException e) {
           throw new IllegalStateException("When reading protocol buffer node "
-              + n + " refers to non-existent implementation:" + impl);
+              + n + " refers to non-existent implementation:" + impl, e);
         } catch (final ClassCastException e) {
           try {
             throw new IllegalStateException(
@@ -347,7 +347,7 @@ public class ProtocolBufferClassHierarchy implements ClassHierarchy {
           } catch (final NameResolutionException e2) {
             throw new IllegalStateException(
                 "Got 'cant happen' exception when producing error message for "
-                    + e);
+                    + e, e2);
           }
         }
       }

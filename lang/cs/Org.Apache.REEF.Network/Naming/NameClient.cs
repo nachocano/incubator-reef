@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Concurrent;
@@ -42,9 +40,9 @@ namespace Org.Apache.REEF.Network.Naming
     /// Client for the Reef name service. 
     /// Used to register, unregister, and lookup IP Addresses of known hosts.
     /// </summary>
-    public class NameClient : INameClient
+    public sealed class NameClient : INameClient
     {
-        private static readonly Logger _logger = Logger.GetLogger(typeof(NameClient));
+        private static readonly Logger Logger = Logger.GetLogger(typeof(NameClient));
 
         private BlockingCollection<NamingLookupResponse> _lookupResponseQueue;
         private BlockingCollection<NamingGetAllResponse> _getAllResponseQueue;
@@ -57,6 +55,7 @@ namespace Org.Apache.REEF.Network.Naming
         private NameRegisterClient _registerClient;
         private bool _disposed;
         private readonly NameCache _cache;
+        private readonly ITcpClientConnectionFactory _tcpClientFactory;
 
         /// <summary>
         /// Constructs a NameClient to register, lookup, and unregister IPEndpoints
@@ -64,12 +63,15 @@ namespace Org.Apache.REEF.Network.Naming
         /// </summary>
         /// <param name="remoteAddress">The ip address of the NameServer</param>
         /// <param name="remotePort">The port of the NameServer</param>
+        /// <param name="tcpClientFactory">provides TcpClient for given endpoint</param>
         [Inject]
         private NameClient(
-            [Parameter(typeof (NamingConfigurationOptions.NameServerAddress))] string remoteAddress,
-            [Parameter(typeof (NamingConfigurationOptions.NameServerPort))] int remotePort)
+            [Parameter(typeof(NamingConfigurationOptions.NameServerAddress))] string remoteAddress,
+            [Parameter(typeof(NamingConfigurationOptions.NameServerPort))] int remotePort,
+            ITcpClientConnectionFactory tcpClientFactory)
         {
             IPEndPoint remoteEndpoint = new IPEndPoint(IPAddress.Parse(remoteAddress), remotePort);
+            _tcpClientFactory = tcpClientFactory;
             Initialize(remoteEndpoint);
             _disposed = false;
             _cache = TangFactory.GetTang().NewInjector().GetInstance<NameCache>();
@@ -81,14 +83,17 @@ namespace Org.Apache.REEF.Network.Naming
         /// </summary>
         /// <param name="remoteAddress">The ip address of the NameServer</param>
         /// <param name="remotePort">The port of the NameServer</param>
+        /// <param name="tcpClientFactory">provides TcpClient for given endpoint</param>
         /// <param name="cache">The NameCache for caching IpAddresses</param>
         [Inject]
         private NameClient(
             [Parameter(typeof(NamingConfigurationOptions.NameServerAddress))] string remoteAddress,
             [Parameter(typeof(NamingConfigurationOptions.NameServerPort))] int remotePort,
+            ITcpClientConnectionFactory tcpClientFactory,
             NameCache cache)
         {
             IPEndPoint remoteEndpoint = new IPEndPoint(IPAddress.Parse(remoteAddress), remotePort);
+            _tcpClientFactory = tcpClientFactory;
             Initialize(remoteEndpoint);
             _disposed = false;
             _cache = cache;
@@ -105,14 +110,14 @@ namespace Org.Apache.REEF.Network.Naming
         {
             if (id == null)
             {
-                Exceptions.Throw(new ArgumentNullException("id"), _logger);
+                Exceptions.Throw(new ArgumentNullException("id"), Logger);
             }
             if (endpoint == null)
             {
-                Exceptions.Throw(new ArgumentNullException("endpoint"), _logger);
+                Exceptions.Throw(new ArgumentNullException("endpoint"), Logger);
             }
 
-            _logger.Log(Level.Info, "Registering id: " + id + ", and endpoint: " + endpoint);
+            Logger.Log(Level.Info, "Registering id: " + id + ", and endpoint: " + endpoint);
             _registerClient.Register(id, endpoint);
         }
 
@@ -124,10 +129,10 @@ namespace Org.Apache.REEF.Network.Naming
         {
             if (id == null)
             {
-                Exceptions.Throw(new ArgumentNullException("id"), _logger);
+                Exceptions.Throw(new ArgumentNullException("id"), Logger);
             }
 
-            _logger.Log(Level.Info, "Unregistering id: " + id);
+            Logger.Log(Level.Info, "Unregistering id: " + id);
             _registerClient.Unregister(id);
         }
 
@@ -142,7 +147,7 @@ namespace Org.Apache.REEF.Network.Naming
         {
             if (id == null)
             {
-                Exceptions.Throw(new ArgumentNullException("id"), _logger);
+                Exceptions.Throw(new ArgumentNullException("id"), Logger);
             }
 
             IPEndPoint value = _cache.Get(id);
@@ -166,7 +171,7 @@ namespace Org.Apache.REEF.Network.Naming
         {
             if (id == null)
             {
-                Exceptions.Throw(new ArgumentNullException("id"), _logger);
+                Exceptions.Throw(new ArgumentNullException("id"), Logger);
             }
 
             List<NameAssignment> assignments = Lookup(new List<string> { id });
@@ -184,7 +189,7 @@ namespace Org.Apache.REEF.Network.Naming
         /// Do not use cache
         /// </summary>
         /// <param name="ids">The list of identifiers to look up</param>
-        /// <returns>The list of NameAssignments representing a pair of identifer
+        /// <returns>The list of NameAssignments representing a pair of identifier
         /// and mapped IPEndpoint for that identifier.  If any of the requested identifiers
         /// are not registered with the NameService, their corresponding NameAssignment
         /// IPEndpoint value will be null.</returns>
@@ -192,17 +197,17 @@ namespace Org.Apache.REEF.Network.Naming
         {
             if (ids == null || ids.Count == 0)
             {
-                Exceptions.Throw(new ArgumentNullException("ids cannot be null or empty"), _logger);
+                Exceptions.Throw(new ArgumentNullException("ids cannot be null or empty"), Logger);
             }
 
-            _logger.Log(Level.Verbose, "Looking up ids");
+            Logger.Log(Level.Verbose, "Looking up ids");
             List<NameAssignment> assignments = _lookupClient.Lookup(ids);
             if (assignments != null)
             {
                 return assignments;
             }
-            Exceptions.Throw(new WakeRuntimeException("NameClient failed to look up ids."), _logger);
-            return null;  //above line will throw exception. So null will never be returned.
+            Exceptions.Throw(new WakeRuntimeException("NameClient failed to look up ids."), Logger);
+            return null;  // above line will throw exception. So null will never be returned.
         }
 
         /// <summary>
@@ -220,20 +225,13 @@ namespace Org.Apache.REEF.Network.Naming
         /// </summary>
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        protected virtual void Dispose(bool disposing)
-        {
             if (_disposed)
             {
                 return;
             }
-            if (disposing)
-            {
-                _client.Dispose();
-            }
+
+             _client.Dispose();
+            _client = null;
             _disposed = true;
         }
 
@@ -250,7 +248,7 @@ namespace Org.Apache.REEF.Network.Naming
 
             IObserver<TransportEvent<NamingEvent>> clientHandler = CreateClientHandler();
             ICodec<NamingEvent> codec = CreateClientCodec();
-            _client = new TransportClient<NamingEvent>(serverEndpoint, codec, clientHandler);
+            _client = new TransportClient<NamingEvent>(serverEndpoint, codec, clientHandler, _tcpClientFactory);
 
             _lookupClient = new NameLookupClient(_client, _lookupResponseQueue, _getAllResponseQueue);
             _registerClient = new NameRegisterClient(_client, _registerResponseQueue, _unregisterResponseQueue);

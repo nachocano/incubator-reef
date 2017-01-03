@@ -1,28 +1,24 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
-using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using Org.Apache.REEF.Common.Io;
 using Org.Apache.REEF.Common.Services;
 using Org.Apache.REEF.Common.Tasks;
 using Org.Apache.REEF.Driver;
@@ -34,6 +30,7 @@ using Org.Apache.REEF.Network.Group.Config;
 using Org.Apache.REEF.Network.Group.Driver;
 using Org.Apache.REEF.Network.Group.Driver.Impl;
 using Org.Apache.REEF.Network.Group.Pipelining.Impl;
+using Org.Apache.REEF.Network.Group.Topology;
 using Org.Apache.REEF.Network.NetworkService;
 using Org.Apache.REEF.Network.NetworkService.Codec;
 using Org.Apache.REEF.Tang.Annotations;
@@ -42,7 +39,6 @@ using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Util;
 using Org.Apache.REEF.Utilities.Logging;
-using Org.Apache.REEF.Network.Group.Topology;
 
 namespace Org.Apache.REEF.Examples.MachineLearning.KMeans
 {
@@ -68,16 +64,16 @@ namespace Org.Apache.REEF.Examples.MachineLearning.KMeans
         private readonly IEvaluatorRequestor _evaluatorRequestor;
 
         [Inject]
-        public KMeansDriverHandlers(
+        private KMeansDriverHandlers(
             [Parameter(typeof(NumPartitions))] int numPartitions, 
             GroupCommDriver groupCommDriver,
-            IEvaluatorRequestor evaluatorRequestor)
+            IEvaluatorRequestor evaluatorRequestor,
+            CommandLineArguments arguments)
         {
             _executionDirectory = Path.Combine(Directory.GetCurrentDirectory(), Constants.KMeansExecutionBaseDirectory, Guid.NewGuid().ToString("N").Substring(0, 4));
-            ISet<string> arguments = ClrHandlerHelper.GetCommandLineArguments();
-            string dataFile = arguments.Single(a => a.StartsWith("DataFile", StringComparison.Ordinal)).Split(':')[1];
+            string dataFile = arguments.Arguments.First();
             DataVector.ShuffleDataAndGetInitialCentriods(
-                Path.Combine(Directory.GetCurrentDirectory(), "reef", "global", dataFile),
+                dataFile,
                 numPartitions,
                 _clustersNumber,
                 _executionDirectory);
@@ -88,7 +84,7 @@ namespace Org.Apache.REEF.Examples.MachineLearning.KMeans
             _evaluatorRequestor = evaluatorRequestor;
 
             _centroidCodecConf = CodecToStreamingCodecConfiguration<Centroids>.Conf
-                .Set(CodecConfiguration<Centroids>.Codec, GenericType<CentroidsCodec>.Class)
+                .Set(CodecToStreamingCodecConfiguration<Centroids>.Codec, GenericType<CentroidsCodec>.Class)
                 .Build();
 
             IConfiguration dataConverterConfig1 = PipelineDataConverterConfiguration<Centroids>.Conf
@@ -96,7 +92,7 @@ namespace Org.Apache.REEF.Examples.MachineLearning.KMeans
                 .Build();
 
             _controlMessageCodecConf = CodecToStreamingCodecConfiguration<ControlMessage>.Conf
-                .Set(CodecConfiguration<ControlMessage>.Codec, GenericType<ControlMessageCodec>.Class)
+                .Set(CodecToStreamingCodecConfiguration<ControlMessage>.Codec, GenericType<ControlMessageCodec>.Class)
                 .Build();
 
             IConfiguration dataConverterConfig2 = PipelineDataConverterConfiguration<ControlMessage>.Conf
@@ -104,7 +100,7 @@ namespace Org.Apache.REEF.Examples.MachineLearning.KMeans
                 .Build();
 
             _processedResultsCodecConf = CodecToStreamingCodecConfiguration<ProcessedResults>.Conf
-                .Set(CodecConfiguration<ProcessedResults>.Codec, GenericType<ProcessedResultsCodec>.Class)
+                .Set(CodecToStreamingCodecConfiguration<ProcessedResults>.Codec, GenericType<ProcessedResultsCodec>.Class)
                 .Build();
 
             IConfiguration reduceFunctionConfig = ReduceFunctionConfiguration<ProcessedResults>.Conf
@@ -122,8 +118,6 @@ namespace Org.Apache.REEF.Examples.MachineLearning.KMeans
                    .Build();
 
             _groupCommTaskStarter = new TaskStarter(_groupCommDriver, _totalEvaluators);
-
-            CreateClassHierarchy();  
         }
 
         public void OnNext(IAllocatedEvaluator allocatedEvaluator)
@@ -177,6 +171,7 @@ namespace Org.Apache.REEF.Examples.MachineLearning.KMeans
             else
             {
                 string slaveTaskId = Constants.SlaveTaskIdPrefix + activeContext.Id;
+
                 // Configure Slave Task
                 taskConfiguration = TaskConfiguration.ConfigurationModule
                     .Set(TaskConfiguration.Identifier, Constants.SlaveTaskIdPrefix + activeContext.Id)
@@ -190,7 +185,7 @@ namespace Org.Apache.REEF.Examples.MachineLearning.KMeans
 
         public void OnNext(IDriverStarted value)
         {
-            var request = _evaluatorRequestor.NewBuilder().SetCores(1).SetMegabytes(2048).Build();
+            var request = _evaluatorRequestor.NewBuilder().SetNumber(_totalEvaluators).SetCores(1).SetMegabytes(2048).Build();
 
             _evaluatorRequestor.Submit(request);
         }
@@ -203,18 +198,6 @@ namespace Org.Apache.REEF.Examples.MachineLearning.KMeans
         public void OnCompleted()
         {
             throw new NotImplementedException();
-        }
-
-        private void CreateClassHierarchy()
-        {
-            HashSet<string> clrDlls = new HashSet<string>();
-            clrDlls.Add(typeof(IDriver).Assembly.GetName().Name);
-            clrDlls.Add(typeof(ITask).Assembly.GetName().Name);
-            clrDlls.Add(typeof(LegacyKMeansTask).Assembly.GetName().Name);
-            clrDlls.Add(typeof(INameClient).Assembly.GetName().Name);
-            clrDlls.Add(typeof(INetworkService<>).Assembly.GetName().Name);
-
-            ClrHandlerHelper.GenerateClassHierarchy(clrDlls);
         }
     }
 

@@ -30,20 +30,19 @@ public class Vertex<T> {
   private final String name;
   private final ConstructorDef<T> constructorDef;
   private final Vertex<?>[] constructorArguments;
-//  private final Set<Object> referencesToThisObject = new MonotonicHashSet<>();
 
   public Vertex(final T object, final String name, final ConstructorDef<T> constructorDef,
                 final Vertex<?>[] constructorArguments) {
     this.object = object;
     if (object == null) {
-      throw new NullPointerException();
+      throw new NullPointerException("The first argument of the Vertex constructor is null.");
     }
     this.name = name;
     this.constructorDef = constructorDef;
     this.constructorArguments = constructorArguments;
     for (final Vertex<?> v : constructorArguments) {
       if (v == null) {
-        throw new NullPointerException();
+        throw new NullPointerException("One of the vertices in the Vertex constructorArguments is null.");
       }
     }
   }
@@ -51,14 +50,14 @@ public class Vertex<T> {
   public Vertex(final T object, final ConstructorDef<T> constructorDef, final Vertex<?>[] constructorArguments) {
     this.object = object;
     if (object == null) {
-      throw new NullPointerException();
+      throw new NullPointerException("The first argument of the Vertex constructor is null.");
     }
     this.name = null;
     this.constructorDef = constructorDef;
     this.constructorArguments = constructorArguments;
     for (final Vertex<?> v : constructorArguments) {
       if (v == null) {
-        throw new NullPointerException();
+        throw new NullPointerException("One of the vertices in the Vertex constructorArguments is null.");
       }
     }
   }
@@ -66,19 +65,13 @@ public class Vertex<T> {
   public Vertex(final Object object) {
     this.object = object;
     if (object == null) {
-      throw new NullPointerException();
+      throw new NullPointerException("The argument of the Vertex constructor is null.");
     }
     this.name = null;
     this.constructorDef = null;
     this.constructorArguments = null;
   }
 
-  //  public void addReference(Vertex<?> v) {
-//    referencesToThisObject.add(v);
-//  }
-//  public Vertex<?>[] getInEdges() {
-//    return referencesToThisObject.toArray(new Vertex[0]);
-//  }
   public ConstructorDef<T> getConstructorDef() {
     return this.constructorDef;
   }

@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections;
@@ -34,6 +32,7 @@ using Org.Apache.REEF.Tang.Implementations.Configuration;
 using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Types;
+using Org.Apache.REEF.Tang.Util;
 using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Tang.Formats
@@ -53,9 +52,6 @@ namespace Org.Apache.REEF.Tang.Formats
 
     public class AvroConfigurationSerializer : IConfigurationSerializer
     {
-        public const string Java = "Java";
-        public const string Cs = "Cs";
-
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(AvroConfigurationResolver));
 
         [Inject]
@@ -100,7 +96,7 @@ namespace Org.Apache.REEF.Tang.Formats
 
                 if (!WriteFile(buffer, fileName))
                 {
-                    var e = new ApplicationException("Error during file operation. Quitting method: " + fileName);
+                    var e = new TangApplicationException("Error during file operation. Quitting method: " + fileName);
                     Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
                 }
             }          
@@ -108,27 +104,33 @@ namespace Org.Apache.REEF.Tang.Formats
 
         public IConfiguration FromByteArray(byte[] bytes)
         {
-            AvroConfiguration avroConf = AvroDeseriaize(bytes);
+            AvroConfiguration avroConf = AvroDeserialize(bytes);
             return FromAvro(avroConf);
         }
 
         public IConfiguration AddFromByteArray(ICsConfigurationBuilder cb, byte[] bytes)
         {
-            AvroConfiguration avroConf = AvroDeseriaize(bytes);
+            AvroConfiguration avroConf = AvroDeserialize(bytes);
             return AddFromAvro(cb, avroConf);
         }
 
         public IConfiguration FromFileStream(string fileName)
         {
             byte[] bytes = File.ReadAllBytes(fileName);
-            AvroConfiguration avroConf = AvroDeseriaize(bytes);
+            AvroConfiguration avroConf = AvroDeserialize(bytes);
             return FromAvro(avroConf);
         }
 
         public IConfiguration FromFile(string fileName)
         {
-            AvroConfiguration avroConf = AvroDeseriaizeFromFile(fileName);
+            AvroConfiguration avroConf = AvroDeserializeFromFile(fileName);
             return FromAvro(avroConf);
+        }
+
+        public IConfiguration FromFile(string fileName, IClassHierarchy classHierarchy)
+        {
+            AvroConfiguration avroConf = AvroDeserializeFromFile(fileName);
+            return FromAvro(avroConf, classHierarchy);
         }
 
         public string ToBase64String(IConfiguration c)
@@ -145,18 +147,24 @@ namespace Org.Apache.REEF.Tang.Formats
         public string ToString(IConfiguration c)
         {
             byte[] bytes = ToByteArray(c);
-            AvroConfiguration avroConf = AvroDeseriaize(bytes);
+            AvroConfiguration avroConf = AvroDeserialize(bytes);
             string s = JsonConvert.SerializeObject(avroConf, Formatting.Indented);
             return s;
         }
 
-        public IConfiguration FromString(string josonString)
+        public IConfiguration FromString(string jsonString)
         {
-            AvroConfiguration avroConf = JsonConvert.DeserializeObject<AvroConfiguration>(josonString);
+            AvroConfiguration avroConf = JsonConvert.DeserializeObject<AvroConfiguration>(jsonString);
             return FromAvro(avroConf);
         }
 
-        public AvroConfiguration AvroDeseriaizeFromFile(string fileName)
+        public IConfiguration FromString(string josonString, IClassHierarchy ch)
+        {
+            AvroConfiguration avroConf = JsonConvert.DeserializeObject<AvroConfiguration>(josonString);
+            return FromAvro(avroConf, ch);
+        }
+
+        public AvroConfiguration AvroDeserializeFromFile(string fileName)
         {
             AvroConfiguration avroConf = null;
             try
@@ -165,14 +173,11 @@ namespace Org.Apache.REEF.Tang.Formats
                 {
                     if (!ReadFile(buffer, fileName))
                     {
-                        var e = new ApplicationException("Error during file operation. Quitting method : " + fileName);
+                        var e = new TangApplicationException("Error during file operation. Quitting method : " + fileName);
                         Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
                     }
 
                     buffer.Seek(0, SeekOrigin.Begin);
-                    //AvroSerializerSettings settings = new AvroSerializerSettings();
-                    //settings.Resolver = new AvroConfigurationResolver();
-                    //using (var reader = new SequentialReader<AvroConfiguration>(AvroContainer.CreateReader<AvroConfiguration>(buffer, true, settings, new CodecFactory())))
                     using (var reader = new SequentialReader<AvroConfiguration>(AvroContainer.CreateReader<AvroConfiguration>(buffer, true))) 
                     {
                         var results = reader.Objects;
@@ -187,7 +192,7 @@ namespace Org.Apache.REEF.Tang.Formats
             catch (SerializationException ex)
             {
                 Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Caught(ex, Level.Error, LOGGER);
-                var e = new ApplicationException("Cannot deserialize the file: " + fileName, ex);
+                var e = new TangApplicationException("Cannot deserialize the file: " + fileName, ex);
                 Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
             }
 
@@ -255,7 +260,7 @@ namespace Org.Apache.REEF.Tang.Formats
                 l.Add(new ConfigurationEntry(e.Key.GetFullName(), val));
             }
 
-            return new AvroConfiguration(Cs, l);
+            return new AvroConfiguration(Language.Cs.ToString(), l);
         }
         
         private byte[] AvroSerialize(AvroConfiguration obj)
@@ -264,16 +269,16 @@ namespace Org.Apache.REEF.Tang.Formats
             using (MemoryStream stream = new MemoryStream())
             {
                 serializer.Serialize(stream, obj);
-                return stream.GetBuffer();
+                return stream.ToArray();
             }
         }
 
-        private AvroConfiguration AvroDeseriaize(string serializedConfig)
+        private AvroConfiguration AvroDeserialize(string serializedConfig)
         {
-            return AvroDeseriaize(Convert.FromBase64String(serializedConfig));
+            return AvroDeserialize(Convert.FromBase64String(serializedConfig));
         }
 
-        private AvroConfiguration AvroDeseriaize(byte[] serializedBytes)
+        private AvroConfiguration AvroDeserialize(byte[] serializedBytes)
         {
             var serializer = AvroSerializer.Create<AvroConfiguration>();
             using (var stream = new MemoryStream(serializedBytes))
@@ -322,7 +327,7 @@ namespace Org.Apache.REEF.Tang.Formats
             {
                 settings.Add(new KeyValuePair<string, string>(e.key, e.value));
             }
-            ConfigurationFile.ProcessConfigData(cb, settings);   //TODO
+            ConfigurationFile.ProcessConfigData(cb, settings, avroConfiguration.language); 
             return cb.Build();
         }
     }

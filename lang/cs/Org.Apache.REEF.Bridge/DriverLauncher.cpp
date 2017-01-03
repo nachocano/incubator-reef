@@ -1,21 +1,20 @@
-/**
-* Licensed to the Apache Software Foundation (ASF) under one
-* or more contributor license agreements.  See the NOTICE file
-* distributed with this work for additional information
-* regarding copyright ownership.  The ASF licenses this file
-* to you under the Apache License, Version 2.0 (the
-* "License"); you may not use this file except in compliance
-* with the License.  You may obtain a copy of the License at
-*
-*   http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing,
-* software distributed under the License is distributed on an
-* "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-* KIND, either express or implied.  See the License for the
-* specific language governing permissions and limitations
-* under the License.
-*/
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 #include "InteropUtil.h"
 using namespace std;
 
@@ -49,8 +48,9 @@ const int maxPathBufSize = 16 * 1024;
 const char ClassPathSeparatorCharForWindows = ';';
 
 // we look for this to delineate java vm arguments from app arguments.
-// todo: be smarter about this. Accomodate arbitrary apps.
-const char* launcherClass = "org.apache.reef.runtime.common.REEFLauncher";
+// TODO: be smarter about this. Accomodate arbitrary apps that doesn't 
+// contain the term REEFLauncher.
+const char* launcherClassSearchStr = "REEFLauncher";
 
 // method to invoke
 const char* JavaMainMethodName = "main";
@@ -89,7 +89,7 @@ void GetCounts(
     firstArgOrdinal = -1;
 
     for (int i = firstOptionOrdinal; i < cArgs; i++) {
-        if (option && 0 == strcmp(argv[i], launcherClass)) {
+        if (option && NULL != strstr(argv[i], launcherClassSearchStr)) {
             option = false;
             firstArgOrdinal = i;
         }
@@ -99,6 +99,10 @@ void GetCounts(
         else {
             ++argCount;
         }
+    }
+
+    if (firstArgOrdinal < 0) {
+        throw gcnew ArgumentException("Unable to find a REEF Launcher");
     }
 }
 

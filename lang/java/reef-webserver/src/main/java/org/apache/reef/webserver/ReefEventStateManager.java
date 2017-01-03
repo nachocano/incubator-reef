@@ -63,7 +63,7 @@ public final class ReefEventStateManager {
    */
   private final Map<String, ActiveContext> contexts = new HashMap<>();
 
-  private final List<AvroReefServiceInfo> serviceInfoList = new ArrayList<AvroReefServiceInfo>();
+  private final List<AvroReefServiceInfo> serviceInfoList = new ArrayList<>();
 
   /**
    * Remote manager in driver the carries information such as driver endpoint identifier.
@@ -101,7 +101,7 @@ public final class ReefEventStateManager {
    */
   public String getStartTime() {
     if (startTime != null) {
-      return convertTime(startTime.getTimeStamp());
+      return convertTime(startTime.getTimestamp());
     }
     return null;
   }
@@ -113,7 +113,7 @@ public final class ReefEventStateManager {
    */
   public String getStopTime() {
     if (stopTime != null) {
-      return convertTime(stopTime.getTimeStamp());
+      return convertTime(stopTime.getTimestamp());
     }
     return null;
   }
@@ -126,7 +126,7 @@ public final class ReefEventStateManager {
    */
   private String convertTime(final long time) {
     final Date date = new Date(time);
-    return FORMAT.format(date).toString();
+    return FORMAT.format(date);
   }
 
   /**

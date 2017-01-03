@@ -18,7 +18,7 @@
  */
 package org.apache.reef.io.network;
 
-import org.apache.reef.exception.evaluator.NetworkException;
+import org.apache.reef.annotations.Unstable;
 import org.apache.reef.io.network.impl.NetworkConnectionServiceImpl;
 import org.apache.reef.tang.annotations.DefaultImplementation;
 import org.apache.reef.wake.EventHandler;
@@ -26,49 +26,31 @@ import org.apache.reef.wake.Identifier;
 import org.apache.reef.wake.remote.Codec;
 import org.apache.reef.wake.remote.transport.LinkListener;
 
-// TODO[JIRA REEF-637] Annotate the class as @Unstable.
 /**
  * NetworkConnectionService.
- *
+ * <p>
  * NetworkConnectionService is a service which is designed for communicating messages with each other.
  * It creates multiple ConnectionFactories, which create multiple connections.
- *
+ * <p>
  * Flow of message transfer:
- * [Downstream]: connection.write(message) -> ConnectionFactory
- * -> src NetworkConnectionService (encode) -> dest NetworkConnectionService.
- * [Upstream]: message -> dest NetworkConnectionService (decode) -> ConnectionFactory -> EventHandler.
- *
+ * <ul>
+ * <li>[Downstream]: {@code connection.write(message) -> ConnectionFactory
+ * -> src NetworkConnectionService (encode) -> dest NetworkConnectionService}.</li>
+ * <li>[Upstream]: {@code message -> dest NetworkConnectionService (decode) -> ConnectionFactory -> EventHandler}.</li>
+ * </ul>
+ * <p>
  * Users can register a ConnectionFactory by registering their Codec, EventHandler, LinkListener and end point id.
  * When users send messages via connections created by the ConnectionFactory,
- *
+ * <p>
  * NetworkConnectionService encodes the messages according to the Codec
  * registered in the ConnectionFactory and sends them to the destination NetworkConnectionService.
- *
+ * <p>
  * Also, it receives the messages by decoding the messages and forwarding them
  * to the corresponding EventHandler registered in the ConnectionFactory.
  */
+@Unstable
 @DefaultImplementation(NetworkConnectionServiceImpl.class)
 public interface NetworkConnectionService extends AutoCloseable {
-
-  // TODO[JIRA REEF-637] Remove the deprecated method.
-  /**
-   * Registers an instance of ConnectionFactory corresponding to the connectionFactoryId.
-   * Binds Codec, EventHandler and LinkListener to the ConnectionFactory.
-   * ConnectionFactory can create multiple connections between other NetworkConnectionServices.
-   *
-   * @param connectionFactoryId a connection factory id
-   * @param codec a codec for type <T>
-   * @param eventHandler an event handler for type <T>
-   * @param linkListener a link listener
-   * @throws NetworkException throws a NetworkException when multiple connectionFactoryIds exist.
-   * @deprecated in 0.13. Use registerConnectionFactory(Identifier, Codec, EventHandler, LinkListener, Identifier)
-   * instead.
-   */
-  @Deprecated
-  <T> void registerConnectionFactory(final Identifier connectionFactoryId,
-                                     final Codec<T> codec,
-                                     final EventHandler<Message<T>> eventHandler,
-                                     final LinkListener<Message<T>> linkListener) throws NetworkException;
 
   /**
    * Registers an instance of ConnectionFactory corresponding to the connectionFactoryId.
@@ -78,8 +60,8 @@ public interface NetworkConnectionService extends AutoCloseable {
    * is the contact point, which is registered to NameServer through this method.
    *
    * @param connectionFactoryId a connection factory id
-   * @param codec a codec for type <T>
-   * @param eventHandler an event handler for type <T>
+   * @param codec a codec for type T
+   * @param eventHandler an event handler for type T
    * @param linkListener a link listener
    * @param localEndPointId a local end point id
    * @return the registered connection factory
@@ -110,33 +92,5 @@ public interface NetworkConnectionService extends AutoCloseable {
    * @throws Exception if this resource cannot be closed
    */
   void close() throws Exception;
-
-  // TODO[JIRA REEF-637] Remove the deprecated method.
-  /**
-   * Registers a network connection service identifier.
-   * This can be used for destination identifier
-   * @param ncsId network connection service identifier
-   * @deprecated in 0.13. Use registerConnectionFactory(Identifier, Codec, EventHandler, LinkListener, Identifier)
-   * instead.
-   */
-  @Deprecated
-  void registerId(final Identifier ncsId);
-
-  // TODO[JIRA REEF-637] Remove the deprecated method.
-  /**
-   * Unregister a network connection service identifier.
-   * @param ncsId network connection service identifier
-   * @deprecated in 0.13.
-   */
-  @Deprecated
-  void unregisterId(final Identifier ncsId);
-
-  // TODO[JIRA REEF-637] Remove the deprecated method.
-  /**
-   * Gets a network connection service client id which is equal to the registered id.
-   * @deprecated in 0.13. Use ConnectionFactory.getLocalEndPointId instead.
-   */
-  @Deprecated
-  Identifier getNetworkConnectionServiceId();
 
 }

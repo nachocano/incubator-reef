@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -55,7 +53,7 @@ namespace Org.Apache.REEF.Network.NetworkService.Codec
         /// Instantiate the class from the reader.
         /// </summary>
         /// <param name="reader">The reader from which to read</param>
-        ///<returns>The instance of type NsMessage<T></T> read from the reader</returns>
+        /// <returns>The instance of type NsMessage<T> read from the reader</returns>
         public NsMessage<T> Read(IDataReader reader)
         {
             int metadataSize = reader.ReadInt32();
@@ -80,7 +78,7 @@ namespace Org.Apache.REEF.Network.NetworkService.Codec
         /// <summary>
         /// Writes the class fields to the writer.
         /// </summary>
-        /// <param name="obj">The object of type NsMessage<T></T> to be encoded</param>
+        /// <param name="obj">The object of type NsMessage<T> to be encoded</param>
         /// <param name="writer">The writer to which to write</param>
         public void Write(NsMessage<T> obj, IDataWriter writer)
         {
@@ -98,10 +96,10 @@ namespace Org.Apache.REEF.Network.NetworkService.Codec
             }
         }
 
-        ///  <summary>
-        ///  Instantiate the class from the reader.
-        ///  </summary>
-        ///  <param name="reader">The reader from which to read</param>
+        /// <summary>
+        /// Instantiate the class from the reader.
+        /// </summary>
+        /// <param name="reader">The reader from which to read</param>
         /// <param name="token">Cancellation token</param>
         /// <returns>The instance of type NsMessage<T> read from the reader</returns>
         public async Task<NsMessage<T>> ReadAsync(IDataReader reader, CancellationToken token)
@@ -147,7 +145,7 @@ namespace Org.Apache.REEF.Network.NetworkService.Codec
             }
         }
 
-        private static byte[] GenerateMetaDataEncoding(NsMessage<T> obj )
+        private static byte[] GenerateMetaDataEncoding(NsMessage<T> obj)
         {
             List<byte[]> metadataBytes = new List<byte[]>();
             byte[] sourceBytes = StringToBytes(obj.SourceId.ToString());
@@ -169,10 +167,10 @@ namespace Org.Apache.REEF.Network.NetworkService.Codec
         private Tuple<NsMessage<T>, int, Type> GenerateMetaDataDecoding(byte[] obj)
         {
             int srcCount = BitConverter.ToInt32(obj, 0);
-            int dstCount = BitConverter.ToInt32(obj, sizeof (int));
-            int msgTypeCount = BitConverter.ToInt32(obj, 2*sizeof (int));
+            int dstCount = BitConverter.ToInt32(obj, sizeof(int));
+            int msgTypeCount = BitConverter.ToInt32(obj, 2 * sizeof(int));
 
-            int offset = 3*sizeof (int);
+            int offset = 3 * sizeof(int);
             string srcString = BytesToString(obj.Skip(offset).Take(srcCount).ToArray());
             offset += srcCount;
             string dstString = BytesToString(obj.Skip(offset).Take(dstCount).ToArray());

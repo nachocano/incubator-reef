@@ -33,9 +33,6 @@
     <ClInclude Include="InteropLogger.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="InteropReturnInfo.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="InteropUtil.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -95,9 +92,6 @@
     <ClCompile Include="InteropLogger.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="InteropReturnInfo.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="InteropUtil.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -119,6 +113,9 @@
     <ClCompile Include="DriverRestartCompletedClr2Java.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="DriverLauncher.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Text Include="ReadMe.txt" />
@@ -132,8 +129,5 @@
     <Image Include="app.ico">
       <Filter>Resource Files</Filter>
     </Image>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Org.Apache.REEF.Bridge.nuspec" />
   </ItemGroup>
 </Project>

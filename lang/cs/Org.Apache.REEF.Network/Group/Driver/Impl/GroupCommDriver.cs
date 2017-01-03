@@ -1,27 +1,26 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Threading;
+using Org.Apache.REEF.Common.Context;
 using Org.Apache.REEF.Common.Io;
 using Org.Apache.REEF.Common.Services;
 using Org.Apache.REEF.Driver.Context;
@@ -34,7 +33,9 @@ using Org.Apache.REEF.Tang.Formats;
 using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Util;
+using Org.Apache.REEF.Utilities.Diagnostics;
 using Org.Apache.REEF.Utilities.Logging;
+using Org.Apache.REEF.Wake.Remote;
 
 namespace Org.Apache.REEF.Network.Group.Driver.Impl
 {
@@ -47,36 +48,37 @@ namespace Org.Apache.REEF.Network.Group.Driver.Impl
         private const string MasterTaskContextName = "MasterTaskContext";
         private const string SlaveTaskContextName = "SlaveTaskContext";
 
-        private static Logger LOGGER = Logger.GetLogger(typeof(GroupCommDriver));
+        private static readonly Logger Logger = Logger.GetLogger(typeof(GroupCommDriver));
 
         private readonly string _driverId;
         private readonly string _nameServerAddr;
         private readonly int _nameServerPort;
         private int _contextIds;
         private readonly int _fanOut;
-        private readonly string _groupName;
+        private readonly string _defaultGroupName;
+        private readonly int _defaultGroupNumberOfTasks;
 
         private readonly Dictionary<string, ICommunicationGroupDriver> _commGroups;
         private readonly AvroConfigurationSerializer _configSerializer;
-
+        private readonly object _groupsLock = new object();
 
         /// <summary>
         /// Create a new GroupCommunicationDriver object.
         /// </summary>
-        /// <param name="driverId">Identifer for the REEF driver</param>
-        /// <param name="masterTaskId">Identifer for Group Communication master task</param>
+        /// <param name="driverId">Identifier for the REEF driver</param>
+        /// <param name="masterTaskId">Identifier for Group Communication master task</param>
         /// <param name="fanOut">fanOut for tree topology</param>
-        /// <param name="groupName">default communication group name</param>
-        /// <param name="numberOfTasks">Number of tasks in the default group</param>
+        /// <param name="defaultGroupName">default communication group name</param>
+        /// <param name="defaultNumberOfTasks">Number of tasks in the default group</param>
         /// <param name="configSerializer">Used to serialize task configuration</param>
-        /// <param name="nameServer">Used to map names to ip adresses</param>
+        /// <param name="nameServer">Used to map names to ip addresses</param>
         [Inject]
         private GroupCommDriver(
             [Parameter(typeof(GroupCommConfigurationOptions.DriverId))] string driverId,
             [Parameter(typeof(GroupCommConfigurationOptions.MasterTaskId))] string masterTaskId,
             [Parameter(typeof(GroupCommConfigurationOptions.FanOut))] int fanOut,
-            [Parameter(typeof(GroupCommConfigurationOptions.GroupName))] string groupName,
-            [Parameter(typeof(GroupCommConfigurationOptions.NumberOfTasks))] int numberOfTasks,
+            [Parameter(typeof(GroupCommConfigurationOptions.GroupName))] string defaultGroupName,
+            [Parameter(typeof(GroupCommConfigurationOptions.NumberOfTasks))] int defaultNumberOfTasks,
             AvroConfigurationSerializer configSerializer,
             INameServer nameServer)
         {
@@ -84,7 +86,8 @@ namespace Org.Apache.REEF.Network.Group.Driver.Impl
             _contextIds = -1;
             _fanOut = fanOut;
             MasterTaskId = masterTaskId;
-            _groupName = groupName;
+            _defaultGroupName = defaultGroupName;
+            _defaultGroupNumberOfTasks = defaultNumberOfTasks;
 
             _configSerializer = configSerializer;
             _commGroups = new Dictionary<string, ICommunicationGroupDriver>();
@@ -92,18 +95,29 @@ namespace Org.Apache.REEF.Network.Group.Driver.Impl
             IPEndPoint localEndpoint = nameServer.LocalEndpoint;
             _nameServerAddr = localEndpoint.Address.ToString();
             _nameServerPort = localEndpoint.Port;
-
-            NewCommunicationGroup(groupName, numberOfTasks);
         }
 
         /// <summary>
         /// Returns the identifier for the master task
         /// </summary>
-        public string MasterTaskId { get; private set; }
+        public string MasterTaskId { get; set; }
 
         public ICommunicationGroupDriver DefaultGroup
         {
-            get { return _commGroups[_groupName]; }
+            get
+            {
+                lock (_groupsLock)
+                {
+                    ICommunicationGroupDriver defaultGroup;
+                    _commGroups.TryGetValue(_defaultGroupName, out defaultGroup);
+
+                    if (defaultGroup == null)
+                    {
+                        NewCommunicationGroup(_defaultGroupName, _defaultGroupNumberOfTasks);
+                    }
+                    return _commGroups[_defaultGroupName];
+                }
+            }
         }
 
         /// <summary>
@@ -116,22 +130,43 @@ namespace Org.Apache.REEF.Network.Group.Driver.Impl
         {
             if (string.IsNullOrEmpty(groupName))
             {
-                throw new ArgumentNullException("groupName");
+                Exceptions.Throw(new ArgumentNullException("groupName"), Logger);
             }
 
             if (numTasks < 1)
             {
-                throw new ArgumentException("NumTasks must be greater than 0");
-            }
-            
-            if (_commGroups.ContainsKey(groupName))
-            {
-                throw new ArgumentException("Group Name already registered with GroupCommunicationDriver");
+               Exceptions.Throw(new ArgumentException("NumTasks must be greater than 0"), Logger);
             }
 
-            var commGroup = new CommunicationGroupDriver(groupName, _driverId, numTasks, _fanOut, _configSerializer);
-            _commGroups[groupName] = commGroup;
-            return commGroup;
+            lock (_groupsLock)
+            {
+                if (_commGroups.ContainsKey(groupName))
+                {
+                    Exceptions.Throw(new ArgumentException("Group Name already registered with GroupCommunicationDriver"), Logger);
+                }
+
+                var commGroup = new CommunicationGroupDriver(groupName, _driverId, numTasks, _fanOut, _configSerializer);
+                _commGroups[groupName] = commGroup;
+                return commGroup;
+            }
+        }
+
+        /// <summary>
+        /// Remove a group from the GroupCommDriver
+        /// Throw ArgumentException if the group does not exist
+        /// </summary>
+        /// <param name="groupName"></param>
+        public void RemoveCommunicationGroup(string groupName)
+        {
+            lock (_groupsLock)
+            {
+                if (!_commGroups.ContainsKey(groupName))
+                {
+                    Exceptions.Throw(new ArgumentException("Group Name is not registered with GroupCommunicationDriver"), Logger);
+                }
+
+                _commGroups.Remove(groupName);
+            }
         }
 
         /// <summary>
@@ -162,7 +197,7 @@ namespace Org.Apache.REEF.Network.Group.Driver.Impl
 
             return TangFactory.GetTang().NewConfigurationBuilder(serviceConfig)
                 .BindImplementation(
-                    GenericType<IObserver<NsMessage<GeneralGroupCommunicationMessage>>>.Class,
+                    GenericType<IObserver<IRemoteMessage<NsMessage<GeneralGroupCommunicationMessage>>>>.Class,
                     GenericType<GroupCommNetworkObserver>.Class)
                 .BindNamedParameter<NamingConfigurationOptions.NameServerAddress, string>(
                     GenericType<NamingConfigurationOptions.NameServerAddress>.Class,
@@ -240,7 +275,7 @@ namespace Org.Apache.REEF.Network.Group.Driver.Impl
             string[] parts = activeContext.Id.Split('-');
             if (parts.Length != 2)
             {
-                throw new ArgumentException("Invalid id in active context");
+                Exceptions.Throw(new ArgumentException("Invalid id in active context"), Logger);
             }
 
             return int.Parse(parts[1], CultureInfo.InvariantCulture);

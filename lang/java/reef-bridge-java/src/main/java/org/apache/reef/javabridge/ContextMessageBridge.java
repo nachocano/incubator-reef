@@ -18,9 +18,19 @@
  */
 package org.apache.reef.javabridge;
 
+import org.apache.commons.lang.NotImplementedException;
+import org.apache.reef.annotations.audience.Interop;
+import org.apache.reef.annotations.audience.Private;
 import org.apache.reef.driver.context.ContextMessage;
 
-public class ContextMessageBridge extends NativeBridge implements ContextMessage {
+/**
+ * The Java-CLR bridge object for {@link org.apache.reef.driver.context.ContextMessage}.
+ */
+@Private
+@Interop(
+    CppFiles = { "Clr2JavaImpl.h", "ContextMessageClr2Java.cpp" },
+    CsFiles = { "IContextMessageClr2Java.cs", "ContextMessage.cs" })
+public final class ContextMessageBridge extends NativeBridge implements ContextMessage {
 
   private ContextMessage jcontextMessage;
   private String contextMessageId;
@@ -52,5 +62,12 @@ public class ContextMessageBridge extends NativeBridge implements ContextMessage
   @Override
   public String getMessageSourceID() {
     return messageSourceId;
+  }
+
+  @Override
+  public long getSequenceNumber(){
+    // TODO[REEF-1085] once REEF.NET supports sequence numbers, ensure the numbers
+    // can propagate between C# and Java implementations
+    throw new NotImplementedException("A Java-CLR bridge lacks support of sequence numbers on the REEF.NET side.");
   }
 }

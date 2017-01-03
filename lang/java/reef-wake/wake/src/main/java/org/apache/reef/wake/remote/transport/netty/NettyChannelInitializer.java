@@ -27,15 +27,15 @@ import io.netty.handler.codec.bytes.ByteArrayEncoder;
 
 /**
  * Netty channel initializer for Transport.
- * <p/>
- * MAXFRAMELENGTH : the buffer size of the frame decoder
  */
 class NettyChannelInitializer extends ChannelInitializer<SocketChannel> {
-
+  /**
+   * the buffer size of the frame decoder.
+   */
   public static final int MAXFRAMELENGTH = 10 * 1024 * 1024;
   private final NettyChannelHandlerFactory handlerFactory;
 
-  public NettyChannelInitializer(final NettyChannelHandlerFactory handlerFactory) {
+  NettyChannelInitializer(final NettyChannelHandlerFactory handlerFactory) {
     this.handlerFactory = handlerFactory;
   }
 

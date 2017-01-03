@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -27,27 +25,27 @@ using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
 {
-    public class ParameterParser
+    internal sealed class ParameterParser
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(ParameterParser));
 
-        readonly MonotonicTreeMap<String, ConstructorInfo> parsers = new MonotonicTreeMap<String, ConstructorInfo>();
+        readonly MonotonicTreeMap<string, ConstructorInfo> parsers = new MonotonicTreeMap<string, ConstructorInfo>();
 
-        //ec: ACons, tc: A
+        // ec: ACons, tc: A
         public void AddParser(Type ec)
         {
             Type tc = (Type)ReflectionUtilities.GetInterfaceTarget(typeof(IExternalConstructor<>), ec);
             AddParser(tc, ec);
         }
 
-        //TODO
-        //public  <T, U extends T> void AddParser(Class<U> clazz, Class<? extends ExternalConstructor<T>> ec) throws BindException {
-        //public void AddParser<T, U, V>(GenericType<U> clazz, GenericType<V> ec) 
+        // TODO
+        // public  <T, U extends T> void AddParser(Class<U> clazz, Class<? extends ExternalConstructor<T>> ec) throws BindException {
+        // public void AddParser<T, U, V>(GenericType<U> clazz, GenericType<V> ec) 
         //    where U : T
         //    where V:  IExternalConstructor<T>
-        //{
+        // {
 
-        //clazz: A, ec: ACons
+        // clazz: A, ec: ACons
         private void AddParser(Type clazz, Type ec)
         {
             ConstructorInfo c = ec.GetConstructor(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance, null, new Type[] { typeof(string) }, null);
@@ -58,10 +56,9 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
                 Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
             }
 
-            //c.setAccessible(true); //set as public 
+            // c.setAccessible(true); // set as public 
             parsers.Add(ReflectionUtilities.GetAssemblyQualifiedName(clazz), c);
         }
-
 
         public void MergeIn(ParameterParser p)
         {
@@ -91,17 +88,20 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             }
         }
 
-        //(Integer, "3") return object of new Integer(3)
-        public object Parse(Type c, String s)
+        // (Integer, "3") return object of new Integer(3)
+        public object Parse(Type c, string s)
         {
             Type d = ReflectionUtilities.BoxClass(c);
-            foreach (Type e in ReflectionUtilities.ClassAndAncestors(d)) // get all the super classes of Integer for example
+            foreach (Type e in ReflectionUtilities.ClassAndAncestors(d))
             {
+                // get all the super classes of Integer for example
                 string name = ReflectionUtilities.GetAssemblyQualifiedName(e);
                 if (parsers.ContainsKey(name))
                 {
                     object ret = Parse(name, s);
-                    if (c.IsAssignableFrom(ret.GetType())) //check if ret can be cast as c
+
+                    // check if ret can be cast as c
+                    if (c.IsAssignableFrom(ret.GetType()))
                     {
                         return ret;
                     }
@@ -115,7 +115,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             return Parse(d.Name, s);
         }
 
-        //name: "Integer", value: "12"
+        // name: "Integer", value: "12"
         public object Parse(string name, string value)
         {
             if (parsers.ContainsKey(name))
@@ -126,7 +126,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
                     parsers.TryGetValue(name, out c);
                     var o = c.Invoke(new object[] { value });
                     var m = o.GetType().GetMethod("NewInstance", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
-                    return m.Invoke(o, new object[] {});
+                    return m.Invoke(o, new object[] { });
                 }
                 catch (TargetInvocationException e)
                 {
@@ -138,37 +138,37 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             {
                 return (object)value;
             }
-            if (name.Equals(typeof(Byte).Name))
+            if (name.Equals(typeof(byte).Name))
             {
-                return (object)(Byte)Byte.Parse(value);
+                return (object)(byte)byte.Parse(value);
             }
-            if (name.Equals(typeof(Char).Name))
+            if (name.Equals(typeof(char).Name))
             {
-                return (object)(Char)value[0];
+                return (object)(char)value[0];
             }
             if (name.Equals(typeof(short).Name))
             {
-                return (System.Int16)System.Int16.Parse(value);
+                return (short)short.Parse(value);
             }
             if (name.Equals(typeof(int).Name))
             {
-                return (object)(Int32)Int32.Parse(value);
+                return (object)(int)int.Parse(value);
             }
             if (name.Equals(typeof(long).Name))
             {
-                return (object)(Int64)Int64.Parse(value);
+                return (object)(long)long.Parse(value);
             }
             if (name.Equals(typeof(float).Name))
             {
-                return (object)(Single)Single.Parse(value);
+                return (object)(float)float.Parse(value);
             }
-            if (name.Equals(typeof(Double).Name))
+            if (name.Equals(typeof(double).Name))
             {
-                return (object)(Double)Double.Parse(value);
+                return (object)(double)double.Parse(value);
             }
-            if (name.Equals(typeof(Boolean).Name))
+            if (name.Equals(typeof(bool).Name))
             {
-                return (object)(Boolean)Boolean.Parse(value);
+                return (object)(bool)bool.Parse(value);
             }
             if (name.Equals(typeof(byte[]).Name))  
             {
@@ -182,15 +182,15 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
         private static readonly ISet<string> BUILTIN_NAMES = new HashSet<string>(new string[]
             {
                 typeof(string).AssemblyQualifiedName, 
-                typeof(Byte).AssemblyQualifiedName,
+                typeof(byte).AssemblyQualifiedName,
                 typeof(char).AssemblyQualifiedName,
                 typeof(short).AssemblyQualifiedName,
-                typeof(Int32).AssemblyQualifiedName,
+                typeof(int).AssemblyQualifiedName,
                 typeof(long).AssemblyQualifiedName,
                 typeof(float).AssemblyQualifiedName,
                 typeof(double).AssemblyQualifiedName,
                 typeof(bool).AssemblyQualifiedName
-            } ); 
+            }); 
         
         public bool CanParse(string name)
         {

@@ -18,18 +18,18 @@
 using System;
 using System.IO;
 using System.Linq;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Org.Apache.REEF.IO.FileSystem;
 using Org.Apache.REEF.IO.FileSystem.Hadoop;
+using Org.Apache.REEF.Tang.Annotations;
 using Org.Apache.REEF.Tang.Implementations.Tang;
+using Xunit;
 
 namespace Org.Apache.REEF.IO.Tests
 {
     /// <summary>
     /// Tests for HadoopFileSystem.
     /// </summary>
-    /// <see cref="HadoopFileSystem" />
-    [TestClass]
-    [Ignore] // These tests need to be run in an environment with HDFS installed.
+    /// <see cref="HadoopFileSystem" />    
     public sealed class TestHadoopFileSystem
     {
         private HadoopFileSystem _fileSystem;
@@ -37,15 +37,14 @@ namespace Org.Apache.REEF.IO.Tests
         private Uri GetTempUri()
         {
             return
-                new Uri(_fileSystem.UriPrefix + "/tmp/TestHadoopFileSystem-" +
+                _fileSystem.CreateUriForPath("/tmp/TestHadoopFileSystem-" +
                         DateTime.Now.ToString("yyyyMMddHHmmssfff"));
         }
 
         /// <summary>
         /// Sets up the file system instance to be used for the tests.
         /// </summary>
-        [TestInitialize]
-        public void SetupFileSystem()
+        public TestHadoopFileSystem()
         {
             _fileSystem =
                 TangFactory.GetTang()
@@ -56,7 +55,7 @@ namespace Org.Apache.REEF.IO.Tests
         /// <summary>
         /// Creates a temp file locally, uploads it to HDFS and downloads it again.
         /// </summary>
-        [TestMethod]
+        [Fact(Skip = "These tests need to be run in an environment with HDFS installed.")]
         public void TestCopyFromLocalAndBack()
         {
             var localFile = FileSystemTestUtilities.MakeLocalTempFile();
@@ -66,10 +65,8 @@ namespace Org.Apache.REEF.IO.Tests
             _fileSystem.CopyFromLocal(localFile, remoteUri);
             _fileSystem.CopyToLocal(remoteUri, localFileDownloaded);
 
-            Assert.IsTrue(message: "A file up and downloaded should exist on the local file system.",
-                condition: File.Exists(localFileDownloaded));
-            Assert.IsTrue(message: "A file up and downloaded should not have changed content.",
-                condition: FileSystemTestUtilities.HaveSameContent(localFile, localFileDownloaded));
+            Assert.True(File.Exists(localFileDownloaded), "A file up and downloaded should exist on the local file system.");
+            Assert.True(FileSystemTestUtilities.HaveSameContent(localFile, localFileDownloaded), "A file up and downloaded should not have changed content.");
 
             _fileSystem.Delete(remoteUri);
             File.Delete(localFile);
@@ -79,38 +76,40 @@ namespace Org.Apache.REEF.IO.Tests
         /// <summary>
         /// Tests whether .Exists() works.
         /// </summary>
-        [TestMethod]
+        [Fact(Skip = "These tests need to be run in an environment with HDFS installed.")]
         public void TestExists()
         {
             var remoteUri = GetTempUri();
-            Assert.IsFalse(message: "The file should not exist yet", condition: _fileSystem.Exists(remoteUri));
+            Assert.False(_fileSystem.Exists(remoteUri), "The file should not exist yet");
             var localFile = FileSystemTestUtilities.MakeLocalTempFile();
             _fileSystem.CopyFromLocal(localFile, remoteUri);
-            Assert.IsTrue(message: "The file should now exist", condition: _fileSystem.Exists(remoteUri));
+            Assert.True(_fileSystem.Exists(remoteUri), "The file should now exist");
             _fileSystem.Delete(remoteUri);
-            Assert.IsFalse(message: "The file should no longer exist", condition: _fileSystem.Exists(remoteUri));
+            Assert.False(_fileSystem.Exists(remoteUri), "The file should no longer exist");
             File.Delete(localFile);
         }
 
         /// <summary>
         /// Tests for .GetChildren().
         /// </summary>
-        [TestMethod]
+        [Fact(Skip = "These tests need to be run in an environment with HDFS installed.")]
         public void TestGetChildren()
         {
             // Make a directory
             var remoteDirectory = GetTempUri();
             _fileSystem.CreateDirectory(remoteDirectory);
+
             // Check that it is empty
-            Assert.AreEqual(message: "The directory should be empty.", expected: 0,
-                actual: _fileSystem.GetChildren(remoteDirectory).Count());
+            Assert.True(_fileSystem.GetChildren(remoteDirectory).Count() == 0, "The directory should be empty.");
+
             // Upload some localfile there
             var localTempFile = FileSystemTestUtilities.MakeLocalTempFile();
             var remoteUri = new Uri(remoteDirectory, Path.GetFileName(localTempFile));
             _fileSystem.CopyFromLocal(localTempFile, remoteUri);
+
             // Check that it is on the listing
             var uriInResult = _fileSystem.GetChildren(remoteUri).First();
-            Assert.AreEqual(remoteUri, uriInResult);
+            Assert.Equal(remoteUri, uriInResult);
 
             // Download the file and make sure it is the same as before
             var downloadedFileName = localTempFile + ".downloaded";
@@ -121,27 +120,49 @@ namespace Org.Apache.REEF.IO.Tests
 
             // Delete the file
             _fileSystem.Delete(remoteUri);
+
             // Check that the folder is empty again
-            Assert.AreEqual(message: "The directory should be empty.", expected: 0,
-                actual: _fileSystem.GetChildren(remoteDirectory).Count());
+            Assert.True(_fileSystem.GetChildren(remoteDirectory).Count() == 0, "The directory should be empty.");
+
             // Delete the folder
             _fileSystem.DeleteDirectory(remoteDirectory);
         }
 
-        [TestMethod]
-        [ExpectedException(typeof(NotImplementedException),
-            "Open() is not supported by HadoopFileSystem. Use CopyToLocal and open the local file instead.")]
+        [Fact(Skip = "These tests need to be run in an environment with HDFS installed.")]
         public void TestOpen()
         {
-            _fileSystem.Open(GetTempUri());
+            // Open() is not supported by HadoopFileSystem. Use CopyToLocal and open the local file instead.
+            Assert.Throws<NotImplementedException>(() => _fileSystem.Open(GetTempUri()));
         }
 
-        [TestMethod]
-        [ExpectedException(typeof(NotImplementedException),
-            "Create() is not supported by HadoopFileSystem. Create a local file and use CopyFromLocal instead.")]
+        [Fact(Skip = "These tests need to be run in an environment with HDFS installed.")]
         public void TestCreate()
         {
-            _fileSystem.Create(GetTempUri());
+            // Create() is not supported by HadoopFileSystem. Create a local file and use CopyFromLocal instead.
+            Assert.Throws<NotImplementedException>(() => _fileSystem.Create(GetTempUri()));
+        }
+
+        /// <summary>
+        /// This test is to make sure with the HadoopFileSystemConfiguration, HadoopFileSystem can be injected.
+        /// </summary>
+        [Fact(Skip = "These tests need to be run in an environment with HDFS installed.")]
+        public void TestHadoopFileSystemConfiguration()
+        {
+            var fileSystemTest = TangFactory.GetTang().NewInjector(HadoopFileSystemConfiguration.ConfigurationModule
+                .Build())
+                .GetInstance<FileSystemTest>();
+            Assert.True(fileSystemTest.FileSystem is HadoopFileSystem);
+        }
+    }
+
+    class FileSystemTest
+    {
+        public IFileSystem FileSystem { get; private set; }
+
+        [Inject]
+        private FileSystemTest(IFileSystem fileSystem)
+        {
+            FileSystem = fileSystem;
         }
     }
 }

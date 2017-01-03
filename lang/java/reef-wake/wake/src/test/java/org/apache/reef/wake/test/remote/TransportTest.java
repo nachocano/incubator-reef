@@ -44,6 +44,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
 
+/**
+ * Tests for Transport.
+ */
 public class TransportTest {
   private final LocalAddressProvider localAddressProvider;
   private final TransportFactory tpFactory;
@@ -68,12 +71,12 @@ public class TransportTest {
 
     final int expected = 2;
     final String hostAddress = this.localAddressProvider.getLocalAddress();
-    final int port = 9100;
 
     // Codec<String>
     final ReceiverStage<String> stage =
-        new ReceiverStage<String>(new ObjectSerializableCodec<String>(), monitor, expected);
-    final Transport transport = tpFactory.newInstance(hostAddress, port, stage, stage, 1, 10000);
+        new ReceiverStage<>(new ObjectSerializableCodec<String>(), monitor, expected);
+    final Transport transport = tpFactory.newInstance(hostAddress, 0, stage, stage, 1, 10000);
+    final int port = transport.getListeningPort();
 
     // sending side
     final Link<String> link = transport.open(
@@ -100,12 +103,12 @@ public class TransportTest {
 
     final int expected = 2;
     final String hostAddress = this.localAddressProvider.getLocalAddress();
-    final int port = 9100;
 
     // Codec<TestEvent>
     final ReceiverStage<TestEvent> stage =
-        new ReceiverStage<TestEvent>(new ObjectSerializableCodec<TestEvent>(), monitor, expected);
-    final Transport transport = tpFactory.newInstance(hostAddress, port, stage, stage, 1, 10000);
+        new ReceiverStage<>(new ObjectSerializableCodec<TestEvent>(), monitor, expected);
+    final Transport transport = tpFactory.newInstance(hostAddress, 0, stage, stage, 1, 10000);
+    final int port = transport.getListeningPort();
 
     // sending side
     final Link<TestEvent> link = transport.open(

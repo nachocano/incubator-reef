@@ -70,7 +70,7 @@ public class NameRegistryClient implements Stage, NamingRegistry {
    * @param serverPort a name server port
    * @param factory    an identifier factory
    */
-  public NameRegistryClient(
+  NameRegistryClient(
       final String serverAddr, final int serverPort, final IdentifierFactory factory,
       final LocalAddressProvider localAddressProvider) {
     this(serverAddr, serverPort, 10000, factory, localAddressProvider);
@@ -84,7 +84,7 @@ public class NameRegistryClient implements Stage, NamingRegistry {
    * @param timeout    timeout in ms
    * @param factory    an identifier factory
    */
-  public NameRegistryClient(final String serverAddr,
+  NameRegistryClient(final String serverAddr,
                             final int serverPort,
                             final long timeout,
                             final IdentifierFactory factory,
@@ -107,7 +107,7 @@ public class NameRegistryClient implements Stage, NamingRegistry {
     }
   }
 
-  public NameRegistryClient(final String serverAddr, final int serverPort,
+  NameRegistryClient(final String serverAddr, final int serverPort,
                             final long timeout, final IdentifierFactory factory,
                             final BlockingQueue<NamingRegisterResponse> replyQueue,
                             final Transport transport) {
@@ -197,6 +197,7 @@ class NamingRegistryClientHandler implements EventHandler<TransportEvent> {
  * Naming register response handler.
  */
 class NamingRegistryResponseHandler implements EventHandler<NamingRegisterResponse> {
+  private static final Logger LOG = Logger.getLogger(NamingRegistryResponseHandler.class.getName());
 
   private final BlockingQueue<NamingRegisterResponse> replyQueue;
 
@@ -206,6 +207,8 @@ class NamingRegistryResponseHandler implements EventHandler<NamingRegisterRespon
 
   @Override
   public void onNext(final NamingRegisterResponse value) {
-    replyQueue.offer(value);
+    if (!replyQueue.offer(value)) {
+      LOG.log(Level.FINEST, "Element {0} was not added to the queue", value);
+    }
   }
 }

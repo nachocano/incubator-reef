@@ -1,25 +1,22 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.Apache.REEF.Common.Tasks;
 using Org.Apache.REEF.Examples.Tasks.HelloTask;
 using Org.Apache.REEF.Tang.Annotations;
@@ -27,6 +24,7 @@ using Org.Apache.REEF.Tang.Formats;
 using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Util;
+using Xunit;
 
 namespace Org.Apache.REEF.Tang.Tests.Format
 {
@@ -65,10 +63,9 @@ namespace Org.Apache.REEF.Tang.Tests.Format
         string GetId();
     }
 
-    [TestClass]
     public class TestTaskConfiguration
     {
-        [TestMethod]
+        [Fact]
         public void TaskConfigurationTestWith3Parameters()
         {
             TaskConfigurationWith3Parameters.Conf
@@ -76,7 +73,7 @@ namespace Org.Apache.REEF.Tang.Tests.Format
                 .Build();
         }
 
-        [TestMethod]
+        [Fact]
         public void TaskConfigurationWithMyEventHandlerTest()
         {
             TaskConfigurationWithMyEventHandler.Conf
@@ -84,7 +81,7 @@ namespace Org.Apache.REEF.Tang.Tests.Format
                 .Build();
         }
 
-        [TestMethod]
+        [Fact]
         public void TaskConfigurationTest()
         {
             IConfiguration conf1 = TaskConfiguration.Conf
@@ -104,7 +101,7 @@ namespace Org.Apache.REEF.Tang.Tests.Format
 
             IInjector injector1 = TangFactory.GetTang().NewInjector(conf1);
             var task1 = (HelloTask)injector1.GetInstance(typeof(ITask));
-            Assert.IsNotNull(task1);
+            Assert.NotNull(task1);
 
             var serializer = new AvroConfigurationSerializer();
             byte[] bytes = serializer.ToByteArray(conf1);
@@ -112,10 +109,10 @@ namespace Org.Apache.REEF.Tang.Tests.Format
 
             IInjector injector2 = TangFactory.GetTang().NewInjector(conf2);
             var task2 = (HelloTask)injector2.GetInstance(typeof(ITask));
-            Assert.IsNotNull(task2);
+            Assert.NotNull(task2);
         }
 
-        [TestMethod]
+        [Fact]
         public void TaskConfigurationSerializationTest()
         {
             IConfiguration conf1 = TaskConfiguration.Conf
@@ -132,7 +129,7 @@ namespace Org.Apache.REEF.Tang.Tests.Format
 
             IInjector injector1 = TangFactory.GetTang().NewInjector(conf1);
             var task1 = (HelloTask)injector1.GetInstance(typeof(ITask));
-            Assert.IsNotNull(task1);
+            Assert.NotNull(task1);
 
             var serializer = new AvroConfigurationSerializer();
             byte[] bytes = serializer.ToByteArray(conf1);
@@ -140,14 +137,14 @@ namespace Org.Apache.REEF.Tang.Tests.Format
 
             IInjector injector2 = TangFactory.GetTang().NewInjector(conf2);
             var task2 = (HelloTask)injector2.GetInstance(typeof(ITask));
-            Assert.IsNotNull(task2);
+            Assert.NotNull(task2);
 
             serializer.ToFileStream(conf1, "TaskConfiguration.bin");
             IConfiguration conf3 = serializer.FromFileStream("TaskConfiguration.bin");
 
             IInjector injector3 = TangFactory.GetTang().NewInjector(conf3);
             var task3 = (HelloTask)injector3.GetInstance(typeof(ITask));
-            Assert.IsNotNull(task3);
+            Assert.NotNull(task3);
         }
     }
 

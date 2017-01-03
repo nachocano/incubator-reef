@@ -18,17 +18,13 @@
  */
 package org.apache.reef.io.network.group.impl.task;
 
-import org.apache.reef.driver.task.TaskConfigurationOptions;
-import org.apache.reef.io.network.impl.NetworkService;
 import org.apache.reef.io.network.group.api.task.CommunicationGroupClient;
 import org.apache.reef.io.network.group.api.task.CommunicationGroupServiceClient;
 import org.apache.reef.io.network.group.api.task.GroupCommClient;
 import org.apache.reef.io.network.group.api.task.GroupCommNetworkHandler;
 import org.apache.reef.io.network.group.impl.config.parameters.SerializedGroupConfigs;
-import org.apache.reef.io.network.proto.ReefNetworkGroupCommProtos;
 import org.apache.reef.tang.Configuration;
 import org.apache.reef.tang.Injector;
-import org.apache.reef.tang.Tang;
 import org.apache.reef.tang.annotations.Name;
 import org.apache.reef.tang.annotations.Parameter;
 import org.apache.reef.tang.exceptions.InjectionException;
@@ -42,33 +38,27 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class GroupCommClientImpl implements GroupCommClient {
+public final class GroupCommClientImpl implements GroupCommClient {
   private static final Logger LOG = Logger.getLogger(GroupCommClientImpl.class.getName());
 
   private final Map<Class<? extends Name<String>>, CommunicationGroupServiceClient> communicationGroups =
       new HashMap<>();
 
   @Inject
-  public GroupCommClientImpl(
-      @Parameter(SerializedGroupConfigs.class) final Set<String> groupConfigs,
-      @Parameter(TaskConfigurationOptions.Identifier.class) final String taskId,
-      final GroupCommNetworkHandler groupCommNetworkHandler,
-      final NetworkService<ReefNetworkGroupCommProtos.GroupCommMessage> netService,
-      final ConfigurationSerializer configSerializer) {
+  private GroupCommClientImpl(@Parameter(SerializedGroupConfigs.class) final Set<String> groupConfigs,
+                              final GroupCommNetworkHandler groupCommNetworkHandler,
+                              final ConfigurationSerializer configSerializer,
+                              final Injector injector) {
 
     LOG.log(Level.FINEST, "GroupCommHandler-{0}", groupCommNetworkHandler);
 
     for (final String groupConfigStr : groupConfigs) {
       try {
         final Configuration groupConfig = configSerializer.fromString(groupConfigStr);
-
-        final Injector injector = Tang.Factory.getTang().newInjector(groupConfig);
-        injector.bindVolatileParameter(TaskConfigurationOptions.Identifier.class, taskId);
-        injector.bindVolatileInstance(GroupCommNetworkHandler.class, groupCommNetworkHandler);
-        injector.bindVolatileInstance(NetworkService.class, netService);
+        final Injector forkedInjector = injector.forkInjector(groupConfig);
 
         final CommunicationGroupServiceClient commGroupClient =
-            injector.getInstance(CommunicationGroupServiceClient.class);
+            forkedInjector.getInstance(CommunicationGroupServiceClient.class);
 
         this.communicationGroups.put(commGroupClient.getName(), commGroupClient);
 

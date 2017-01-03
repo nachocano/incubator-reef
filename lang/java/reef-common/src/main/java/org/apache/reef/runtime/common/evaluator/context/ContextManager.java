@@ -136,7 +136,7 @@ public final class ContextManager implements AutoCloseable {
 
   /**
    * Processes the given ContextControlProto to launch / close / suspend Tasks and Contexts.
-   * <p/>
+   * <p>
    * This also triggers the HeartBeatManager to send a heartbeat with the result of this operation.
    *
    * @param controlMessage the message to process
@@ -294,7 +294,12 @@ public final class ContextManager implements AutoCloseable {
         this.heartBeatManager.sendHeartbeat(); // Ensure Driver gets notified of context DONE state
       }
       this.contextStack.pop();
-      System.gc(); // TODO sure??
+      /*
+      * At this moment, the Evaluator is actually idle and has some time till the Driver sends it additional work.
+      * Also, a potentially large object graph just became orphaned: all the objects instantiated by the context
+      * and service injectors can now be garbage collected. So GC call is justified.
+      * */
+      System.gc();
     }
   }
 

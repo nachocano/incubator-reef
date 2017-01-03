@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System.Collections.Generic;
 using Org.Apache.REEF.Tang.Interface;
@@ -29,6 +27,8 @@ namespace Org.Apache.REEF.IMRU.API
     public sealed class IMRUJobDefinition
     {
         private readonly string _jobName;
+        private readonly IConfiguration _updateTaskStateConfiguration;
+        private readonly IConfiguration _mapTaskStateConfiguration;
         private readonly IConfiguration _mapFunctionConfiguration;
         private readonly IConfiguration _mapInputCodecConfiguration;
         private readonly IConfiguration _updateFunctionCodecsConfiguration;
@@ -37,14 +37,22 @@ namespace Org.Apache.REEF.IMRU.API
         private readonly IConfiguration _mapOutputPipelineDataConverterConfiguration;
         private readonly IConfiguration _mapInputPipelineDataConverterConfiguration;
         private readonly IConfiguration _partitionedDatasetConfiguration;
+        private readonly IConfiguration _resultHandlerConfiguration;
+        private readonly IConfiguration _jobCancelSignalConfiguration;
         private readonly int _numberOfMappers;
         private readonly int _memoryPerMapper;
         private readonly int _updateTaskMemory;
+        private readonly int _mapTaskCores;
+        private readonly int _updateTaskCores;
+        private readonly int _maxRetryNumberInRecovery;
         private readonly ISet<IConfiguration> _perMapConfigGeneratorConfig;
+        private readonly bool _invokeGC;
 
         /// <summary>
         /// Constructor
         /// </summary>
+        /// <param name="updateTaskStateConfiguration">Update task state configuration</param>
+        /// <param name="mapTaskStateConfiguration">Map task state configuration</param>
         /// <param name="mapFunctionConfiguration">Map function configuration</param>
         /// <param name="mapInputCodecConfiguration">Map input codec configuration</param>
         /// <param name="updateFunctionCodecsConfiguration">codec configuration for update 
@@ -57,11 +65,20 @@ namespace Org.Apache.REEF.IMRU.API
         /// PipelineDataConverter for TMapInput</param>
         /// <param name="partitionedDatasetConfiguration">Configuration of partitioned 
         /// dataset</param>
+        /// <param name="resultHandlerConfiguration">Configuration of result handler</param>
         /// <param name="perMapConfigGeneratorConfig">Per mapper configuration</param>
         /// <param name="numberOfMappers">Number of mappers</param>
         /// <param name="memoryPerMapper">Per Mapper memory.</param>
+        /// <param name="updateTaskMemory">Update task memory</param>
+        /// <param name="mapTaskCores">Number of map task cores</param>
+        /// <param name="updateTaskCores">Number of update task cores</param>
+        /// <param name="maxRetryNumberInRecovery">Max number of retries done if first run of IMRU job failed</param>
         /// <param name="jobName">Job name</param>
+        /// <param name="invokeGC">Whether to call garbage collector after each iteration</param>
+        /// <param name="jobCancelSignalConfiguration">Configuration of job cancellation signal</param>
         internal IMRUJobDefinition(
+            IConfiguration updateTaskStateConfiguration,
+            IConfiguration mapTaskStateConfiguration,
             IConfiguration mapFunctionConfiguration,
             IConfiguration mapInputCodecConfiguration,
             IConfiguration updateFunctionCodecsConfiguration,
@@ -70,12 +87,20 @@ namespace Org.Apache.REEF.IMRU.API
             IConfiguration mapOutputPipelineDataConverterConfiguration,
             IConfiguration mapInputPipelineDataConverterConfiguration,
             IConfiguration partitionedDatasetConfiguration,
+            IConfiguration resultHandlerConfiguration,
+            IConfiguration jobCancelSignalConfiguration,
             ISet<IConfiguration> perMapConfigGeneratorConfig,
             int numberOfMappers,
             int memoryPerMapper,
             int updateTaskMemory,
-            string jobName)
+            int mapTaskCores,
+            int updateTaskCores,
+            int maxRetryNumberInRecovery,
+            string jobName,
+            bool invokeGC)
         {
+            _updateTaskStateConfiguration = updateTaskStateConfiguration;
+            _mapTaskStateConfiguration = mapTaskStateConfiguration;
             _mapFunctionConfiguration = mapFunctionConfiguration;
             _mapInputCodecConfiguration = mapInputCodecConfiguration;
             _updateFunctionCodecsConfiguration = updateFunctionCodecsConfiguration;
@@ -88,7 +113,13 @@ namespace Org.Apache.REEF.IMRU.API
             _jobName = jobName;
             _memoryPerMapper = memoryPerMapper;
             _updateTaskMemory = updateTaskMemory;
+            _mapTaskCores = mapTaskCores;
+            _updateTaskCores = updateTaskCores;
+            _maxRetryNumberInRecovery = maxRetryNumberInRecovery;
             _perMapConfigGeneratorConfig = perMapConfigGeneratorConfig;
+            _invokeGC = invokeGC;
+            _resultHandlerConfiguration = resultHandlerConfiguration;
+            _jobCancelSignalConfiguration = jobCancelSignalConfiguration;
         }
 
         /// <summary>
@@ -97,6 +128,22 @@ namespace Org.Apache.REEF.IMRU.API
         internal string JobName
         {
             get { return _jobName; }
+        }
+
+        /// <summary>
+        /// Configuration of update task state
+        /// </summary>
+        internal IConfiguration UpdateTaskStateConfiguration
+        {
+            get { return _updateTaskStateConfiguration; }
+        }
+
+        /// <summary>
+        /// Configuration of map task state
+        /// </summary>
+        internal IConfiguration MapTaskStateConfiguration
+        {
+            get { return _mapTaskStateConfiguration; }
         }
 
         /// <summary>
@@ -170,7 +217,8 @@ namespace Org.Apache.REEF.IMRU.API
         /// TODO: automatically from IPartitionedDataset. However, right now 
         /// TODO: GroupComm. instantiated in IMRUDriver needs this parameter 
         /// TODO: in constructor. This will be removed once we remove it from GroupComm. 
-        internal int NumberOfMappers {
+        internal int NumberOfMappers 
+        {
             get { return _numberOfMappers; }
         }
 
@@ -191,11 +239,60 @@ namespace Org.Apache.REEF.IMRU.API
         }
 
         /// <summary>
+        /// Cores for each mapper
+        /// </summary>
+        internal int MapTaskCores
+        {
+            get { return _mapTaskCores; }
+        }
+
+        /// <summary>
+        /// Cores for update task
+        /// </summary>
+        internal int UpdateTaskCores
+        {
+            get { return _updateTaskCores; }
+        }
+
+        /// <summary>
+        /// Max number of retries done if first run of IMRU job failed.
+        /// </summary>
+        internal int MaxRetryNumberInRecovery
+        {
+            get { return _maxRetryNumberInRecovery; }
+        }
+
+        /// <summary>
         /// Per mapper configuration
         /// </summary>
         internal ISet<IConfiguration> PerMapConfigGeneratorConfig
         {
             get { return _perMapConfigGeneratorConfig; }
+        }
+
+        /// <summary>
+        /// Whether to call Garbage Collector after each iteration
+        /// </summary>
+        internal bool InvokeGarbageCollectorAfterIteration
+        {
+            get { return _invokeGC; }
+        }
+
+        /// <summary>
+        /// Configuration of the result handler 
+        /// </summary>
+        /// <returns></returns>
+        internal IConfiguration ResultHandlerConfiguration
+        {
+            get { return _resultHandlerConfiguration; }
+        }
+
+        /// <summary>
+        /// Configuration for job cancellation signal implementation
+        /// </summary>
+        internal IConfiguration JobCancelSignalConfiguration
+        {
+            get { return _jobCancelSignalConfiguration; }
         }
     }
 }

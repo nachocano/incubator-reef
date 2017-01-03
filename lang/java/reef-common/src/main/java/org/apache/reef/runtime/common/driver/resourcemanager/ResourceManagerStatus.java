@@ -20,8 +20,8 @@ package org.apache.reef.runtime.common.driver.resourcemanager;
 
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.annotations.audience.Private;
-import org.apache.reef.proto.ReefServiceProtos;
 import org.apache.reef.runtime.common.driver.DriverStatusManager;
+import org.apache.reef.runtime.common.driver.evaluator.pojos.State;
 import org.apache.reef.runtime.common.driver.idle.DriverIdleManager;
 import org.apache.reef.runtime.common.driver.idle.DriverIdlenessSource;
 import org.apache.reef.runtime.common.driver.idle.IdleMessage;
@@ -33,15 +33,16 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Manages the status of the Resource Manager.
+ * Manages the status of the Resource Manager and tracks whether it is idle.
  */
 @DriverSide
 @Private
-public final class ResourceManagerStatus implements EventHandler<RuntimeStatusEvent>,
-    DriverIdlenessSource {
+public final class ResourceManagerStatus implements EventHandler<RuntimeStatusEvent>, DriverIdlenessSource {
+
   private static final Logger LOG = Logger.getLogger(ResourceManagerStatus.class.getName());
 
   private static final String COMPONENT_NAME = "ResourceManager";
+
   private static final IdleMessage IDLE_MESSAGE =
       new IdleMessage(COMPONENT_NAME, "No outstanding requests or allocations", true);
 
@@ -49,27 +50,39 @@ public final class ResourceManagerStatus implements EventHandler<RuntimeStatusEv
   private final DriverStatusManager driverStatusManager;
   private final InjectionFuture<DriverIdleManager> driverIdleManager;
 
-  // Mutable state.
-  private ReefServiceProtos.State state = ReefServiceProtos.State.INIT;
+  /** Mutable RM state. */
+  private State state = State.INIT;
+
+  /** Number of container requests outstanding with the RM, as per latest RuntimeStatusEvent message. */
   private int outstandingContainerRequests = 0;
+
+  /** Number of containers currently allocated, as per latest RuntimeStatusEvent message. */
   private int containerAllocationCount = 0;
 
   @Inject
-  ResourceManagerStatus(final ResourceManagerErrorHandler resourceManagerErrorHandler,
-                        final DriverStatusManager driverStatusManager,
-                        final InjectionFuture<DriverIdleManager> driverIdleManager) {
+  private ResourceManagerStatus(
+      final ResourceManagerErrorHandler resourceManagerErrorHandler,
+      final DriverStatusManager driverStatusManager,
+      final InjectionFuture<DriverIdleManager> driverIdleManager) {
+
     this.resourceManagerErrorHandler = resourceManagerErrorHandler;
     this.driverStatusManager = driverStatusManager;
     this.driverIdleManager = driverIdleManager;
   }
 
   @Override
-  public synchronized void onNext(final RuntimeStatusEvent runtimeStatusEvent) {
-    final ReefServiceProtos.State newState = runtimeStatusEvent.getState();
-    LOG.log(Level.FINEST, "Runtime status " + runtimeStatusEvent);
-    this.outstandingContainerRequests = runtimeStatusEvent.getOutstandingContainerRequests().orElse(0);
-    this.containerAllocationCount = runtimeStatusEvent.getContainerAllocationList().size();
-    this.setState(runtimeStatusEvent.getState());
+  public void onNext(final RuntimeStatusEvent runtimeStatusEvent) {
+
+    final State newState = runtimeStatusEvent.getState();
+
+    LOG.log(Level.FINEST, "Runtime status: {0}", runtimeStatusEvent);
+
+    synchronized(this) {
+      this.outstandingContainerRequests = runtimeStatusEvent.getOutstandingContainerRequests().orElse(0);
+      this.containerAllocationCount = runtimeStatusEvent.getContainerAllocationList().size();
+
+      this.setState(newState);
+    }
 
     switch (newState) {
     case FAILED:
@@ -94,69 +107,64 @@ public final class ResourceManagerStatus implements EventHandler<RuntimeStatusEv
    * Change the state of the Resource Manager to be RUNNING.
    */
   public synchronized void setRunning() {
-    this.setState(ReefServiceProtos.State.RUNNING);
+    this.setState(State.RUNNING);
   }
 
   /**
-   * @return idle, if there are no outstanding requests or allocations. Not idle else.
+   * Driver is idle if, regardless of status, it has no evaluators allocated and no pending container requests.
+   * @return true if the driver can be considered idle, false otherwise.
+   */
+  private synchronized boolean isIdle() {
+    return this.outstandingContainerRequests == 0 && this.containerAllocationCount == 0;
+  }
+
+  /**
+   * Driver is idle if, regardless of status, it has no evaluators allocated
+   * and no pending container requests. This method is used in the DriverIdleManager.
+   * If all DriverIdlenessSource components are idle, DriverIdleManager will initiate Driver shutdown.
+   * @return idle, if there are no outstanding requests or allocations. Not idle otherwise.
    */
   @Override
   public synchronized IdleMessage getIdleStatus() {
+
     if (this.isIdle()) {
       return IDLE_MESSAGE;
-    } else {
-      final String message = new StringBuilder("There are ")
-          .append(this.outstandingContainerRequests)
-          .append(" outstanding container requests and ")
-          .append(this.containerAllocationCount)
-          .append(" allocated containers")
-          .toString();
-      return new IdleMessage(COMPONENT_NAME, message, false);
     }
+
+    final String message = String.format(
+        "There are %d outstanding container requests and %d allocated containers",
+        this.outstandingContainerRequests, this.containerAllocationCount);
+
+    return new IdleMessage(COMPONENT_NAME, message, false);
   }
 
-
   private synchronized void onRMFailure(final RuntimeStatusEvent runtimeStatusEvent) {
-    assert (runtimeStatusEvent.getState() == ReefServiceProtos.State.FAILED);
+    assert runtimeStatusEvent.getState() == State.FAILED;
     this.resourceManagerErrorHandler.onNext(runtimeStatusEvent.getError().get());
   }
 
   private synchronized void onRMDone(final RuntimeStatusEvent runtimeStatusEvent) {
-    assert (runtimeStatusEvent.getState() == ReefServiceProtos.State.DONE);
+    assert runtimeStatusEvent.getState() == State.DONE;
     LOG.log(Level.INFO, "Resource Manager shutdown happened. Triggering Driver shutdown.");
     this.driverStatusManager.onComplete();
   }
 
-  private synchronized void onRMRunning(final RuntimeStatusEvent runtimeStatusEvent) {
-    assert (runtimeStatusEvent.getState() == ReefServiceProtos.State.RUNNING);
+  private void onRMRunning(final RuntimeStatusEvent runtimeStatusEvent) {
+    assert runtimeStatusEvent.getState() == State.RUNNING;
     if (this.isIdle()) {
       this.driverIdleManager.get().onPotentiallyIdle(IDLE_MESSAGE);
     }
   }
 
-
-  private synchronized boolean isIdle() {
-    return this.hasNoOutstandingRequests()
-        && this.hasNoContainersAllocated();
+  private synchronized void setState(final State toState) {
+    if (this.state == toState) {
+      LOG.log(Level.FINE, "Transition from {0} state to the same state.", this.state);
+    } else if (this.state.isLegalTransition(toState)) {
+      LOG.log(Level.FINEST, "State transition: {0} -> {1}", new State[] {this.state, toState});
+      this.state = toState;
+    } else {
+      throw new IllegalStateException(
+          "Resource manager attempts illegal state transition from " + this.state + " to " + toState);
+    }
   }
-
-  private synchronized boolean isRunning() {
-    return ReefServiceProtos.State.RUNNING.equals(this.state);
-  }
-
-
-  private synchronized void setState(final ReefServiceProtos.State state) {
-    // TODO: Add state transition check
-    this.state = state;
-  }
-
-
-  private synchronized boolean hasNoOutstandingRequests() {
-    return this.outstandingContainerRequests == 0;
-  }
-
-  private synchronized boolean hasNoContainersAllocated() {
-    return this.containerAllocationCount == 0;
-  }
-
 }

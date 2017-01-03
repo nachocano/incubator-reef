@@ -15,13 +15,17 @@
 // specific language governing permissions and limitations
 // under the License.
 
+using System;
+using System.Threading;
 using Org.Apache.REEF.Common.Tasks;
 using Org.Apache.REEF.IMRU.API;
 using Org.Apache.REEF.IMRU.OnREEF.Driver;
 using Org.Apache.REEF.IMRU.OnREEF.MapInputWithControlMessage;
+using Org.Apache.REEF.IMRU.OnREEF.Parameters;
 using Org.Apache.REEF.Network.Group.Operators;
 using Org.Apache.REEF.Network.Group.Task;
 using Org.Apache.REEF.Tang.Annotations;
+using Org.Apache.REEF.Utilities.Attributes;
 using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.IMRU.OnREEF.IMRUTasks
@@ -31,7 +35,8 @@ namespace Org.Apache.REEF.IMRU.OnREEF.IMRUTasks
     /// </summary>
     /// <typeparam name="TMapInput">Map input</typeparam>
     /// <typeparam name="TMapOutput">Map output</typeparam>
-    internal sealed class MapTaskHost<TMapInput, TMapOutput> : ITask
+    [ThreadSafe]
+    internal sealed class MapTaskHost<TMapInput, TMapOutput> : TaskHostBase
     {
         private static readonly Logger Logger = Logger.GetLogger(typeof(MapTaskHost<TMapInput, TMapOutput>));
 
@@ -43,39 +48,84 @@ namespace Org.Apache.REEF.IMRU.OnREEF.IMRUTasks
         /// </summary>
         /// <param name="mapTask">The MapTask hosted in this REEF Task.</param>
         /// <param name="groupCommunicationsClient">Used to setup the communications.</param>
+        /// <param name="taskCloseCoordinator">Task close Coordinator</param>
+        /// <param name="invokeGc">Whether to call Garbage Collector after each iteration or not</param>
+        /// <param name="taskId">task id</param>
         [Inject]
-        private MapTaskHost(IMapFunction<TMapInput, TMapOutput> mapTask, IGroupCommClient groupCommunicationsClient)
+        private MapTaskHost(
+            IMapFunction<TMapInput, TMapOutput> mapTask,
+            IGroupCommClient groupCommunicationsClient,
+            TaskCloseCoordinator taskCloseCoordinator,
+            [Parameter(typeof(InvokeGC))] bool invokeGc,
+            [Parameter(typeof(TaskConfigurationOptions.Identifier))] string taskId) :
+            base(groupCommunicationsClient, taskCloseCoordinator, invokeGc)
         {
+            Logger.Log(Level.Info, "Entering constructor of MapTaskHost for task id {0}", taskId);
             _mapTask = mapTask;
-            var cg = groupCommunicationsClient.GetCommunicationGroup(IMRUConstants.CommunicationGroupName);
-            _dataAndMessageReceiver = cg.GetBroadcastReceiver<MapInputWithControlMessage<TMapInput>>(IMRUConstants.BroadcastOperatorName);
-            _dataReducer = cg.GetReduceSender<TMapOutput>(IMRUConstants.ReduceOperatorName);
+            _dataAndMessageReceiver =
+                _communicationGroupClient.GetBroadcastReceiver<MapInputWithControlMessage<TMapInput>>(IMRUConstants.BroadcastOperatorName);
+            _dataReducer = _communicationGroupClient.GetReduceSender<TMapOutput>(IMRUConstants.ReduceOperatorName);
+            Logger.Log(Level.Info, "MapTaskHost initialized.");
         }
 
         /// <summary>
         /// Performs IMRU iterations on map side
         /// </summary>
-        /// <param name="memento"></param>
         /// <returns></returns>
-        public byte[] Call(byte[] memento)
+        protected override byte[] TaskBody(byte[] memento)
         {
-            MapInputWithControlMessage<TMapInput> mapInput = _dataAndMessageReceiver.Receive();
-
-            while (mapInput.ControlMessage == MapControlMessage.AnotherRound)
+            MapControlMessage controlMessage = MapControlMessage.AnotherRound;
+            while (!_cancellationSource.IsCancellationRequested && controlMessage != MapControlMessage.Stop)
             {
-                var result = _mapTask.Map(mapInput.Message);
-                _dataReducer.Send(result);
-                mapInput = _dataAndMessageReceiver.Receive();
-            }
+                if (_invokeGc)
+                {
+                    Logger.Log(Level.Verbose, "Calling Garbage Collector");
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                }
 
+                using (
+                    MapInputWithControlMessage<TMapInput> mapInput =
+                        _dataAndMessageReceiver.Receive(_cancellationSource))
+                {
+                    controlMessage = mapInput.ControlMessage;
+                    if (controlMessage != MapControlMessage.Stop)
+                    {
+                        TMapOutput output = default(TMapOutput);
+                        try
+                        {
+                            output = _mapTask.Map(mapInput.Message);
+                        }
+                        catch (Exception e)
+                        {
+                            HandleTaskAppException(e);
+                        }
+                        _dataReducer.Send(output, _cancellationSource);
+                    }
+                }
+            }
             return null;
         }
 
         /// <summary>
-        /// Dispose function 
+        /// Return mapTaskHost name
         /// </summary>
-        public void Dispose()
+        protected override string TaskHostName
         {
+            get { return "MapTaskHost"; }
+        }
+
+        public override void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                _groupCommunicationsClient.Dispose();
+                var disposableTask = _mapTask as IDisposable;
+                if (disposableTask != null)
+                {
+                    disposableTask.Dispose();
+                }
+            }
         }
     }
 }

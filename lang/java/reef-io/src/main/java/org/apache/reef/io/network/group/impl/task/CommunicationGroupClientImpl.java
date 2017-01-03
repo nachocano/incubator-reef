@@ -18,10 +18,10 @@
  */
 package org.apache.reef.io.network.group.impl.task;
 
-import org.apache.reef.driver.parameters.DriverIdentifier;
 import org.apache.reef.driver.task.TaskConfigurationOptions;
 import org.apache.reef.exception.evaluator.NetworkException;
 import org.apache.reef.io.network.group.api.operators.*;
+import org.apache.reef.io.network.group.impl.config.parameters.DriverIdentifierGroupComm;
 import org.apache.reef.io.network.group.impl.driver.TopologySimpleNode;
 import org.apache.reef.io.network.group.impl.driver.TopologySerializer;
 import org.apache.reef.io.network.impl.NetworkService;
@@ -42,7 +42,6 @@ import org.apache.reef.io.network.util.Pair;
 import org.apache.reef.io.serialization.Codec;
 import org.apache.reef.tang.Configuration;
 import org.apache.reef.tang.Injector;
-import org.apache.reef.tang.Tang;
 import org.apache.reef.tang.annotations.Name;
 import org.apache.reef.tang.annotations.Parameter;
 import org.apache.reef.tang.exceptions.InjectionException;
@@ -59,7 +58,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
-public class CommunicationGroupClientImpl implements CommunicationGroupServiceClient {
+public final class CommunicationGroupClientImpl implements CommunicationGroupServiceClient {
   private static final Logger LOG = Logger.getLogger(CommunicationGroupClientImpl.class.getName());
 
   private final GroupCommNetworkHandler groupCommNetworkHandler;
@@ -80,19 +79,22 @@ public class CommunicationGroupClientImpl implements CommunicationGroupServiceCl
   private final AtomicBoolean init = new AtomicBoolean(false);
 
   @Inject
-  public CommunicationGroupClientImpl(@Parameter(CommunicationGroupName.class) final String groupName,
+  private CommunicationGroupClientImpl(@Parameter(CommunicationGroupName.class) final String groupName,
                                       @Parameter(TaskConfigurationOptions.Identifier.class) final String taskId,
-                                      @Parameter(DriverIdentifier.class) final String driverId,
+                                      @Parameter(DriverIdentifierGroupComm.class) final String driverId,
                                       final GroupCommNetworkHandler groupCommNetworkHandler,
                                       @Parameter(SerializedOperConfigs.class) final Set<String> operatorConfigs,
                                       final ConfigurationSerializer configSerializer,
-                                      final NetworkService<GroupCommunicationMessage> netService) {
+                                      final NetworkService<GroupCommunicationMessage> netService,
+                                      final CommGroupNetworkHandler commGroupNetworkHandler,
+                                      final Injector injector) {
     this.taskId = taskId;
     this.driverId = driverId;
     LOG.finest(groupName + " has GroupCommHandler-" + groupCommNetworkHandler.toString());
     this.identifierFactory = netService.getIdentifierFactory();
     this.groupName = Utils.getClass(groupName);
     this.groupCommNetworkHandler = groupCommNetworkHandler;
+    this.commGroupNetworkHandler = commGroupNetworkHandler;
     this.sender = new Sender(netService);
     this.operators = new TreeMap<>(new Comparator<Class<? extends Name<String>>>() {
 
@@ -104,23 +106,18 @@ public class CommunicationGroupClientImpl implements CommunicationGroupServiceCl
       }
     });
     try {
-      this.commGroupNetworkHandler = Tang.Factory.getTang().newInjector().getInstance(CommGroupNetworkHandler.class);
       this.groupCommNetworkHandler.register(this.groupName, commGroupNetworkHandler);
 
       boolean operatorIsScatterSender = false;
       for (final String operatorConfigStr : operatorConfigs) {
 
         final Configuration operatorConfig = configSerializer.fromString(operatorConfigStr);
-        final Injector injector = Tang.Factory.getTang().newInjector(operatorConfig);
+        final Injector forkedInjector = injector.forkInjector(operatorConfig);
 
-        injector.bindVolatileParameter(TaskConfigurationOptions.Identifier.class, taskId);
-        injector.bindVolatileParameter(CommunicationGroupName.class, groupName);
-        injector.bindVolatileInstance(CommGroupNetworkHandler.class, commGroupNetworkHandler);
-        injector.bindVolatileInstance(NetworkService.class, netService);
-        injector.bindVolatileInstance(CommunicationGroupServiceClient.class, this);
+        forkedInjector.bindVolatileInstance(CommunicationGroupServiceClient.class, this);
 
-        final GroupCommOperator operator = injector.getInstance(GroupCommOperator.class);
-        final String operName = injector.getNamedInstance(OperatorName.class);
+        final GroupCommOperator operator = forkedInjector.getInstance(GroupCommOperator.class);
+        final String operName = forkedInjector.getNamedInstance(OperatorName.class);
         this.operators.put(Utils.getClass(operName), operator);
         LOG.finest(operName + " has CommGroupHandler-" + commGroupNetworkHandler.toString());
 

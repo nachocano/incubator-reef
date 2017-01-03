@@ -34,7 +34,6 @@ import org.apache.reef.wake.EStage;
 import org.apache.reef.wake.EventHandler;
 import org.apache.reef.wake.impl.SingleThreadStage;
 
-import javax.inject.Inject;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
@@ -62,7 +61,7 @@ public class OperatorTopologyImpl implements OperatorTopology {
 
   private OperatorTopologyStruct baseTopology;
   private OperatorTopologyStruct effectiveTopology;
-  private final ResettingCountDownLatch topologyLockAquired = new ResettingCountDownLatch(1);
+  private final ResettingCountDownLatch topologyLockAcquired = new ResettingCountDownLatch(1);
   private final AtomicBoolean updatingTopo = new AtomicBoolean(false);
 
   private final EventHandler<GroupCommunicationMessage> baseTopologyUpdateHandler = new BaseTopologyUpdateHandler();
@@ -79,7 +78,6 @@ public class OperatorTopologyImpl implements OperatorTopology {
       dataHandlingStageHandler,
       10000);
 
-  @Inject
   public OperatorTopologyImpl(final Class<? extends Name<String>> groupName,
                               final Class<? extends Name<String>> operName, final String selfId,
                               final String driverId, final Sender sender, final int version) {
@@ -103,18 +101,18 @@ public class OperatorTopologyImpl implements OperatorTopology {
    * received TopologySetup but not yet created the effectiveTopology.
    * Most times the msgs in the deletionDeltas will be discarded as stale
    * msgs
-   * <p/>
+   * <p>
    * No synchronization is needed while handling *Dead messages.
-   * There 2 states: UpdatingTopo & NotUpdatingTopo
+   * There 2 states: UpdatingTopo and NotUpdatingTopo
    * If UpdatingTopo, deltas.put still takes care of adding this msg to effTop through baseTopo changes.
    * If not, we add to effTopo. So we are good.
-   * <p/>
+   * <p>
    * However, for data msgs synchronization is needed. Look at doc of
    * DataHandlingStage
-   * <p/>
+   * <p>
    * Adding to deletionDeltas should be outside
    * effTopo!=null block. There is a rare possibility that during initialization
-   * just after baseTopo is created(so deltas will be ignored) & just before
+   * just after baseTopo is created(so deltas will be ignored) and just before
    * effTopo is created(so effTopo will be null) where we can miss a deletion
    * msg if not added to deletionDelta because this method is synchronized
    */
@@ -127,8 +125,8 @@ public class OperatorTopologyImpl implements OperatorTopology {
         case UpdateTopology:
           updatingTopo.set(true);
           baseTopologyUpdateStage.onNext(msg);
-          topologyLockAquired.awaitAndReset(1);
-          LOG.finest(getQualifiedName() + "topoLockAquired CDL released. Resetting it to new CDL");
+          topologyLockAcquired.awaitAndReset(1);
+          LOG.finest(getQualifiedName() + "topoLockAcquired CDL released. Resetting it to new CDL");
           sendAckToDriver(msg);
           break;
 
@@ -201,7 +199,7 @@ public class OperatorTopologyImpl implements OperatorTopology {
       throws ParentDeadException {
     LOG.entering("OperatorTopologyImpl", "sendToParent", new Object[] {getQualifiedName(), msgType});
     refreshEffectiveTopology();
-    assert (effectiveTopology != null);
+    assert effectiveTopology != null;
     effectiveTopology.sendToParent(data, msgType);
     LOG.exiting("OperatorTopologyImpl", "sendToParent", getQualifiedName());
   }
@@ -211,7 +209,7 @@ public class OperatorTopologyImpl implements OperatorTopology {
       throws ParentDeadException {
     LOG.entering("OperatorTopologyImpl", "sendToChildren", new Object[]{getQualifiedName(), msgType});
     refreshEffectiveTopology();
-    assert (effectiveTopology != null);
+    assert effectiveTopology != null;
     effectiveTopology.sendToChildren(data, msgType);
     LOG.exiting("OperatorTopologyImpl", "sendToChildren", getQualifiedName());
   }
@@ -222,7 +220,7 @@ public class OperatorTopologyImpl implements OperatorTopology {
       throws ParentDeadException {
     LOG.entering("OperatorTopologyImpl", "sendToChildren", new Object[]{getQualifiedName(), msgType});
     refreshEffectiveTopology();
-    assert (effectiveTopology != null);
+    assert effectiveTopology != null;
     effectiveTopology.sendToChildren(dataMap, msgType);
     LOG.exiting("OperatorTopologyImpl", "sendToChildren", getQualifiedName());
   }
@@ -232,7 +230,7 @@ public class OperatorTopologyImpl implements OperatorTopology {
       throws ParentDeadException {
     LOG.entering("OperatorTopologyImpl", "recvFromParent", new Object[] {getQualifiedName(), msgType});
     refreshEffectiveTopology();
-    assert (effectiveTopology != null);
+    assert effectiveTopology != null;
     final byte[] retVal = effectiveTopology.recvFromParent(msgType);
     LOG.exiting("OperatorTopologyImpl", "recvFromParent", getQualifiedName());
     return retVal;
@@ -243,7 +241,7 @@ public class OperatorTopologyImpl implements OperatorTopology {
       throws ParentDeadException {
     LOG.entering("OperatorTopologyImpl", "recvFromChildren", getQualifiedName());
     refreshEffectiveTopology();
-    assert (effectiveTopology != null);
+    assert effectiveTopology != null;
     final T retVal = effectiveTopology.recvFromChildren(redFunc, dataCodec);
     LOG.exiting("OperatorTopologyImpl", "recvFromChildren", getQualifiedName());
     return retVal;
@@ -253,7 +251,7 @@ public class OperatorTopologyImpl implements OperatorTopology {
   public byte[] recvFromChildren() throws ParentDeadException {
     LOG.entering("OperatorTopologyImpl", "recvFromChildren", getQualifiedName());
     refreshEffectiveTopology();
-    assert (effectiveTopology != null);
+    assert effectiveTopology != null;
     final byte[] retVal = effectiveTopology.recvFromChildren();
     LOG.exiting("OperatorTopologyImpl", "recvFromChildren", getQualifiedName());
     return retVal;
@@ -271,7 +269,7 @@ public class OperatorTopologyImpl implements OperatorTopology {
     synchronized (topologyLock) {
       LOG.finest(getQualifiedName() + "Acquired topoLock");
 
-      assert (effectiveTopology != null);
+      assert effectiveTopology != null;
 
       final Set<GroupCommunicationMessage> deletionDeltasSet = new HashSet<>();
       copyDeletionDeltas(deletionDeltasSet);
@@ -296,7 +294,7 @@ public class OperatorTopologyImpl implements OperatorTopology {
   /**
    * Blocking method that waits till the base topology is updated Unblocks when.
    * we receive a TopologySetup msg from driver
-   * <p/>
+   * <p>
    * Will also update the effective topology when the base topology is updated
    * so that creation of effective topology is limited to just this method and
    * refresh will only refresh the effective topology with deletion msgs from
@@ -310,7 +308,7 @@ public class OperatorTopologyImpl implements OperatorTopology {
     synchronized (topologyLock) {
       LOG.finest(getQualifiedName() + "Acquired topoLock");
       try {
-        assert (baseTopology != null);
+        assert baseTopology != null;
         LOG.finest(getQualifiedName() + "Updating base topology. So setting dirty bit");
         baseTopology.setChanges(true);
 
@@ -329,7 +327,7 @@ public class OperatorTopologyImpl implements OperatorTopology {
             throw new ParentDeadException(getQualifiedName()
                 + "Parent dead. Current behavior is for the child to die too.");
           } else {
-            LOG.finest(getQualifiedName() + "Updating basetopology struct");
+            LOG.finest(getQualifiedName() + "Updating baseTopology struct");
             baseTopology.update(msg);
             sendAckToDriver(msg);
           }
@@ -392,8 +390,8 @@ public class OperatorTopologyImpl implements OperatorTopology {
 
   private void updateEffTopologyFromBaseTopology() {
     LOG.entering("OperatorTopologyImpl", "updateEffTopologyFromBaseTopology", getQualifiedName());
-    assert (baseTopology != null);
-    LOG.finest(getQualifiedName() + "Updaing effective topology");
+    assert baseTopology != null;
+    LOG.finest(getQualifiedName() + "Updating effective topology");
     if (baseTopology.hasChanges()) {
       //Create effectiveTopology from baseTopology
       effectiveTopology = new OperatorTopologyStructImpl(baseTopology);
@@ -428,7 +426,7 @@ public class OperatorTopologyImpl implements OperatorTopology {
    * Unlike Dead msgs this needs to be synchronized because data msgs are not
    * routed through the base topo changes So we need to make sure to wait for
    * updateTopo to complete and for the new effective topo to take effect. Hence
-   * updatinTopo is set to false in refreshEffTopo. Also, since this is called
+   * updatingTopo is set to false in refreshEffTopo. Also, since this is called
    * from a netty IO thread, we need to create a stage to move the msgs from
    * netty space to application space and release the netty threads. Otherwise
    * weird deadlocks can happen Ex: Sent model to k nodes using broadcast. Send
@@ -447,12 +445,12 @@ public class OperatorTopologyImpl implements OperatorTopology {
           dataMsg});
       LOG.finest(getQualifiedName() + "Waiting to acquire topoLock");
       synchronized (topologyLock) {
-        LOG.finest(getQualifiedName() + "Aqcuired topoLock");
+        LOG.finest(getQualifiedName() + "Acquired topoLock");
         while (updatingTopo.get()) {
           try {
             LOG.finest(getQualifiedName() + "Topology is being updated. Released topoLock, Waiting on topoLock");
             topologyLock.wait();
-            LOG.finest(getQualifiedName() + "Aqcuired topoLock");
+            LOG.finest(getQualifiedName() + "Acquired topoLock");
           } catch (final InterruptedException e) {
             throw new RuntimeException("InterruptedException while data handling"
                 + "stage was waiting for updatingTopo to become false", e);
@@ -474,14 +472,14 @@ public class OperatorTopologyImpl implements OperatorTopology {
   private final class BaseTopologyUpdateHandler implements EventHandler<GroupCommunicationMessage> {
     @Override
     public void onNext(final GroupCommunicationMessage msg) {
-      assert (msg.getType() == ReefNetworkGroupCommProtos.GroupCommMessage.Type.UpdateTopology);
-      assert (effectiveTopology != null);
+      assert msg.getType() == ReefNetworkGroupCommProtos.GroupCommMessage.Type.UpdateTopology;
+      assert effectiveTopology != null;
       LOG.entering("OperatorTopologyImpl.BaseTopologyUpdateHandler", "onNext", new Object[]{getQualifiedName(), msg});
       LOG.finest(getQualifiedName() + "Waiting to acquire topoLock");
       synchronized (topologyLock) {
         LOG.finest(getQualifiedName() + "Acquired topoLock");
-        LOG.finest(getQualifiedName() + "Releasing topoLoackAcquired CDL");
-        topologyLockAquired.countDown();
+        LOG.finest(getQualifiedName() + "Releasing topoLockAcquired CDL");
+        topologyLockAcquired.countDown();
         try {
           updateBaseTopology();
           LOG.finest(getQualifiedName() + "Completed updating base & effective topologies");

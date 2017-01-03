@@ -20,6 +20,7 @@ package org.apache.reef.driver.evaluator;
 
 import org.apache.reef.annotations.Provided;
 import org.apache.reef.annotations.audience.DriverSide;
+import org.apache.reef.annotations.audience.Private;
 import org.apache.reef.annotations.audience.Public;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,20 +39,33 @@ public final class EvaluatorRequest {
   private final int cores;
   private final List<String> nodeNames;
   private final List<String> rackNames;
+  private final String runtimeName;
 
   EvaluatorRequest(final int number,
-      final int megaBytes,
-      final int cores,
-      final List<String> nodeNames,
-      final List<String> rackNames) {
+                   final int megaBytes,
+                   final int cores,
+                   final List<String> nodeNames,
+                   final List<String> rackNames) {
+    this(number, megaBytes, cores, nodeNames, rackNames, "");
+  }
+
+  EvaluatorRequest(final int number,
+                   final int megaBytes,
+                   final int cores,
+                   final List<String> nodeNames,
+                   final List<String> rackNames,
+                   final String runtimeName) {
     this.number = number;
     this.megaBytes = megaBytes;
     this.cores = cores;
     this.nodeNames = nodeNames;
     this.rackNames = rackNames;
+    this.runtimeName = runtimeName;
   }
 
   /**
+   * Get a new builder.
+   *
    * @return a new EvaluatorRequest Builder.
    */
   public static Builder newBuilder() {
@@ -59,6 +73,8 @@ public final class EvaluatorRequest {
   }
 
   /**
+   * Get a new builder from the existing request.
+   *
    * @return a new EvaluatorRequest Builder with settings initialized
    * from an existing request.
    */
@@ -85,6 +101,8 @@ public final class EvaluatorRequest {
   }
 
   /**
+   * Access the number of memory requested.
+   *
    * @return the minimum size of Evaluator requested.
    */
   public int getMegaBytes() {
@@ -92,6 +110,8 @@ public final class EvaluatorRequest {
   }
 
   /**
+   * Access the preferred node.
+   *
    * @return the node names that we prefer the Evaluator to run on
    */
   public List<String> getNodeNames() {
@@ -99,6 +119,8 @@ public final class EvaluatorRequest {
   }
 
   /**
+   * Access the preferred rack name.
+   *
    * @return the rack names that we prefer the Evaluator to run on
    */
   public List<String> getRackNames() {
@@ -106,29 +128,41 @@ public final class EvaluatorRequest {
   }
 
   /**
+   * Access the required runtime name.
+   *
+   * @return the runtime name that we need the Evaluator to run on
+   */
+  public String getRuntimeName() {
+    return runtimeName;
+  }
+
+  /**
    * {@link EvaluatorRequest}s are build using this Builder.
    */
-  public static final class Builder implements org.apache.reef.util.Builder<EvaluatorRequest> {
+  public static class Builder<T extends Builder> implements org.apache.reef.util.Builder<EvaluatorRequest> {
 
     private int n = 1;
     private int megaBytes = -1;
     private int cores = 1; //if not set, default to 1
     private final List<String> nodeNames = new ArrayList<>();
     private final List<String> rackNames = new ArrayList<>();
+    private String runtimeName = "";
 
-    private Builder() {
+    @Private
+    public Builder() {
     }
 
     /**
      * Pre-populates the builder with the values extracted from the request.
      *
-     * @param request
-     *          the request
+     * @param request the request
+     * @return this Builder
      */
     private Builder(final EvaluatorRequest request) {
       setNumber(request.getNumber());
       setMemory(request.getMegaBytes());
       setNumberOfCores(request.getNumberOfCores());
+      setRuntimeName(request.getRuntimeName());
       for (final String nodeName : request.getNodeNames()) {
         addNodeName(nodeName);
       }
@@ -138,47 +172,64 @@ public final class EvaluatorRequest {
     }
 
     /**
+     * Set the amount of memory.
+     *
      * @param megaBytes the amount of megabytes to request for the Evaluator.
      * @return this builder
      */
     @SuppressWarnings("checkstyle:hiddenfield")
-    public Builder setMemory(final int megaBytes) {
+    public T setMemory(final int megaBytes) {
       this.megaBytes = megaBytes;
-      return this;
+      return (T) this;
     }
 
     /**
-     * set number of cores.
+     * Set the name of the desired runtime.
      *
-     * @param cores the number of cores
-     * @return
+     * @param runtimeName to request for the Evaluator.
+     * @return this builder
      */
     @SuppressWarnings("checkstyle:hiddenfield")
-    public Builder setNumberOfCores(final int cores) {
+    public T setRuntimeName(final String runtimeName) {
+      this.runtimeName = runtimeName;
+      return (T) this;
+    }
+
+    /**
+     * Set number of cores.
+     *
+     * @param cores the number of cores
+     * @return this Builder.
+     */
+    @SuppressWarnings("checkstyle:hiddenfield")
+    public T setNumberOfCores(final int cores) {
       this.cores = cores;
-      return this;
+      return (T) this;
     }
 
     /**
      * Set the number of Evaluators requested.
      *
-     * @param n
+     * @param n the number of evaluators
      * @return this Builder.
      */
     @SuppressWarnings("checkstyle:hiddenfield")
-    public Builder setNumber(final int n) {
+    public T setNumber(final int n) {
       this.n = n;
-      return this;
+      return (T) this;
     }
 
     /**
      * Adds a node name.It is the preferred location where the evaluator should
      * run on. If the node is available, the RM will try to allocate the
      * evaluator there
+     *
+     * @param nodeName a preferred node name
+     * @return this Builder.
      */
-    public Builder addNodeName(final String nodeName) {
+    public T addNodeName(final String nodeName) {
       this.nodeNames.add(nodeName);
-      return this;
+      return (T) this;
     }
 
     /**
@@ -186,10 +237,13 @@ public final class EvaluatorRequest {
      * run on. If the rack is available, the RM will try to allocate the
      * evaluator in one of its nodes. The RM will try to match node names first,
      * and then fallback to rack names
+     *
+     * @param rackName a preferred rack name
+     * @return this Builder.
      */
-    public Builder addRackName(final String rackName) {
+    public T addRackName(final String rackName) {
       this.rackNames.add(rackName);
-      return this;
+      return (T) this;
     }
 
     /**
@@ -197,7 +251,7 @@ public final class EvaluatorRequest {
      */
     @Override
     public EvaluatorRequest build() {
-      return new EvaluatorRequest(this.n, this.megaBytes, this.cores, this.nodeNames, this.rackNames);
+      return new EvaluatorRequest(this.n, this.megaBytes, this.cores, this.nodeNames, this.rackNames, this.runtimeName);
     }
   }
 }

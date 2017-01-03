@@ -1,23 +1,20 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -27,14 +24,14 @@ using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
 {
-    public class ConstructorDefImpl : IConstructorDef
+    internal sealed class ConstructorDefImpl : IConstructorDef
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(ConstructorDefImpl));
 
         private readonly IList<IConstructorArg> args = new List<IConstructorArg>();
-        private readonly String className;
+        private readonly string className;
 
-        public ConstructorDefImpl(String className, IConstructorArg[] args, bool injectable)
+        public ConstructorDefImpl(string className, IConstructorArg[] args, bool injectable)
         {
             this.args = args;
             this.className = className;
@@ -60,12 +57,12 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             return args;
         }
 
-        public String GetClassName()
+        public string GetClassName()
         {
             return className;
         }
 
-        private String Join(String sep, Object[] vals)
+        private string Join(string sep, object[] vals)
         {
             if (vals.Length != 0)
             {
@@ -78,11 +75,11 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             }
             else
             {
-                return "";
+                return string.Empty;
             }
         }
 
-        public override String ToString()
+        public override string ToString()
         {
             StringBuilder sb = new StringBuilder(className);
             sb.Append("(");
@@ -106,10 +103,14 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
                         break;
                     }
                 }
+
                 // If not, then argument j from def is not in our list.  Return false.
                 if (found == false)
+                {
                     return false;
+                }
             }
+
             // Everything in def's arg list is in ours.  Do we have at least one extra
             // argument?
             return GetArgs().Count > def.GetArgs().Count;
@@ -142,12 +143,11 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
                 {
                     i++;
                 }
-
             }
             return true;
         }
 
-        public override bool Equals(Object o)
+        public override bool Equals(object o)
         {
             return EqualsIgnoreOrder((IConstructorDef)o);
         }
@@ -157,7 +157,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             return 0;
         }
 
-        //A(int i, string j) vs. A(string i, int j) is Ambiguous in injection
+        // A(int i, string j) vs. A(string i, int j) is Ambiguous in injection
         private bool EqualsIgnoreOrder(IConstructorDef def)
         {
             if (GetArgs().Count != def.GetArgs().Count)
@@ -188,7 +188,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             return ToString().CompareTo(o.ToString());
         }
 
-        public bool IsInList(IList<IConstructorDef> list )
+        public bool IsInList(IList<IConstructorDef> list)
         {
             foreach (IConstructorDef def in list)
             {
@@ -196,7 +196,6 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
                 {
                     return true;
                 }
-
             }
             return false;
         }

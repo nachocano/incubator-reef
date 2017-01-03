@@ -39,7 +39,7 @@ public final class HostnameBasedLocalAddressProvider implements LocalAddressProv
    */
   @Inject
   private HostnameBasedLocalAddressProvider() {
-    LOG.log(Level.INFO, "Instantiating HostnameBasedLocalAddressProvider");
+    LOG.log(Level.FINE, "Instantiating HostnameBasedLocalAddressProvider");
   }
 
   @Override
@@ -53,7 +53,7 @@ public final class HostnameBasedLocalAddressProvider implements LocalAddressProv
         throw new RuntimeException(message, ex);
       }
     }
-    assert (null != cached);
+    assert null != cached;
     return cached;
   }
 

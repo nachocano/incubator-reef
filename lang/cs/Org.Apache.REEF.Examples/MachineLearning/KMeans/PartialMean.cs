@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -55,7 +53,7 @@ namespace Org.Apache.REEF.Examples.MachineLearning.KMeans
             return new PartialMean(DataVector.FromString(parts[0]), int.Parse(parts[1], CultureInfo.InvariantCulture));
         }
 
-        public static DataVector AggreatedMean(List<PartialMean> means)
+        public static PartialMean AggregatedPartialMean(List<PartialMean> means)
         {
             if (means == null || means.Count == 0)
             {
@@ -66,7 +64,12 @@ namespace Org.Apache.REEF.Examples.MachineLearning.KMeans
             {
                 mean = mean.CombinePartialMean(means[i]);
             }
-            return mean.Mean;
+            return mean;
+        }
+
+        public static DataVector AggregatedMean(List<PartialMean> means)
+        {
+            return AggregatedPartialMean(means).Mean;
         }
 
         public static List<DataVector> AggregateTrueMeansToFileSystem(int partitionsNum, int clustersNum, string executionDirectory)
@@ -95,7 +98,7 @@ namespace Org.Apache.REEF.Examples.MachineLearning.KMeans
             for (int i = 0; i < clustersNum; i++)
             {
                 List<PartialMean> means = partialMeans.Where(m => m.Mean.Label == i).ToList();
-                newCentroids.Add(PartialMean.AggreatedMean(means));
+                newCentroids.Add(PartialMean.AggregatedMean(means));
             }
             return newCentroids;
         }
@@ -117,7 +120,7 @@ namespace Org.Apache.REEF.Examples.MachineLearning.KMeans
                 throw new ArgumentException("cannot combine partial means with different labels");
             }
             aggreatedMean.Size = Size + other.Size;
-            aggreatedMean.Mean = (Mean.MultiplyScalar(Size).Add(other.Mean.MultiplyScalar(other.Size))).Normalize(aggreatedMean.Size);
+            aggreatedMean.Mean = Mean.MultiplyScalar(Size).Add(other.Mean.MultiplyScalar(other.Size)).Normalize(aggreatedMean.Size);
             return aggreatedMean;
         }
     }

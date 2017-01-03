@@ -1,27 +1,27 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
+using Org.Apache.REEF.Utilities.Attributes;
 
 namespace Org.Apache.REEF.Driver
 {
-    public class DriverConfigurationSettings
+    [ClientSide]
+    public sealed class DriverConfigurationSettings
     {
         // default to "ReefDevClrBridge"
         private string _driverIdentifier = "ReefDevClrBridge";
@@ -29,10 +29,10 @@ namespace Org.Apache.REEF.Driver
         // default to _defaultSubmissionDirectory if not provided
         private string _submissionDirectory = "reefTmp/job_" + DateTime.Now.Millisecond;
 
-        // deault to 512MB if no value is provided
+        // default to 512MB if no value is provided
         private int _driverMemory = 512;
 
-        // folder path that constains clr dlls used by reef
+        // folder path that contains clr dlls used by reef
         private string _clrFolder = ".";
 
         // folder that contains jar File provided Byte REEF
@@ -58,7 +58,7 @@ namespace Org.Apache.REEF.Driver
             {
                 if (value < 0)
                 {
-                    throw new ArgumentException("driver memory cannot be negatvie value.");
+                    throw new ArgumentException("driver memory cannot be negative value.");
                 }
                 _driverMemory = value;
             }
@@ -99,7 +99,7 @@ namespace Org.Apache.REEF.Driver
 
         /// <summary>
         /// Driver job submission directory in (H)DFS where jar file shall be uploaded, default to a tmp directory with GUID name
-        /// If set by CLR user, the user must guarantee the uniquness of the directory across multiple jobs
+        /// If set by CLR user, the user must guarantee the uniqueness of the directory across multiple jobs
         /// </summary>
         public string SubmissionDirectory
         {

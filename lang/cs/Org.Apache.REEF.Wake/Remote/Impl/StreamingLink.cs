@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Net;
@@ -36,7 +34,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
     /// <typeparam name="T">Generic Type of message.</typeparam>
     internal sealed class StreamingLink<T> : ILink<T>
     {
-        private static readonly Logger Logger = Logger.GetLogger(typeof (StreamingLink<T>));
+        private static readonly Logger Logger = Logger.GetLogger(typeof(StreamingLink<T>));
 
         private readonly IPEndPoint _localEndpoint;
         private bool _disposed;
@@ -59,16 +57,15 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         /// </summary>
         /// <param name="remoteEndpoint">The remote endpoint to connect to</param>
         /// <param name="streamingCodec">Streaming codec</param>
-        internal StreamingLink(IPEndPoint remoteEndpoint, IStreamingCodec<T> streamingCodec)
+        /// <param name="tcpClientFactory">TcpClient factory</param>
+        internal StreamingLink(IPEndPoint remoteEndpoint, IStreamingCodec<T> streamingCodec, ITcpClientConnectionFactory tcpClientFactory)
         {
             if (remoteEndpoint == null)
             {
                 throw new ArgumentNullException("remoteEndpoint");
             }
 
-            _client = new TcpClient();
-            _client.Connect(remoteEndpoint);
-
+            _client = tcpClientFactory.Connect(remoteEndpoint);
             var stream = _client.GetStream();
             _localEndpoint = GetLocalEndpoint();
             _disposed = false;
@@ -112,7 +109,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         /// </summary>
         public IPEndPoint RemoteEndpoint
         {
-            get { return (IPEndPoint) _client.Client.RemoteEndPoint; }
+            get { return (IPEndPoint)_client.Client.RemoteEndPoint; }
         }
 
         /// <summary>
@@ -127,7 +124,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
             }
             if (_disposed)
             {
-                Exceptions.Throw(new IllegalStateException("Link has been closed."), Logger);
+                Exceptions.Throw(new IllegalStateException("StreamingLink has been closed."), Logger);
             }
 
             _streamingCodec.Write(value, _writer);
@@ -142,7 +139,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         {
             if (_disposed)
             {
-                Exceptions.Throw(new IllegalStateException("Link has been closed."), Logger);
+                Exceptions.Throw(new IllegalStateException("StreamingLink has been closed."), Logger);
             }
 
             await _streamingCodec.WriteAsync(value, _writer, token);
@@ -165,8 +162,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
             }
             catch (Exception e)
             {
-                Logger.Log(Level.Warning, "In Read function unable to read the message.");
-                Exceptions.CaughtAndThrow(e, Level.Error, Logger);
+                Logger.Log(Level.Warning, "In StreamingLink::Read function unable to read the message {0}.", e.GetType());
                 throw;
             }
         }
@@ -189,8 +185,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
             }
             catch (Exception e)
             {
-                Logger.Log(Level.Warning, "In ReadAsync function unable to read the message.");
-                Exceptions.CaughtAndThrow(e, Level.Error, Logger);
+                Logger.Log(Level.Warning, "In StreamingLink::ReadAsync function unable to read the message, {0}.", e.GetType());
                 throw;
             }
         }
@@ -251,7 +246,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         private IPEndPoint GetLocalEndpoint()
         {
             IPAddress address = NetworkUtils.LocalIPAddress;
-            int port = ((IPEndPoint) _client.Client.LocalEndPoint).Port;
+            int port = ((IPEndPoint)_client.Client.LocalEndPoint).Port;
             return new IPEndPoint(address, port);
         }
     }

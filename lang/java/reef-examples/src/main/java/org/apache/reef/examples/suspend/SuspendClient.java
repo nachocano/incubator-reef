@@ -33,6 +33,9 @@ import java.io.IOException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Client for suspend example.
+ */
 @Unit
 public class SuspendClient {
 
@@ -130,7 +133,7 @@ public class SuspendClient {
 
   /**
    * Receive notification from the driver that the job had failed.
-   * <p/>
+   * <p>
    * FailedJob is a proxy for the failed job driver
    * (contains job ID and exception thrown from the driver).
    */
@@ -164,7 +167,7 @@ public class SuspendClient {
     @Override
     public void onNext(final FailedRuntime error) {
       LOG.log(Level.SEVERE, "ERROR: " + error, error.getReason().orElse(null));
-      synchronized (SuspendClient.class) {
+      synchronized (SuspendClient.this) {
         SuspendClient.this.notify();
       }
     }

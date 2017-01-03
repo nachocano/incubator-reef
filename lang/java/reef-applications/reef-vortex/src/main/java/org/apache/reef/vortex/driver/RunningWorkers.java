@@ -25,11 +25,12 @@ import org.apache.reef.util.Optional;
 
 import javax.inject.Inject;
 
-import java.io.Serializable;
 import java.util.*;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Keeps track of all running VortexWorkers and Tasklets.
@@ -38,8 +39,12 @@ import java.util.concurrent.locks.ReentrantLock;
 @ThreadSafe
 @DriverSide
 final class RunningWorkers {
+  private static final Logger LOG = Logger.getLogger(RunningWorkers.class.getName());
+
   // RunningWorkers and its locks
   private final HashMap<String, VortexWorkerManager> runningWorkers = new HashMap<>(); // Running workers/tasklets
+  private final Set<Integer> taskletsToCancel = new HashSet<>();
+
   private final Lock lock = new ReentrantLock();
   private final Condition noWorkerOrResource = lock.newCondition();
 
@@ -52,12 +57,18 @@ final class RunningWorkers {
   // Scheduling policy
   private final SchedulingPolicy schedulingPolicy;
 
+  private final AggregateFunctionRepository aggregateFunctionRepository;
+
+  private final Map<String, Set<Integer>> workerAggregateFunctionMap = new HashMap<>();
+
   /**
    * RunningWorkers constructor.
    */
   @Inject
-  RunningWorkers(final SchedulingPolicy schedulingPolicy) {
+  RunningWorkers(final SchedulingPolicy schedulingPolicy,
+                 final AggregateFunctionRepository aggregateFunctionRepository) {
     this.schedulingPolicy = schedulingPolicy;
+    this.aggregateFunctionRepository = aggregateFunctionRepository;
   }
 
   /**
@@ -71,6 +82,7 @@ final class RunningWorkers {
         if (!removedBeforeAddedWorkers.contains(vortexWorkerManager.getId())) {
           this.runningWorkers.put(vortexWorkerManager.getId(), vortexWorkerManager);
           this.schedulingPolicy.workerAdded(vortexWorkerManager);
+          this.workerAggregateFunctionMap.put(vortexWorkerManager.getId(), new HashSet<Integer>());
 
           // Notify (possibly) waiting scheduler
           noWorkerOrResource.signal();
@@ -106,7 +118,11 @@ final class RunningWorkers {
         return Optional.empty();
       }
     } finally {
-      lock.unlock();
+      try {
+        workerAggregateFunctionMap.remove(id);
+      } finally {
+        lock.unlock();
+      }
     }
   }
 
@@ -132,9 +148,55 @@ final class RunningWorkers {
           }
         }
 
+        // TODO[JIRA REEF-500]: Will need to support duplicate tasklets.
+        if (taskletsToCancel.contains(tasklet.getId())) {
+          tasklet.cancelled();
+          taskletsToCancel.remove(tasklet.getId());
+          LOG.log(Level.FINE, "Cancelled tasklet {0}.", tasklet.getId());
+          return;
+        }
+
+        final Optional<Integer> taskletAggFunctionId =  tasklet.getAggregateFunctionId();
         final VortexWorkerManager vortexWorkerManager = runningWorkers.get(workerId.get());
+
+        if (taskletAggFunctionId.isPresent() &&
+            !workerHasAggregateFunction(vortexWorkerManager.getId(), taskletAggFunctionId.get())) {
+
+          // This assumes that all aggregate tasklets share the same user function.
+          vortexWorkerManager.sendAggregateFunction(
+              taskletAggFunctionId.get(),
+              aggregateFunctionRepository.getAggregateFunction(taskletAggFunctionId.get()),
+              tasklet.getUserFunction(),
+              aggregateFunctionRepository.getPolicy(taskletAggFunctionId.get()));
+          workerAggregateFunctionMap.get(vortexWorkerManager.getId()).add(taskletAggFunctionId.get());
+        }
+
         vortexWorkerManager.launchTasklet(tasklet);
         schedulingPolicy.taskletLaunched(vortexWorkerManager, tasklet);
+      }
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
+   * Concurrency: Called by multiple threads.
+   * Parameter: Same taskletId can come in multiple times.
+   */
+  void cancelTasklet(final boolean mayInterruptIfRunning, final int taskletId) {
+    lock.lock();
+    try {
+      // This is not ideal since we are using a linear time search on all the workers.
+      final String workerId = getWhereTaskletWasScheduledTo(taskletId);
+      if (workerId == null) {
+        // launchTasklet called but not yet running.
+        taskletsToCancel.add(taskletId);
+        return;
+      }
+
+      if (mayInterruptIfRunning) {
+        LOG.log(Level.FINE, "Cancelling running Tasklet with ID {0}.", taskletId);
+        runningWorkers.get(workerId).cancelTasklet(taskletId);
       }
     } finally {
       lock.unlock();
@@ -146,45 +208,18 @@ final class RunningWorkers {
    * Parameter: Same arguments can come in multiple times.
    * (e.g. preemption message coming before tasklet completion message multiple times)
    */
-  void completeTasklet(final String workerId,
-                       final int taskletId,
-                       final Serializable result) {
+  void doneTasklets(final String workerId, final List<Integer> taskletIds) {
     lock.lock();
     try {
-      if (!terminated) {
-        if (runningWorkers.containsKey(workerId)) { // Preemption can come before
-          final VortexWorkerManager worker = this.runningWorkers.get(workerId);
-          final Tasklet tasklet = worker.taskletCompleted(taskletId, result);
-          this.schedulingPolicy.taskletCompleted(worker, tasklet);
+      if (!terminated && runningWorkers.containsKey(workerId)) { // Preemption can come before
+        final VortexWorkerManager worker = this.runningWorkers.get(workerId);
+        final List<Tasklet> tasklets = worker.taskletsDone(taskletIds);
+        this.schedulingPolicy.taskletsDone(worker, tasklets);
 
-          // Notify (possibly) waiting scheduler
-          noWorkerOrResource.signal();
-        }
-      }
-    } finally {
-      lock.unlock();
-    }
-  }
+        taskletsToCancel.removeAll(taskletIds); // cleanup to prevent memory leak.
 
-  /**
-   * Concurrency: Called by multiple threads.
-   * Parameter: Same arguments can come in multiple times.
-   * (e.g. preemption message coming before tasklet error message multiple times)
-   */
-  void errorTasklet(final String workerId,
-                    final int taskletId,
-                    final Exception exception) {
-    lock.lock();
-    try {
-      if (!terminated) {
-        if (runningWorkers.containsKey(workerId)) { // Preemption can come before
-          final VortexWorkerManager worker = this.runningWorkers.get(workerId);
-          final Tasklet tasklet = worker.taskletThrewException(taskletId, exception);
-          this.schedulingPolicy.taskletFailed(worker, tasklet);
-
-          // Notify (possibly) waiting scheduler
-          noWorkerOrResource.signal();
-        }
+        // Notify (possibly) waiting scheduler
+        noWorkerOrResource.signal();
       }
     } finally {
       lock.unlock();
@@ -213,17 +248,8 @@ final class RunningWorkers {
     return terminated;
   }
 
-  ///////////////////////////////////////// For Tests Only
-
   /**
-   * For unit tests to check whether the worker is running.
-   */
-  boolean isWorkerRunning(final String workerId) {
-    return runningWorkers.containsKey(workerId);
-  }
-
-  /**
-   * For unit tests to see where a tasklet is scheduled to.
+   * Find where a tasklet is scheduled to.
    * @param taskletId id of the tasklet in question
    * @return id of the worker (null if the tasklet was not scheduled to any worker)
    */
@@ -236,5 +262,27 @@ final class RunningWorkers {
       }
     }
     return null;
+  }
+
+  ///////////////////////////////////////// For Tests Only
+
+  /**
+   * For unit tests to check whether the worker is running.
+   */
+  boolean isWorkerRunning(final String workerId) {
+    return runningWorkers.containsKey(workerId);
+  }
+
+  /**
+   * @return true if Vortex has sent the aggregation function to the worker specified by workerId
+   */
+  private boolean workerHasAggregateFunction(final String workerId, final int aggregateFunctionId) {
+    if (!workerAggregateFunctionMap.containsKey(workerId)) {
+      LOG.log(Level.WARNING, "Trying to look up a worker's aggregation function for a worker with an ID that has " +
+          "not yet been added.");
+      return false;
+    }
+
+    return workerAggregateFunctionMap.get(workerId).contains(aggregateFunctionId);
   }
 }

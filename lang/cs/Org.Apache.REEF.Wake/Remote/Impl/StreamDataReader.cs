@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.IO;
@@ -29,9 +27,9 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
     /// <summary>
     /// Class with functions to Read from stream
     /// </summary>
-    public class StreamDataReader : IDataReader
+    public sealed class StreamDataReader : IDataReader
     {
-        Logger Logger = Logger.GetLogger(typeof(StreamDataReader));
+        private static readonly Logger Logger = Logger.GetLogger(typeof(StreamDataReader));
         
         /// <summary>
         /// Stream from which to read
@@ -91,7 +89,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         public long ReadLong()
         {
             byte[] longBytes = new byte[sizeof(long)];
-            int readBytes = Read(ref longBytes, 0, sizeof (long));
+            int readBytes = Read(ref longBytes, 0, sizeof(long));
 
             if (readBytes == -1)
             {
@@ -123,7 +121,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         public int ReadInt32()
         {
             byte[] intBytes = new byte[sizeof(int)];
-            int readBytes = Read(ref intBytes, 0, sizeof (int));
+            int readBytes = Read(ref intBytes, 0, sizeof(int));
 
             if (readBytes == -1)
             {
@@ -139,8 +137,8 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         /// <returns>read short</returns>
         public short ReadInt16()
         {
-            byte[] intBytes = new byte[sizeof(Int16)];
-            int readBytes = Read(ref intBytes, 0, sizeof(Int16));
+            byte[] intBytes = new byte[sizeof(short)];
+            int readBytes = Read(ref intBytes, 0, sizeof(short));
 
             if (readBytes == -1)
             {
@@ -243,7 +241,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         public async Task<long> ReadLongAsync(CancellationToken token)
         {
             byte[] longBytes = new byte[sizeof(long)];
-            int readBytes = await ReadAsync(longBytes, 0, sizeof (long), token);
+            int readBytes = await ReadAsync(longBytes, 0, sizeof(long), token);
 
             if (readBytes == -1)
             {
@@ -277,7 +275,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         public async Task<int> ReadInt32Async(CancellationToken token)
         {
             byte[] intBytes = new byte[sizeof(int)];
-            int readBytes = await ReadAsync(intBytes, 0, sizeof (int), token);
+            int readBytes = await ReadAsync(intBytes, 0, sizeof(int), token);
 
             if (readBytes == -1)
             {
@@ -293,8 +291,8 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         /// <returns>Task handler that reads short</returns>
         public async Task<short> ReadInt16Async(CancellationToken token)
         {
-            byte[] intBytes = new byte[sizeof(Int16)];
-            int readBytes = await ReadAsync(intBytes, 0, sizeof (Int16), token);
+            byte[] intBytes = new byte[sizeof(short)];
+            int readBytes = await ReadAsync(intBytes, 0, sizeof(short), token);
 
             if (readBytes == -1)
             {

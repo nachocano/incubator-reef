@@ -62,8 +62,15 @@ public final class VortexMasterConf extends ConfigurationModuleBuilder {
   /**
    * Number of Vortex Start Threads.
    */
-  @NamedParameter(doc = "Number of Vortex Start Threads")
+  @NamedParameter(doc = "Number of Vortex Start Threads", default_value = "1")
   final class NumberOfVortexStartThreads implements Name<Integer> {
+  }
+
+  /**
+   * Size of threadpool for callbacks on {@link org.apache.reef.vortex.api.VortexFuture}.
+   */
+  @NamedParameter(doc = "Size of threadpool for callbacks on VortexFuture.", default_value = "10")
+  final class CallbackThreadPoolSize implements Name<Integer> {
   }
 
   /**
@@ -94,7 +101,12 @@ public final class VortexMasterConf extends ConfigurationModuleBuilder {
   /**
    * Number of Vortex Start threads.
    */
-  public static final RequiredParameter<Integer> NUM_OF_VORTEX_START_THERAD = new RequiredParameter<>();
+  public static final OptionalParameter<Integer> NUM_OF_VORTEX_START_THREAD = new OptionalParameter<>();
+
+  /**
+   * Size of threadpool for callbacks on VortexFuture.
+   */
+  public static final OptionalParameter<Integer> FUTURE_CALLBACK_THREAD_POOL_SIZE = new OptionalParameter<>();
 
   /**
    * Vortex Master configuration.
@@ -105,6 +117,7 @@ public final class VortexMasterConf extends ConfigurationModuleBuilder {
       .bindNamedParameter(WorkerCores.class, WORKER_CORES)
       .bindNamedParameter(WorkerCapacity.class, WORKER_CAPACITY)
       .bindImplementation(VortexStart.class, VORTEX_START)
-      .bindNamedParameter(NumberOfVortexStartThreads.class, NUM_OF_VORTEX_START_THERAD)
+      .bindNamedParameter(NumberOfVortexStartThreads.class, NUM_OF_VORTEX_START_THREAD)
+      .bindNamedParameter(CallbackThreadPoolSize.class, FUTURE_CALLBACK_THREAD_POOL_SIZE)
       .build();
 }

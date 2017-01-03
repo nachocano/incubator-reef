@@ -26,7 +26,7 @@ Background
 ----------
 Wake applications consist of asynchronous *event handlers* that run inside of *stages*.  Stages provide scheduling primitives such as thread pool sizing and performance isolation between event handlers.  In addition to event handler and stage APIs, Wake includes profiling tools and a rich standard library of primitives for system builders.
 
-Event driven processing frameworks improve upon the performance of threaded architectures in two ways: (1) Event handlers often have lower memory and context switching overhead than threaded solutions, and (2) event driven systems allow applications to allocate and monitor computational and I/O resources in an extremely fine-grained fashion.  Modern threading packages have done much to address the first concern, and have significantly lowered concurrency control and other implementation overheads in recent years.  However, fine grained resource allocation remains a challenge in threaded systems, and is Wake's primary advantage over threading.
+Event driven processing frameworks improve upon the performance of threaded architectures in two ways: (1) event handlers often have lower memory and context switching overhead than threaded solutions, and (2) event driven systems allow applications to allocate and monitor computational and I/O resources in an extremely fine-grained fashion.  Modern threading packages have done much to address the first concern, and have significantly lowered concurrency control and other implementation overheads in recent years.  However, fine-grained resource allocation remains a challenge in threaded systems, and is Wake's primary advantage over threading.
 
 Early event driven systems such as SEDA executed each event handler in a dedicated thread pool called a stage.  This isolated low-latency event handlers (such as cache lookups) from expensive high-latency operations, such as disk I/O.  With a single thread pool, high-latency I/O operations can easily monopolize the thread pool, causing all of the CPUs to block on disk I/O, even when there is computation to be scheduled.  With separate thread pools, the operating system schedules I/O requests and computation separately, guaranteeing that runnable computations will not block on I/O requests.
 
@@ -50,7 +50,7 @@ Core API
 
 ### Event Handlers
 
-Wake provides two APIs for event handler implementations.  The first is the [EventHandler](https://github.com/apache/incubator-reef/blob/master/reef-wake/wake/src/main/java/org/apache/reef/wake/EventHandler.java) interface:
+Wake provides two APIs for event handler implementations.  The first is the [EventHandler](https://github.com/apache/reef/blob/master/lang/java/reef-wake/wake/src/main/java/org/apache/reef/wake/EventHandler.java) interface:
 
     public interface EventHandler<T> {
       void onNext(T value);
@@ -58,7 +58,7 @@ Wake provides two APIs for event handler implementations.  The first is the [Eve
 
 Callers of `onNext()` should assume that it is asynchronous, and that it always succeeds.  Unrecoverable errors should be reported by throwing a runtime exception (which should not be caught, and will instead take down the process).  Recoverable errors are reported by invoking an event handler that contains the appropriate error handling logic.
 
-The latter approach can be implemented by registering separate event handlers for each type of error.  However, for convenience, it is formalized in Wake's simplified version of the Rx [Observer](https://github.com/apache/incubator-reef/blob/master/reef-wake/wake/src/main/java/org/apache/reef/wake/rx/Observer.java) interface:
+The latter approach can be implemented by registering separate event handlers for each type of error.  However, for convenience, it is formalized in Wake's simplified version of the Rx [Observer](https://github.com/apache/reef/blob/master/lang/java/reef-wake/wake/src/main/java/org/apache/reef/wake/rx/Observer.java) interface:
     
     public interface Observer<T> {
       void onNext(final T value);
@@ -66,7 +66,7 @@ The latter approach can be implemented by registering separate event handlers fo
       void onCompleted();
     }
 
-The `Observer` is designed for stateful event handlers that need to be explicitly torn down at exit, or when errors occor.  Such event handlers may maintain open network sockets, write to disk, buffer output, and so on.  As with `onNext()`, neither `onError()` nor `onCompleted()` throw exceptions.  Instead, callers should assume that they are asynchronously invoked.
+The `Observer` is designed for stateful event handlers that need to be explicitly torn down at exit, or when errors occur.  Such event handlers may maintain open network sockets, write to disk, buffer output, and so on.  As with `onNext()`, neither `onError()` nor `onCompleted()` throw exceptions.  Instead, callers should assume that they are asynchronously invoked.
 
 `EventHandler` and `Observer` implementations should be threadsafe and handle concurrent invocations of `onNext()`.  However, it is illegal to call `onCompleted()` or `onError()` in race with any calls to `onNext()`, and the call to `onCompleted()` or `onError()` must be the last call made to the object.  Therefore, implementations of `onCompleted()` and `onError()` can assume they have a lock on `this`, and that `this` has not been torn down and is still in a valid state.
 
@@ -74,19 +74,19 @@ We chose these invariants because they are simple and easy to enforce.  In most 
 
 ### Stages
 
-Wake Stages are responsible for resource management.  The base [Stage](https://github.com/apache/incubator-reef/blob/master/reef-wake/wake/src/main/java/org/apache/reef/wake/Stage.java) interface is fairly simple:
+Wake Stages are responsible for resource management.  The base [Stage](https://github.com/apache/reef/blob/master/lang/java/reef-wake/wake/src/main/java/org/apache/reef/wake/Stage.java) interface is fairly simple:
 
     public interface Stage extends AutoCloseable { }
 
-The only method it contains is `close()` from auto-closable.  This reflects the fact that Wake stages can either contain `EventHandler`s, as [EStage](https://github.com/apache/incubator-reef/blob/master/reef-wake/wake/src/main/java/org/apache/reef/wake/EStage.java) implementations do:
+The only method it contains is `close()` from auto-closable.  This reflects the fact that Wake stages can either contain `EventHandler`s, as [EStage](https://github.com/apache/reef/blob/master/lang/java/reef-wake/wake/src/main/java/org/apache/reef/wake/EStage.java) implementations do:
 
     public interface EStage<T> extends EventHandler<T>, Stage { }
 
-or they can contain `Observable`s, as [RxStage](https://github.com/apache/incubator-reef/blob/master/reef-wake/wake/src/main/java/org/apache/reef/wake/rx/RxStage.java) implementations do:
+or they can contain `Observable`s, as [RxStage](https://github.com/apache/reef/blob/master/lang/java/reef-wake/wake/src/main/java/org/apache/reef/wake/rx/RxStage.java) implementations do:
 
     public interface RxStage<T> extends Observer<T>, Stage { }
 
-In both cases, the stage simply exposes the same API as the event handler that it manages.  This allows code that produces events to treat downstream stages and raw `EventHandlers` / `Observers` interchangebly.   Recall that Wake implements thread sharing by allowing EventHandlers and Observers to directly invoke each other.  Since Stages implement the same interface as raw EventHandlers and Observers, this pushes the placement of thread boundaries and other scheduling tradeoffs to the code that is instantiating the application.  In turn, this simplifies testing and improves the reusability of code written on top of Wake.
+In both cases, the stage simply exposes the same API as the event handler that it manages.  This allows code that produces events to treat downstream stages and raw `EventHandlers` / `Observers` interchangeably.   Recall that Wake implements thread sharing by allowing EventHandlers and Observers to directly invoke each other.  Since Stages implement the same interface as raw EventHandlers and Observers, this pushes the placement of thread boundaries and other scheduling tradeoffs to the code that is instantiating the application.  In turn, this simplifies testing and improves the reusability of code written on top of Wake.
 
 #### close() vs. onCompleted()
 
@@ -96,7 +96,7 @@ In contrast, `close()` is synchronous, and is not allowed to return until all qu
 
 `Observer` implementations do not expose a `close()` method, and generally do not invoke `close()`.  Instead, when `onCompleted()` is invoked, it should arrange for `onCompleted()` to be called on any `Observer` instances that `this` directly invokes, free any resources it is holding, and then return.  Since the downstream `onCompleted()` calls are potentially asynchronous, it cannot assume that downstream cleanup completes before it returns.
 
-In a thread pool `Stage`, the final `close()` call will block until there are no more outstanding events queued in the stage.  Once `close()` has been called (and returns) on each stage, no events are left in any queues, and no `Observer` or `EventHandler` objects are holding resources or scheduled on any cores, so shutdown is compelete.
+In a thread pool `Stage`, the final `close()` call will block until there are no more outstanding events queued in the stage.  Once `close()` has been called (and returns) on each stage, no events are left in any queues, and no `Observer` or `EventHandler` objects are holding resources or scheduled on any cores, so shutdown is complete.
 
 Helper libraries
 ----------------

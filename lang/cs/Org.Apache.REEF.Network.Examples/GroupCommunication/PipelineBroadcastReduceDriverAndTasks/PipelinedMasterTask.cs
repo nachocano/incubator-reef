@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Diagnostics;
@@ -62,6 +60,7 @@ namespace Org.Apache.REEF.Network.Examples.GroupCommunication.PipelineBroadcastR
 
         public byte[] Call(byte[] memento)
         {
+            _groupCommClient.Initialize();
             int[] intArr = new int[_arraySize];
 
             for (int j = 0; j < _arraySize; j++)
@@ -93,19 +92,19 @@ namespace Org.Apache.REEF.Network.Examples.GroupCommunication.PipelineBroadcastR
                 Logger.Log(Level.Info, "Received sum: {0} on iteration: {1} with array length: {2}", sum[0], i,
                     sum.Length);
 
-                int expected = TriangleNumber(i)*_numReduceSenders;
+                int expected = TriangleNumber(i) * _numReduceSenders;
 
-                if (sum[0] != TriangleNumber(i)*_numReduceSenders)
+                if (sum[0] != TriangleNumber(i) * _numReduceSenders)
                 {
                     throw new Exception("Expected " + expected + " but got " + sum[0]);
                 }
 
                 if (i >= 2)
                 {
-                    Logger.Log(Level.Info,
-                        string.Format("Average time (milliseconds) taken for broadcast: {0} and reduce: {1}",
-                            broadcastTime.ElapsedMilliseconds/((double) (i - 1)),
-                            reduceTime.ElapsedMilliseconds/((double) (i - 1))));
+                    var msg = string.Format("Average time (milliseconds) taken for broadcast: {0} and reduce: {1}",
+                            broadcastTime.ElapsedMilliseconds / ((double)(i - 1)),
+                            reduceTime.ElapsedMilliseconds / ((double)(i - 1)));
+                    Logger.Log(Level.Info, msg);
                 }
             }
 

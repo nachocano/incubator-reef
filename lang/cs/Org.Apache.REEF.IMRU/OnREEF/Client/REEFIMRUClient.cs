@@ -17,10 +17,11 @@
 
 using System;
 using System.Collections.Generic;
-using System.Data;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using Org.Apache.REEF.Client.API;
+using Org.Apache.REEF.Client.Common;
 using Org.Apache.REEF.Driver;
 using Org.Apache.REEF.IMRU.API;
 using Org.Apache.REEF.IMRU.OnREEF.Driver;
@@ -36,42 +37,47 @@ using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Util;
 using Org.Apache.REEF.Utilities.Diagnostics;
 using Org.Apache.REEF.Utilities.Logging;
+using TraceLevel = System.Diagnostics.TraceLevel;
 
 namespace Org.Apache.REEF.IMRU.OnREEF.Client
 {
     /// <summary>
     /// Implements the IMRU client API on REEF.
     /// </summary>
-    /// <typeparam name="TMapInput">The type of the side information provided to the Map function</typeparam>
-    /// <typeparam name="TMapOutput">The return type of the Map function</typeparam>
-    /// <typeparam name="TResult">The return type of the computation.</typeparam>
-    internal sealed class REEFIMRUClient<TMapInput, TMapOutput, TResult> : IIMRUClient<TMapInput, TMapOutput, TResult>
+    internal sealed class REEFIMRUClient : IIMRUClient
     {
-        private static readonly Logger Logger = Logger.GetLogger(typeof(IMRUDriver<TMapInput, TMapOutput, TResult>));
+        private static readonly Logger Logger = Logger.GetLogger(typeof(REEFIMRUClient));
 
         private readonly IREEFClient _reefClient;
-        private readonly JobSubmissionBuilderFactory _jobSubmissionBuilderFactory;
+        private readonly JobRequestBuilder _jobRequestBuilder;
         private readonly AvroConfigurationSerializer _configurationSerializer;
+        private IJobSubmissionResult _jobSubmissionResult;
 
         [Inject]
-        private REEFIMRUClient(IREEFClient reefClient, AvroConfigurationSerializer configurationSerializer,
-            JobSubmissionBuilderFactory jobSubmissionBuilderFactory)
+        private REEFIMRUClient(
+            IREEFClient reefClient, 
+            AvroConfigurationSerializer configurationSerializer,
+            JobRequestBuilder jobRequestBuilder)
         {
             _reefClient = reefClient;
             _configurationSerializer = configurationSerializer;
-            _jobSubmissionBuilderFactory = jobSubmissionBuilderFactory;
+            _jobRequestBuilder = jobRequestBuilder;
         }
 
         /// <summary>
         /// Submits the job to reefClient
         /// </summary>
+        /// <typeparam name="TMapInput">The type of the side information provided to the Map function</typeparam>
+        /// <typeparam name="TMapOutput">The return type of the Map function</typeparam>
+        /// <typeparam name="TResult">The return type of the computation.</typeparam>
+        /// <typeparam name="TPartitionType">Type of data partition (Generic type in IInputPartition)</typeparam>
         /// <param name="jobDefinition">IMRU job definition given by the user</param>
         /// <returns>Null as results will be later written to some directory</returns>
-        IEnumerable<TResult> IIMRUClient<TMapInput, TMapOutput, TResult>.Submit(IMRUJobDefinition jobDefinition)
+        IEnumerable<TResult> IIMRUClient.Submit<TMapInput, TMapOutput, TResult, TPartitionType>(IMRUJobDefinition jobDefinition)
         {
             string driverId = string.Format("IMRU-{0}-Driver", jobDefinition.JobName);
             IConfiguration overallPerMapConfig = null;
-            
+
             try
             {
                 overallPerMapConfig = Configurations.Merge(jobDefinition.PerMapConfigGeneratorConfig.ToArray());
@@ -86,15 +92,22 @@ namespace Org.Apache.REEF.IMRU.OnREEF.Client
             {
                 DriverConfiguration.ConfigurationModule
                     .Set(DriverConfiguration.OnEvaluatorAllocated,
-                        GenericType<IMRUDriver<TMapInput, TMapOutput, TResult>>.Class)
+                        GenericType<IMRUDriver<TMapInput, TMapOutput, TResult, TPartitionType>>.Class)
                     .Set(DriverConfiguration.OnDriverStarted,
-                        GenericType<IMRUDriver<TMapInput, TMapOutput, TResult>>.Class)
+                        GenericType<IMRUDriver<TMapInput, TMapOutput, TResult, TPartitionType>>.Class)
                     .Set(DriverConfiguration.OnContextActive,
-                        GenericType<IMRUDriver<TMapInput, TMapOutput, TResult>>.Class)
+                        GenericType<IMRUDriver<TMapInput, TMapOutput, TResult, TPartitionType>>.Class)
                     .Set(DriverConfiguration.OnTaskCompleted,
-                        GenericType<IMRUDriver<TMapInput, TMapOutput, TResult>>.Class)
+                        GenericType<IMRUDriver<TMapInput, TMapOutput, TResult, TPartitionType>>.Class)
                     .Set(DriverConfiguration.OnEvaluatorFailed,
-                        GenericType<IMRUDriver<TMapInput, TMapOutput, TResult>>.Class)
+                        GenericType<IMRUDriver<TMapInput, TMapOutput, TResult, TPartitionType>>.Class)
+                    .Set(DriverConfiguration.OnContextFailed,
+                        GenericType<IMRUDriver<TMapInput, TMapOutput, TResult, TPartitionType>>.Class)
+                    .Set(DriverConfiguration.OnTaskFailed,
+                        GenericType<IMRUDriver<TMapInput, TMapOutput, TResult, TPartitionType>>.Class)
+                    .Set(DriverConfiguration.OnTaskRunning,
+                        GenericType<IMRUDriver<TMapInput, TMapOutput, TResult, TPartitionType>>.Class)
+                    .Set(DriverConfiguration.CustomTraceLevel, TraceLevel.Info.ToString())
                     .Build(),
                 TangFactory.GetTang().NewConfigurationBuilder()
                     .BindStringNamedParam<GroupCommConfigurationOptions.DriverId>(driverId)
@@ -108,38 +121,62 @@ namespace Org.Apache.REEF.IMRU.OnREEF.Client
                     .BindImplementation(GenericType<IGroupCommDriver>.Class, GenericType<GroupCommDriver>.Class)
                     .Build(),
                 jobDefinition.PartitionedDatasetConfiguration,
-                overallPerMapConfig
+                overallPerMapConfig,
+                jobDefinition.JobCancelSignalConfiguration
             })
-                .BindNamedParameter(typeof (SerializedMapConfiguration),
+                .BindNamedParameter(typeof(SerializedUpdateTaskStateConfiguration),
+                    _configurationSerializer.ToString(jobDefinition.UpdateTaskStateConfiguration))
+                .BindNamedParameter(typeof(SerializedMapTaskStateConfiguration),
+                    _configurationSerializer.ToString(jobDefinition.MapTaskStateConfiguration))
+                .BindNamedParameter(typeof(SerializedMapConfiguration),
                     _configurationSerializer.ToString(jobDefinition.MapFunctionConfiguration))
-                .BindNamedParameter(typeof (SerializedUpdateConfiguration),
+                .BindNamedParameter(typeof(SerializedUpdateConfiguration),
                     _configurationSerializer.ToString(jobDefinition.UpdateFunctionConfiguration))
-                .BindNamedParameter(typeof (SerializedMapInputCodecConfiguration),
+                .BindNamedParameter(typeof(SerializedMapInputCodecConfiguration),
                     _configurationSerializer.ToString(jobDefinition.MapInputCodecConfiguration))
-                .BindNamedParameter(typeof (SerializedMapInputPipelineDataConverterConfiguration),
+                .BindNamedParameter(typeof(SerializedMapInputPipelineDataConverterConfiguration),
                     _configurationSerializer.ToString(jobDefinition.MapInputPipelineDataConverterConfiguration))
-                .BindNamedParameter(typeof (SerializedUpdateFunctionCodecsConfiguration),
+                .BindNamedParameter(typeof(SerializedUpdateFunctionCodecsConfiguration),
                     _configurationSerializer.ToString(jobDefinition.UpdateFunctionCodecsConfiguration))
-                .BindNamedParameter(typeof (SerializedMapOutputPipelineDataConverterConfiguration),
+                .BindNamedParameter(typeof(SerializedMapOutputPipelineDataConverterConfiguration),
                     _configurationSerializer.ToString(jobDefinition.MapOutputPipelineDataConverterConfiguration))
-                .BindNamedParameter(typeof (SerializedReduceConfiguration),
+                .BindNamedParameter(typeof(SerializedReduceConfiguration),
                     _configurationSerializer.ToString(jobDefinition.ReduceFunctionConfiguration))
-                .BindNamedParameter(typeof (MemoryPerMapper),
+                .BindNamedParameter(typeof(SerializedResultHandlerConfiguration),
+                    _configurationSerializer.ToString(jobDefinition.ResultHandlerConfiguration))
+                .BindNamedParameter(typeof(MemoryPerMapper),
                     jobDefinition.MapperMemory.ToString(CultureInfo.InvariantCulture))
-                .BindNamedParameter(typeof (MemoryForUpdateTask),
+                .BindNamedParameter(typeof(MemoryForUpdateTask),
                     jobDefinition.UpdateTaskMemory.ToString(CultureInfo.InvariantCulture))
+                .BindNamedParameter(typeof(CoresPerMapper),
+                    jobDefinition.MapTaskCores.ToString(CultureInfo.InvariantCulture))
+                .BindNamedParameter(typeof(CoresForUpdateTask),
+                    jobDefinition.UpdateTaskCores.ToString(CultureInfo.InvariantCulture))
+                .BindNamedParameter(typeof(MaxRetryNumberInRecovery),
+                    jobDefinition.MaxRetryNumberInRecovery.ToString(CultureInfo.InvariantCulture))
+                .BindNamedParameter(typeof(InvokeGC),
+                    jobDefinition.InvokeGarbageCollectorAfterIteration.ToString(CultureInfo.InvariantCulture))
                 .Build();
 
             // The JobSubmission contains the Driver configuration as well as the files needed on the Driver.
-            var imruJobSubmission = _jobSubmissionBuilderFactory.GetJobSubmissionBuilder()
+            var imruJobSubmission = _jobRequestBuilder
                 .AddDriverConfiguration(imruDriverConfiguration)
-                .AddGlobalAssemblyForType(typeof (IMRUDriver<TMapInput, TMapOutput, TResult>))
+                .AddGlobalAssemblyForType(typeof(IMRUDriver<TMapInput, TMapOutput, TResult, TPartitionType>))
                 .SetJobIdentifier(jobDefinition.JobName)
+                .SetDriverMemory(5000)
                 .Build();
 
-            _reefClient.Submit(imruJobSubmission);
+            _jobSubmissionResult = _reefClient.SubmitAndGetJobStatus(imruJobSubmission);
 
             return null;
+        }
+
+        /// <summary>
+        /// DriverHttpEndPoint returned by IReefClient after job submission
+        /// </summary>
+        public IJobSubmissionResult JobSubmissionResult
+        {
+            get { return _jobSubmissionResult; }
         }
     }
 }

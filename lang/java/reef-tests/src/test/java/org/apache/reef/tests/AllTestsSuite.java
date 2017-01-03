@@ -22,6 +22,8 @@ import org.apache.reef.tests.applications.ApplicationTestSuite;
 import org.apache.reef.tests.close_eval.CloseEvaluatorTest;
 import org.apache.reef.tests.configurationproviders.ConfigurationProviderTest;
 import org.apache.reef.tests.driver.DriverTest;
+import org.apache.reef.tests.evaluatorclose.EvaluatorCloseTest;
+import org.apache.reef.tests.runtimename.RuntimeNameTest;
 import org.apache.reef.tests.evaluatorfailure.EvaluatorFailureTest;
 import org.apache.reef.tests.evaluatorreuse.EvaluatorReuseTest;
 import org.apache.reef.tests.evaluatorsize.EvaluatorSizeTest;
@@ -33,9 +35,13 @@ import org.apache.reef.tests.messaging.task.TaskMessagingTest;
 import org.apache.reef.tests.statepassing.StatePassingTest;
 import org.apache.reef.tests.subcontexts.SubContextTest;
 import org.apache.reef.tests.taskresubmit.TaskResubmitTest;
+import org.apache.reef.tests.watcher.WatcherTest;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 
+/**
+ * Test suite of all integration tests.
+ */
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
     DriverTest.class,
@@ -52,7 +58,10 @@ import org.junit.runners.Suite;
     EvaluatorFailureTest.class,
     ExamplesTestSuite.class,
     ConfigurationProviderTest.class,
-    ApplicationTestSuite.class
+    ApplicationTestSuite.class,
+    RuntimeNameTest.class,
+    WatcherTest.class,
+    EvaluatorCloseTest.class,
     })
 public final class AllTestsSuite {
 }

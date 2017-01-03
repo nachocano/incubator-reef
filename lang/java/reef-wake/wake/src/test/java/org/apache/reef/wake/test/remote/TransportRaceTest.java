@@ -42,6 +42,9 @@ import java.net.InetSocketAddress;
 import java.util.logging.Level;
 
 
+/**
+ * Tests the race condition during transporting events.
+ */
 public class TransportRaceTest {
   private final LocalAddressProvider localAddressProvider;
   private final TransportFactory tpFactory;
@@ -65,9 +68,8 @@ public class TransportRaceTest {
     final EStage<TransportEvent> serverStage = new ThreadPoolStage<>("server@7001",
         serverHandler, 1, new LoggingEventHandler<Throwable>());
     final String hostAddress = this.localAddressProvider.getLocalAddress();
-    final int port = 7001;
-    final Transport transport = tpFactory.newInstance(
-        hostAddress, port, clientStage, serverStage, 1, 10000);
+    final Transport transport = tpFactory.newInstance(hostAddress, 0, clientStage, serverStage, 1, 10000);
+    final int port = transport.getListeningPort();
 
     final String value = "Test Race";
 

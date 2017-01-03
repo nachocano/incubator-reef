@@ -23,6 +23,7 @@ import org.apache.reef.io.TempFileCreator;
 import org.apache.reef.io.WorkingDirectoryTempFileCreator;
 import org.apache.reef.runtime.common.driver.api.*;
 import org.apache.reef.runtime.common.driver.parameters.ClientRemoteIdentifier;
+import org.apache.reef.runtime.common.driver.parameters.DefinedRuntimes;
 import org.apache.reef.runtime.common.driver.parameters.EvaluatorTimeout;
 import org.apache.reef.runtime.common.driver.parameters.JobIdentifier;
 import org.apache.reef.runtime.common.files.RuntimeClasspathProvider;
@@ -30,31 +31,36 @@ import org.apache.reef.runtime.common.launch.parameters.ErrorHandlerRID;
 import org.apache.reef.runtime.common.launch.parameters.LaunchID;
 import org.apache.reef.runtime.common.parameters.JVMHeapSlack;
 import org.apache.reef.runtime.yarn.YarnClasspathProvider;
-import org.apache.reef.driver.parameters.JobSubmissionDirectory;
+import org.apache.reef.runtime.yarn.driver.parameters.JobSubmissionDirectory;
 import org.apache.reef.runtime.yarn.driver.parameters.YarnHeartbeatPeriod;
 import org.apache.reef.runtime.yarn.util.YarnConfigurationConstructor;
 import org.apache.reef.tang.formats.*;
 
 /**
- * Created by marku_000 on 2014-07-07.
+ * ConfigurationModule to create YARN Driver configurations.
  */
 public class YarnDriverConfiguration extends ConfigurationModuleBuilder {
   /**
-   * @see org.apache.reef.runtime.yarn.driver.parameters.JobSubmissionDirectory
+   * @see org.apache.reef.driver.parameters.JobSubmissionDirectory
    */
   public static final RequiredParameter<String> JOB_SUBMISSION_DIRECTORY = new RequiredParameter<>();
+
   /**
-   * @see org.apache.reef.runtime.yarn.driver.parameters.YarnHeartbeatPeriod.class
+   * @see org.apache.reef.runtime.yarn.driver.parameters.YarnHeartbeatPeriod
    */
   public static final OptionalParameter<Integer> YARN_HEARTBEAT_INTERVAL = new OptionalParameter<>();
 
   /**
-   * @see JobIdentifier.class
+   * @see JobIdentifier
    */
   public static final RequiredParameter<String> JOB_IDENTIFIER = new RequiredParameter<>();
 
   /**
-   * @see {@link RackNameFormatter}
+   * @see DefinedRuntimes
+   */
+  public static final RequiredParameter<String> RUNTIME_NAMES = new RequiredParameter<>();
+  /**
+   * @see RackNameFormatter
    */
   public static final OptionalImpl<RackNameFormatter> RACK_NAME_FORMATTER = new OptionalImpl<>();
 
@@ -84,11 +90,11 @@ public class YarnDriverConfiguration extends ConfigurationModuleBuilder {
       .bindConstructor(YarnConfiguration.class, YarnConfigurationConstructor.class)
       .bindImplementation(TempFileCreator.class, WorkingDirectoryTempFileCreator.class)
 
-          // Bind the YARN Configuration parameters
+      // Bind the YARN Configuration parameters
       .bindNamedParameter(JobSubmissionDirectory.class, JOB_SUBMISSION_DIRECTORY)
       .bindNamedParameter(YarnHeartbeatPeriod.class, YARN_HEARTBEAT_INTERVAL)
 
-          // Bind the fields bound in AbstractDriverRuntimeConfiguration
+      // Bind the fields bound in AbstractDriverRuntimeConfiguration
       .bindNamedParameter(JobIdentifier.class, JOB_IDENTIFIER)
       .bindNamedParameter(LaunchID.class, JOB_IDENTIFIER)
       .bindNamedParameter(EvaluatorTimeout.class, EVALUATOR_TIMEOUT)
@@ -97,5 +103,6 @@ public class YarnDriverConfiguration extends ConfigurationModuleBuilder {
       .bindNamedParameter(JVMHeapSlack.class, JVM_HEAP_SLACK)
       .bindImplementation(RackNameFormatter.class, RACK_NAME_FORMATTER)
       .bindImplementation(RuntimeClasspathProvider.class, YarnClasspathProvider.class)
+      .bindSetEntry(DefinedRuntimes.class, RUNTIME_NAMES)
       .build();
 }

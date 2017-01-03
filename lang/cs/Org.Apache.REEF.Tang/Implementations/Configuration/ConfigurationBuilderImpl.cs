@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -31,19 +29,19 @@ using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Tang.Implementations.Configuration
 {
-    public class ConfigurationBuilderImpl : IConfigurationBuilder
+    internal class ConfigurationBuilderImpl : IConfigurationBuilder
     {
         public IClassHierarchy ClassHierarchy;
 
         public readonly IDictionary<IClassNode, IClassNode> BoundImpls = new MonotonicTreeMap<IClassNode, IClassNode>();
         public readonly IDictionary<IClassNode, IClassNode> BoundConstructors = new MonotonicTreeMap<IClassNode, IClassNode>();
-        public readonly IDictionary<INamedParameterNode, String> NamedParameters = new MonotonicTreeMap<INamedParameterNode, String>();
+        public readonly IDictionary<INamedParameterNode, string> NamedParameters = new MonotonicTreeMap<INamedParameterNode, string>();
         public readonly IDictionary<IClassNode, IConstructorDef> LegacyConstructors = new MonotonicTreeMap<IClassNode, IConstructorDef>();
         public readonly MonotonicMultiMap<INamedParameterNode, object> BoundSetEntries = new MonotonicMultiMap<INamedParameterNode, object>();
         public readonly IDictionary<INamedParameterNode, IList<object>> BoundLists = new MonotonicTreeMap<INamedParameterNode, IList<object>>();
 
         public readonly static string INIT = "<init>";
-
+        public const string DuplicatedEntryForNamedParamater = "Duplicated entries: ";
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(ConfigurationBuilderImpl));
 
         protected ConfigurationBuilderImpl() 
@@ -61,14 +59,20 @@ namespace Org.Apache.REEF.Tang.Implementations.Configuration
             this.ClassHierarchy = TangFactory.GetTang().GetDefaultClassHierarchy(assemblies, parsers);
             foreach (IConfiguration tc in confs) 
             {
-                AddConfiguration(((ConfigurationImpl) tc));
+                if (tc == null)
+                {
+                    throw new ArgumentNullException("One of specified configurations is null");
+                } 
+                
+                AddConfiguration((ConfigurationImpl)tc);
             }
         }
 
         public ConfigurationBuilderImpl(ConfigurationBuilderImpl t) 
         {
             this.ClassHierarchy = t.GetClassHierarchy();
-            try {
+            try 
+            {
                 AddConfiguration(t.GetClassHierarchy(), t);
             } 
             catch (BindException e) 
@@ -95,11 +99,11 @@ namespace Org.Apache.REEF.Tang.Implementations.Configuration
         {
             this.ClassHierarchy = this.ClassHierarchy.Merge(ns);
             
-            if((ClassHierarchy is ClassHierarchyImpl || builder.ClassHierarchy is ClassHierarchyImpl)) 
+            if (ClassHierarchy is ClassHierarchyImpl || builder.ClassHierarchy is ClassHierarchyImpl) 
             {
-                if((ClassHierarchy is ClassHierarchyImpl && builder.ClassHierarchy is ClassHierarchyImpl)) 
+                if (ClassHierarchy is ClassHierarchyImpl && builder.ClassHierarchy is ClassHierarchyImpl)
                 {
-                    ((ClassHierarchyImpl) ClassHierarchy).Parameterparser.MergeIn(((ClassHierarchyImpl) builder.ClassHierarchy).Parameterparser);
+                    ((ClassHierarchyImpl)ClassHierarchy).Parameterparser.MergeIn(((ClassHierarchyImpl)builder.ClassHierarchy).Parameterparser);
                 } 
                 else 
                 {
@@ -146,18 +150,20 @@ namespace Org.Apache.REEF.Tang.Implementations.Configuration
 
             foreach (KeyValuePair<INamedParameterNode, object> e in builder.BoundSetEntries) 
             {
-              String name = ((INamedParameterNode)e.Key).GetFullName();
-              if(e.Value is INode) 
-              {
+                string name = ((INamedParameterNode)e.Key).GetFullName();
+                if (e.Value is INode) 
+                {
                     BindSetEntry(name, (INode)e.Value);
-              } 
-              else if (e.Value is string) 
-              {
+                } 
+                else if (e.Value is string) 
+                {
                     BindSetEntry(name, (string)e.Value);
-              } else {
-                var ex = new IllegalStateException(string.Format(CultureInfo.CurrentCulture, "The value {0} set to the named parameter {1} is illegel.", e.Value, name));
-                Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
-              }
+                } 
+                else 
+                {
+                    var ex = new IllegalStateException(string.Format(CultureInfo.CurrentCulture, "The value {0} set to the named parameter {1} is illegel.", e.Value, name));
+                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
+                }
             }
 
             foreach (var p in builder.BoundLists)
@@ -178,7 +184,7 @@ namespace Org.Apache.REEF.Tang.Implementations.Configuration
 
         public void RegisterLegacyConstructor(string s, IList<string> args)
         {
-            IClassNode cn = (IClassNode) this.ClassHierarchy.GetNode(s);
+            IClassNode cn = (IClassNode)this.ClassHierarchy.GetNode(s);
             IList<IClassNode> cnArgs = new List<IClassNode>();
             for (int i = 0; i < args.Count; i++)
             {
@@ -206,6 +212,11 @@ namespace Org.Apache.REEF.Tang.Implementations.Configuration
         public void Bind(string key, string value)
         {
             INode n = this.ClassHierarchy.GetNode(key);
+            BindNode(n, value);
+        }
+
+        private void BindNode(INode n, string value)
+        {
             if (n is INamedParameterNode)
             {
                 BindParameter((INamedParameterNode)n, value);
@@ -222,6 +233,12 @@ namespace Org.Apache.REEF.Tang.Implementations.Configuration
             }
         }
 
+        public void Bind(string key, string value, string aliasLanguage)
+        {
+            INode n = ClassHierarchy.GetNode(key, aliasLanguage);
+            BindNode(n, value);
+        }
+
         public void Bind(Types.INode key, Types.INode value)
         {
             if (key is INamedParameterNode)
@@ -236,7 +253,7 @@ namespace Org.Apache.REEF.Tang.Implementations.Configuration
                     IClassNode val = (IClassNode)value;
                     if (val.IsExternalConstructor() && !k.IsExternalConstructor())
                     {
-                        BindConstructor(k, (IClassNode) val);
+                        BindConstructor(k, (IClassNode)val);
                     }
                     else
                     {
@@ -246,7 +263,7 @@ namespace Org.Apache.REEF.Tang.Implementations.Configuration
             }
         }
 
-        public void BindParameter(INamedParameterNode name, String value)
+        public void BindParameter(INamedParameterNode name, string value)
         {
             /* Parse and discard value; this is just for type checking, skip for now*/
             if (this.ClassHierarchy is ICsClassHierarchy) 
@@ -254,13 +271,21 @@ namespace Org.Apache.REEF.Tang.Implementations.Configuration
                 ((ICsClassHierarchy)ClassHierarchy).Parse(name, value);
             }
 
-            if(name.IsSet()) 
+            if (name.IsSet()) 
             {
                 BindSetEntry((INamedParameterNode)name, value);
             } 
             else 
             {
-                NamedParameters.Add(name, value);
+                try
+                {
+                    NamedParameters.Add(name, value);
+                }
+                catch (ArgumentException e)
+                {
+                    var msg = string.Format(CultureInfo.InvariantCulture, DuplicatedEntryForNamedParamater + "try to bind [{0}] to [{1}], but the configuration has been set for it.", value, name.GetFullName());
+                    Utilities.Diagnostics.Exceptions.Throw(new ArgumentException(msg + e.Message), LOGGER);
+                }
             }
         }
 
@@ -277,17 +302,17 @@ namespace Org.Apache.REEF.Tang.Implementations.Configuration
             }
         }
 
-        public void BindSetEntry(String iface, String impl)
+        public void BindSetEntry(string iface, string impl)
         {
             BoundSetEntries.Add((INamedParameterNode)this.ClassHierarchy.GetNode(iface), impl);
         }
 
-        public void BindSetEntry(String iface, INode impl)
+        public void BindSetEntry(string iface, INode impl)
         {
             BoundSetEntries.Add((INamedParameterNode)ClassHierarchy.GetNode(iface), impl);
         }
 
-        public void BindSetEntry(INamedParameterNode iface, String impl)
+        public void BindSetEntry(INamedParameterNode iface, string impl)
         {
             BoundSetEntries.Add(iface, impl);
         }
@@ -334,11 +359,11 @@ namespace Org.Apache.REEF.Tang.Implementations.Configuration
 
         public string ClassPrettyDefaultString(string longName)
         {
-            INamedParameterNode param = (INamedParameterNode) this.ClassHierarchy.GetNode(longName);
+            INamedParameterNode param = (INamedParameterNode)this.ClassHierarchy.GetNode(longName);
             return param.GetSimpleArgName() + "=" + Join(",", param.GetDefaultInstanceAsStrings());
         }
 
-        private String Join(string sep, string[] s)
+        private string Join(string sep, string[] s)
         {
             if (s.Length == 0)
             {
@@ -358,7 +383,7 @@ namespace Org.Apache.REEF.Tang.Implementations.Configuration
 
         public string ClassPrettyDescriptionString(string fullName)
         {
-            INamedParameterNode param = (INamedParameterNode) this.ClassHierarchy.GetNode(fullName);
+            INamedParameterNode param = (INamedParameterNode)this.ClassHierarchy.GetNode(fullName);
             return param.GetDocumentation() + "\n" + param.GetFullName();
         }
     }

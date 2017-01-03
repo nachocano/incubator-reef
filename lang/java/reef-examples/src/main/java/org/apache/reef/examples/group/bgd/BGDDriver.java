@@ -60,6 +60,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Driver for BGD example.
+ */
 @DriverSide
 @Unit
 public class BGDDriver {
@@ -194,7 +197,7 @@ public class BGDDriver {
 
     private void submitTask(final ActiveContext activeContext) {
 
-      assert (groupCommDriver.isConfigured(activeContext));
+      assert groupCommDriver.isConfigured(activeContext);
 
       final Configuration partialTaskConfiguration;
       if (activeContext.getId().equals(communicationsGroupMasterContextId) && !masterTaskSubmitted()) {

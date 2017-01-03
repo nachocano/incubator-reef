@@ -21,8 +21,6 @@ package org.apache.reef.runtime.mesos.driver;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.annotations.audience.Private;
 import org.apache.reef.driver.evaluator.EvaluatorProcess;
-import org.apache.reef.io.TempFileCreator;
-import org.apache.reef.io.WorkingDirectoryTempFileCreator;
 import org.apache.reef.runtime.common.driver.api.ResourceLaunchEvent;
 import org.apache.reef.runtime.common.driver.api.ResourceLaunchHandler;
 import org.apache.reef.runtime.common.files.ClasspathProvider;
@@ -85,7 +83,6 @@ final class MesosResourceLaunchHandler implements ResourceLaunchHandler {
 
       final Configuration evaluatorConfiguration = Tang.Factory.getTang()
           .newConfigurationBuilder(resourceLaunchEvent.getEvaluatorConf())
-          .bindImplementation(TempFileCreator.class, WorkingDirectoryTempFileCreator.class)
           .build();
 
       final File configurationFile = new File(
@@ -98,7 +95,7 @@ final class MesosResourceLaunchHandler implements ResourceLaunchHandler {
       final Path hdfsFolder = new Path(fileSystem.getUri() + "/" + resourceLaunchEvent.getIdentifier() + "/");
       FileUtil.copy(localStagingFolder, fileSystem, hdfsFolder, false, new org.apache.hadoop.conf.Configuration());
 
-      // TODO: Replace REEFExecutor with a simple launch command (we only need to launch REEFExecutor)
+      // TODO[JIRA REEF-102]: Replace REEFExecutor with a simple launch command (we only need to launch REEFExecutor)
       final List<String> command =
           getLaunchCommand(resourceLaunchEvent, this.executors.getMemory(resourceLaunchEvent.getIdentifier()));
       this.executors.launchEvaluator(

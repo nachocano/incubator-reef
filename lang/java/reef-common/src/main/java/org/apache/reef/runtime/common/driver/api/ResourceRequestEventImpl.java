@@ -36,6 +36,7 @@ public final class ResourceRequestEventImpl implements ResourceRequestEvent {
   private final Optional<Integer> priority;
   private final Optional<Integer> virtualCores;
   private final Optional<Boolean> relaxLocality;
+  private final String runtimeName;
 
   private ResourceRequestEventImpl(final Builder builder) {
     this.resourceCount = BuilderUtils.notNull(builder.resourceCount);
@@ -45,6 +46,7 @@ public final class ResourceRequestEventImpl implements ResourceRequestEvent {
     this.priority = Optional.ofNullable(builder.priority);
     this.virtualCores = Optional.ofNullable(builder.virtualCores);
     this.relaxLocality = Optional.ofNullable(builder.relaxLocality);
+    this.runtimeName = builder.runtimeName == null ? "" : builder.runtimeName;
   }
 
   @Override
@@ -82,6 +84,11 @@ public final class ResourceRequestEventImpl implements ResourceRequestEvent {
     return relaxLocality;
   }
 
+  @Override
+  public String getRuntimeName() {
+    return runtimeName;
+  }
+
   public static Builder newBuilder() {
     return new Builder();
   }
@@ -97,6 +104,7 @@ public final class ResourceRequestEventImpl implements ResourceRequestEvent {
     private Integer priority;
     private Integer virtualCores;
     private Boolean relaxLocality;
+    private String runtimeName;
 
     /**
      * Create a builder from an existing ResourceRequestEvent.
@@ -109,6 +117,7 @@ public final class ResourceRequestEventImpl implements ResourceRequestEvent {
       this.priority = resourceRequestEvent.getPriority().orElse(null);
       this.virtualCores = resourceRequestEvent.getVirtualCores().orElse(null);
       this.relaxLocality = resourceRequestEvent.getRelaxLocality().orElse(null);
+      this.runtimeName = resourceRequestEvent.getRuntimeName();
       return this;
     }
 
@@ -131,7 +140,7 @@ public final class ResourceRequestEventImpl implements ResourceRequestEvent {
 
     /**
      * Add a list of node names.
-     * @see {@link ResourceRequestEventImpl.Builder#addNodeName}
+     * @see ResourceRequestEventImpl.Builder#addNodeName
      */
     public Builder addNodeNames(final List<String> nodeNames) {
       for (final String nodeName : nodeNames) {
@@ -141,8 +150,8 @@ public final class ResourceRequestEventImpl implements ResourceRequestEvent {
     }
 
     /**
-     * Add an entry to rackNameList.
-     * @see ResourceRequestEvent#getRackNameList()
+     * Add a list of rack names.
+     * @see ResourceRequestEventImpl.Builder#addRackName
      */
     public Builder addRackName(final String rackName) {
       this.rackNameList.add(rackName);
@@ -150,8 +159,8 @@ public final class ResourceRequestEventImpl implements ResourceRequestEvent {
     }
 
     /**
-     * Add a list of rack names.
-     * @see {@link ResourceRequestEventImpl.Builder#addRackName}
+     * Add an entry to rackNameList.
+     * @see ResourceRequestEvent#getRackNameList
      */
     public Builder addRackNames(final List<String> rackNames) {
       for (final String rackName : rackNames) {
@@ -161,7 +170,7 @@ public final class ResourceRequestEventImpl implements ResourceRequestEvent {
     }
 
     /**
-     * @see ResourceRequestEvent#getMemorySize()
+     * @see ResourceRequestEvent#getMemorySize
      */
     public Builder setMemorySize(final int memorySize) {
       this.memorySize = memorySize;
@@ -169,7 +178,7 @@ public final class ResourceRequestEventImpl implements ResourceRequestEvent {
     }
 
     /**
-     * @see ResourceRequestEvent#getPriority()
+     * @see ResourceRequestEvent#getPriority
      */
     public Builder setPriority(final int priority) {
       this.priority = priority;
@@ -177,7 +186,7 @@ public final class ResourceRequestEventImpl implements ResourceRequestEvent {
     }
 
     /**
-     * @see ResourceRequestEvent#getVirtualCores()
+     * @see ResourceRequestEvent#getVirtualCores
      */
     public Builder setVirtualCores(final int virtualCores) {
       this.virtualCores = virtualCores;
@@ -185,10 +194,18 @@ public final class ResourceRequestEventImpl implements ResourceRequestEvent {
     }
 
     /**
-     * @see ResourceRequestEvent#getRelaxLocality()
+     * @see ResourceRequestEvent#getRelaxLocality
      */
     public Builder setRelaxLocality(final boolean relaxLocality) {
       this.relaxLocality = relaxLocality;
+      return this;
+    }
+
+    /**
+     * @see ResourceRequestEvent#getRuntimeName
+     */
+    public Builder setRuntimeName(final String runtimeName) {
+      this.runtimeName = runtimeName;
       return this;
     }
 

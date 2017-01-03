@@ -69,7 +69,6 @@ public final class TaskRuntime implements Runnable {
 
   private final TaskStatus currentStatus;
 
-  // TODO: Document
   @Inject
   private TaskRuntime(
       final HeartBeatManager heartBeatManager,
@@ -86,7 +85,6 @@ public final class TaskRuntime implements Runnable {
         taskLifeCycleHandlers);
   }
 
-  // TODO: Document
   @Inject
   private TaskRuntime(
       final HeartBeatManager heartBeatManager,
@@ -267,6 +265,7 @@ public final class TaskRuntime implements Runnable {
    * @throws TaskCallFailure if any Throwable was caught from the Task.call() method.
    *                         That throwable would be the cause of the TaskCallFailure.
    */
+  @SuppressWarnings("checkstyle:illegalcatch")
   private byte[] runTask() throws TaskCallFailure {
     try {
       final byte[] result;
@@ -287,6 +286,7 @@ public final class TaskRuntime implements Runnable {
   /**
    * Calls the configured Task close handler and catches exceptions it may throw.
    */
+  @SuppressWarnings("checkstyle:illegalcatch")
   private void closeTask(final byte[] message) throws TaskCloseHandlerFailure {
     LOG.log(Level.FINEST, "Invoking close handler.");
     try {
@@ -299,6 +299,7 @@ public final class TaskRuntime implements Runnable {
   /**
    * Calls the configured Task message handler and catches exceptions it may throw.
    */
+  @SuppressWarnings("checkstyle:illegalcatch")
   private void deliverMessageToTask(final byte[] message) throws TaskMessageHandlerFailure {
     try {
       this.fMessageHandler.get().onNext(new DriverMessageImpl(message));
@@ -310,6 +311,7 @@ public final class TaskRuntime implements Runnable {
   /**
    * Calls the configured Task suspend handler and catches exceptions it may throw.
    */
+  @SuppressWarnings("checkstyle:illegalcatch")
   private void suspendTask(final byte[] message) throws TaskSuspendHandlerFailure {
     try {
       this.fSuspendHandler.get().onNext(new SuspendEventImpl(message));

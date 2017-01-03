@@ -21,10 +21,11 @@ package org.apache.reef.vortex.driver;
 import org.apache.reef.annotations.Unstable;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.tang.annotations.DefaultImplementation;
-import org.apache.reef.vortex.api.VortexFunction;
-import org.apache.reef.vortex.api.VortexFuture;
+import org.apache.reef.util.Optional;
+import org.apache.reef.vortex.api.*;
+import org.apache.reef.vortex.protocol.workertomaster.WorkerToMasterReports;
 
-import java.io.Serializable;
+import java.util.List;
 
 /**
  * The heart of Vortex.
@@ -35,10 +36,30 @@ import java.io.Serializable;
 @DefaultImplementation(DefaultVortexMaster.class)
 public interface VortexMaster {
   /**
-   * Submit a new Tasklet to be run sometime in the future.
+   * Submit a new Tasklet to be run sometime in the future, with an optional callback function on the result.
    */
-  <TInput extends Serializable, TOutput extends Serializable> VortexFuture<TOutput>
-      enqueueTasklet(final VortexFunction<TInput, TOutput> vortexFunction, final TInput input);
+  <TInput, TOutput> VortexFuture<TOutput>
+      enqueueTasklet(final VortexFunction<TInput, TOutput> vortexFunction, final TInput input,
+                     final Optional<FutureCallback<TOutput>> callback);
+
+  /**
+   * Submits aggregate-able Tasklets to be run sometime in the future, with an optional callback function on
+   * the aggregation progress.
+   */
+  <TInput, TOutput> VortexAggregateFuture<TInput, TOutput>
+      enqueueTasklets(final VortexAggregateFunction<TOutput> aggregateFunction,
+                      final VortexFunction<TInput, TOutput> vortexFunction,
+                      final VortexAggregatePolicy policy,
+                      final List<TInput> inputs,
+                      final Optional<FutureCallback<AggregateResult<TInput, TOutput>>> callback);
+
+  /**
+   * Call this when a Tasklet is to be cancelled.
+   * @param mayInterruptIfRunning if true, will attempt to cancel running Tasklets; otherwise will only
+   *                              prevent a pending Tasklet from running.
+   * @param taskletId the ID of the Tasklet.
+   */
+  void cancelTasklet(final boolean mayInterruptIfRunning, final int taskletId);
 
   /**
    * Call this when a new worker is up and running.
@@ -51,14 +72,9 @@ public interface VortexMaster {
   void workerPreempted(final String id);
 
   /**
-   * Call this when a Tasklet is completed.
+   * Call this when a worker has reported back.
    */
-  void taskletCompleted(final String workerId, final int taskletId, final Serializable result);
-
-  /**
-   * Call this when a Tasklet errored.
-   */
-  void taskletErrored(final String workerId, final int taskletId, final Exception exception);
+  void workerReported(final String workerId, final WorkerToMasterReports workerToMasterReports);
 
   /**
    * Release all resources and shut down.

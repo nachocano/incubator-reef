@@ -18,6 +18,7 @@
  */
 package org.apache.reef.io.network.group.impl.driver;
 
+import org.apache.reef.driver.parameters.DriverIdentifier;
 import org.apache.reef.io.network.group.api.operators.GroupCommOperator;
 import org.apache.reef.io.network.group.api.GroupChanges;
 import org.apache.reef.io.network.group.api.config.OperatorSpec;
@@ -30,9 +31,7 @@ import org.apache.reef.io.network.group.impl.config.BroadcastOperatorSpec;
 import org.apache.reef.io.network.group.impl.config.GatherOperatorSpec;
 import org.apache.reef.io.network.group.impl.config.ReduceOperatorSpec;
 import org.apache.reef.io.network.group.impl.config.ScatterOperatorSpec;
-import org.apache.reef.io.network.group.impl.config.parameters.DataCodec;
-import org.apache.reef.io.network.group.impl.config.parameters.ReduceFunctionParam;
-import org.apache.reef.io.network.group.impl.config.parameters.TaskVersion;
+import org.apache.reef.io.network.group.impl.config.parameters.*;
 import org.apache.reef.io.network.group.impl.operators.*;
 import org.apache.reef.io.network.group.impl.utils.Utils;
 import org.apache.reef.io.network.proto.ReefNetworkGroupCommProtos;
@@ -41,10 +40,12 @@ import org.apache.reef.tang.Configuration;
 import org.apache.reef.tang.JavaConfigurationBuilder;
 import org.apache.reef.tang.Tang;
 import org.apache.reef.tang.annotations.Name;
+import org.apache.reef.tang.annotations.Parameter;
 import org.apache.reef.wake.EStage;
 import org.apache.reef.wake.EventHandler;
 import org.apache.reef.wake.impl.SingleThreadStage;
 
+import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +56,7 @@ import java.util.logging.Logger;
 /**
  * Implements a one level Tree Topology.
  */
-public class FlatTopology implements Topology {
+public final class FlatTopology implements Topology {
 
   private static final Logger LOG = Logger.getLogger(FlatTopology.class.getName());
 
@@ -69,10 +70,11 @@ public class FlatTopology implements Topology {
   private TaskNode root;
   private final ConcurrentMap<String, TaskNode> nodes = new ConcurrentSkipListMap<>();
 
-  public FlatTopology(final EStage<GroupCommunicationMessage> senderStage,
-                      final Class<? extends Name<String>> groupName,
-                      final Class<? extends Name<String>> operatorName,
-                      final String driverId, final int numberOfTasks) {
+  @Inject
+  private FlatTopology(@Parameter(GroupCommSenderStage.class) final EStage<GroupCommunicationMessage> senderStage,
+                       @Parameter(CommGroupNameClass.class) final Class<? extends Name<String>> groupName,
+                       @Parameter(OperatorNameClass.class) final Class<? extends Name<String>> operatorName,
+                       @Parameter(DriverIdentifier.class) final String driverId) {
     this.senderStage = senderStage;
     this.groupName = groupName;
     this.operName = operatorName;
@@ -91,6 +93,11 @@ public class FlatTopology implements Topology {
   @Override
   public String getRootId() {
     return rootId;
+  }
+
+  @Override
+  public boolean isRootPresent() {
+    return root != null;
   }
 
   @Override
@@ -211,8 +218,6 @@ public class FlatTopology implements Topology {
     this.root = node;
 
     for (final Map.Entry<String, TaskNode> nodeEntry : nodes.entrySet()) {
-      final String id = nodeEntry.getKey();
-
       final TaskNode leaf = nodeEntry.getValue();
       root.addChild(leaf);
       leaf.setParent(root);
@@ -226,9 +231,9 @@ public class FlatTopology implements Topology {
   private void unsetRootNode(final String taskId) {
     LOG.finest(getQualifiedName() + "Unsetting " + rootId + " as root");
     nodes.remove(rootId);
+    root = null;
 
     for (final Map.Entry<String, TaskNode> nodeEntry : nodes.entrySet()) {
-      final String id = nodeEntry.getKey();
       final TaskNode leaf = nodeEntry.getValue();
       leaf.setParent(null);
     }

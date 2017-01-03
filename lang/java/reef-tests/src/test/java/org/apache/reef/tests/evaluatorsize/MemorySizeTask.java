@@ -27,11 +27,11 @@ import javax.inject.Inject;
 final class MemorySizeTask implements Task {
 
   private static final int MEGA = 1048576;
-  private static final int ALLOWED_DELTA = 128; // TODO: This shouldn't be necessary. Could be the perm size we set.
+  private static final int ALLOWED_DELTA = 128; // This shouldn't be necessary. Could be the perm size we set.
   private final int memorySize;
 
   @Inject
-  public MemorySizeTask(@Parameter(EvaluatorSizeTestConfiguration.MemorySize.class) final int memorySize) {
+  MemorySizeTask(@Parameter(EvaluatorSizeTestConfiguration.MemorySize.class) final int memorySize) {
     this.memorySize = memorySize;
   }
 

@@ -1,40 +1,34 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using Org.Apache.REEF.Common.Io;
 using Org.Apache.REEF.Common.Tasks;
 using Org.Apache.REEF.Driver;
-using Org.Apache.REEF.Driver.Bridge;
 using Org.Apache.REEF.Driver.Context;
 using Org.Apache.REEF.Driver.Evaluator;
-using Org.Apache.REEF.Network.Examples.GroupCommunication.BroadcastReduceDriverAndTasks;
 using Org.Apache.REEF.Network.Group.Config;
 using Org.Apache.REEF.Network.Group.Driver;
 using Org.Apache.REEF.Network.Group.Driver.Impl;
 using Org.Apache.REEF.Network.Group.Operators;
 using Org.Apache.REEF.Network.Group.Pipelining;
 using Org.Apache.REEF.Network.Group.Topology;
-using Org.Apache.REEF.Network.NetworkService;
 using Org.Apache.REEF.Tang.Annotations;
 using Org.Apache.REEF.Tang.Implementations.Configuration;
 using Org.Apache.REEF.Tang.Implementations.Tang;
@@ -124,8 +118,6 @@ namespace Org.Apache.REEF.Network.Examples.GroupCommunication.PipelineBroadcastR
                 .Build();
 
             _groupCommTaskStarter = new TaskStarter(_groupCommDriver, numEvaluators);
-
-            CreateClassHierarchy();
         }
 
         public void OnNext(IAllocatedEvaluator allocatedEvaluator)
@@ -211,18 +203,6 @@ namespace Org.Apache.REEF.Network.Examples.GroupCommunication.PipelineBroadcastR
             _evaluatorRequestor.Submit(request);
         }
 
-        private void CreateClassHierarchy()
-        {
-            var clrDlls = new HashSet<string>();
-            clrDlls.Add(typeof(IDriver).Assembly.GetName().Name);
-            clrDlls.Add(typeof(ITask).Assembly.GetName().Name);
-            clrDlls.Add(typeof(PipelinedBroadcastReduceDriver).Assembly.GetName().Name);
-            clrDlls.Add(typeof(INameClient).Assembly.GetName().Name);
-            clrDlls.Add(typeof(INetworkService<>).Assembly.GetName().Name);
-
-            ClrHandlerHelper.GenerateClassHierarchy(clrDlls);
-        }
-
         private class SumFunction : IReduceFunction<int>
         {
             [Inject]
@@ -283,20 +263,20 @@ namespace Org.Apache.REEF.Network.Examples.GroupCommunication.PipelineBroadcastR
 
             public byte[] Encode(int[] obj)
             {
-                var result = new byte[sizeof (Int32)*obj.Length];
+                var result = new byte[sizeof(int) * obj.Length];
                 Buffer.BlockCopy(obj, 0, result, 0, result.Length);
                 return result;
             }
 
             public int[] Decode(byte[] data)
             {
-                if (data.Length%sizeof (Int32) != 0)
+                if (data.Length % sizeof(int) != 0)
                 {
                     throw new Exception(
-                        "error inside integer array decoder, byte array length not a multiple of interger size");
+                        "error inside integer array decoder, byte array length not a multiple of integer size");
                 }
 
-                var result = new int[data.Length/sizeof (Int32)];
+                var result = new int[data.Length / sizeof(int)];
                 Buffer.BlockCopy(data, 0, result, 0, data.Length);
                 return result;
             }
@@ -315,9 +295,9 @@ namespace Org.Apache.REEF.Network.Examples.GroupCommunication.PipelineBroadcastR
             public List<PipelineMessage<int[]>> PipelineMessage(int[] message)
             {
                 var messageList = new List<PipelineMessage<int[]>>();
-                var totalChunks = message.Length/_chunkSize;
+                var totalChunks = message.Length / _chunkSize;
 
-                if (message.Length%_chunkSize != 0)
+                if (message.Length % _chunkSize != 0)
                 {
                     totalChunks++;
                 }
@@ -326,7 +306,7 @@ namespace Org.Apache.REEF.Network.Examples.GroupCommunication.PipelineBroadcastR
                 for (var i = 0; i < message.Length; i += _chunkSize)
                 {
                     var data = new int[Math.Min(_chunkSize, message.Length - i)];
-                    Buffer.BlockCopy(message, i*sizeof (int), data, 0, data.Length*sizeof (int));
+                    Buffer.BlockCopy(message, i * sizeof(int), data, 0, data.Length * sizeof(int));
 
                     messageList.Add(counter == totalChunks - 1
                         ? new PipelineMessage<int[]>(data, true)
@@ -346,8 +326,8 @@ namespace Org.Apache.REEF.Network.Examples.GroupCommunication.PipelineBroadcastR
 
                 foreach (var message in pipelineMessage)
                 {
-                    Buffer.BlockCopy(message.Data, 0, data, offset, message.Data.Length*sizeof (int));
-                    offset += message.Data.Length*sizeof (int);
+                    Buffer.BlockCopy(message.Data, 0, data, offset, message.Data.Length * sizeof(int));
+                    offset += message.Data.Length * sizeof(int);
                 }
 
                 return data;

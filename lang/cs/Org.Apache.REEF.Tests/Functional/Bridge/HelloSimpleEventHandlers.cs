@@ -1,27 +1,26 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Net;
 using System.Text;
+using Org.Apache.REEF.Common.Context;
 using Org.Apache.REEF.Common.Tasks;
 using Org.Apache.REEF.Driver;
 using Org.Apache.REEF.Driver.Bridge;
@@ -34,7 +33,6 @@ using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Util;
 using Org.Apache.REEF.Utilities;
 using Org.Apache.REEF.Utilities.Logging;
-using IRunningTask = Org.Apache.REEF.Driver.Task.IRunningTask;
 
 namespace Org.Apache.REEF.Tests.Functional.Bridge
 {
@@ -127,7 +125,7 @@ namespace Org.Apache.REEF.Tests.Functional.Bridge
 
         public void OnNext(IDriverStarted driverStarted)
         {
-            using (Logger.LogFunction("HelloSimpleEventHandlers::evalutorRequestor received"))
+            using (Logger.LogFunction("HelloSimpleEventHandlers::evaluatorRequestor received"))
             {
                 int evaluatorsNumber = _numberOfEvaluators;
                 int memory = 1024 * 3;
@@ -174,7 +172,12 @@ namespace Org.Apache.REEF.Tests.Functional.Bridge
         {
             using (Logger.LogFunction("HelloSimpleEventHandlers::CompletedTask received"))
             {
-                Logger.Log(Level.Info, string.Format(CultureInfo.InvariantCulture, "Received CompletedTask: {0}, task id: {1}", value.Id, _taskContext.CurrentTaskId()));
+                Logger.Log(Level.Info, "Received CompletedTask: {0}, task id: {1}.", value.Id, _taskContext.CurrentTaskId());
+                
+                var messageStr = value.Message == null || value.Message.Length == 0 ?
+                    string.Empty : ByteUtilities.ByteArraysToString(value.Message);
+                Logger.Log(Level.Verbose, "Message received from CompletedTask {0} is: [{1}]", value.Id, messageStr);
+
                 _taskContext.UpdateTaskStatus(value.Id, TaskStatus.Completed);
                 _taskContext.TaskCompleted++;
                 SubmitNextTask(value.ActiveContext);
@@ -386,7 +389,7 @@ namespace Org.Apache.REEF.Tests.Functional.Bridge
                 Logger.Log(Level.Verbose, "CurrentTaskId: " + _taskIds[NextTaskIndex - 1]);
                 return _taskIds[NextTaskIndex - 1];
             }
-            return null; //either not started or completed
+            return null; // either not started or completed
         }
 
         public void UpdateTaskStatus(string taskId, TaskStatus status)
@@ -416,7 +419,7 @@ namespace Org.Apache.REEF.Tests.Functional.Bridge
     }
 
     [NamedParameter(Documentation = "NumberOfTasks", ShortName = "NumberOfTasks", DefaultValue = "2")]
-    class NumberOfEvaluators : Name<Int32>
+    class NumberOfEvaluators : Name<int>
     {        
     }
 

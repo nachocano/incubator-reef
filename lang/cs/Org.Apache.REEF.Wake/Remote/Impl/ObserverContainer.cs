@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Concurrent;
@@ -27,12 +25,13 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
     /// <summary>
     /// Stores registered IObservers for DefaultRemoteManager.
     /// Can register and look up IObservers by remote IPEndPoint.
+    /// TODO[JIRA REEF-1407]: Remove <see cref="IObserver{T}"/> and add custom OnError/OnCompleted with IPEndpoints.
     /// </summary>
-    internal class ObserverContainer<T> : IObserver<TransportEvent<IRemoteEvent<T>>>
+    internal sealed class ObserverContainer<T> : IObserver<TransportEvent<IRemoteEvent<T>>>
     {
         private readonly ConcurrentDictionary<IPEndPoint, IObserver<T>> _endpointMap;
-        private readonly ConcurrentDictionary<Type, IObserver<IRemoteMessage<T>>> _typeMap;
         private IObserver<T> _universalObserver;
+        private IObserver<IRemoteMessage<T>> _remoteMessageUniversalObserver;
 
         /// <summary>
         /// Constructs a new ObserverContainer used to manage remote IObservers.
@@ -40,7 +39,6 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         public ObserverContainer()
         {
             _endpointMap = new ConcurrentDictionary<IPEndPoint, IObserver<T>>(new IPEndPointComparer());
-            _typeMap = new ConcurrentDictionary<Type, IObserver<IRemoteMessage<T>>>();
         }
 
         /// <summary>
@@ -69,8 +67,8 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         /// <returns>An IDisposable used to unregister the observer with</returns>
         public IDisposable RegisterObserver(IObserver<IRemoteMessage<T>> observer)
         {
-            _typeMap[typeof(T)] = observer;
-            return Disposable.Create(() => _typeMap.TryRemove(typeof(T), out observer));
+            _remoteMessageUniversalObserver = observer;
+            return Disposable.Create(() => _remoteMessageUniversalObserver = null);
         }
 
         /// <summary>
@@ -86,25 +84,26 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
             T value = remoteEvent.Value;
             bool handled = false;
 
-            IObserver<T> observer1;
-            IObserver<IRemoteMessage<T>> observer2;
             if (_universalObserver != null)
             {
                 _universalObserver.OnNext(value);
                 handled = true;
             }
-            if (_endpointMap.TryGetValue(remoteEvent.RemoteEndPoint, out observer1))
-            {
-                // IObserver was registered by IPEndpoint
-                observer1.OnNext(value);
-                handled = true;
-            } 
-            else if (_typeMap.TryGetValue(value.GetType(), out observer2))
+
+            if (_remoteMessageUniversalObserver != null)
             {
                 // IObserver was registered by event type
                 IRemoteIdentifier id = new SocketRemoteIdentifier(remoteEvent.RemoteEndPoint);
                 IRemoteMessage<T> remoteMessage = new DefaultRemoteMessage<T>(id, value);
-                observer2.OnNext(remoteMessage);
+                _remoteMessageUniversalObserver.OnNext(remoteMessage);
+                handled = true;
+            }
+
+            IObserver<T> observer;
+            if (_endpointMap.TryGetValue(remoteEvent.RemoteEndPoint, out observer))
+            {
+                // IObserver was registered by IPEndpoint
+                observer.OnNext(value);
                 handled = true;
             }
 
@@ -116,10 +115,12 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
 
         public void OnError(Exception error)
         {
+            // TODO[JIRA REEF-1407]: Propagate Exception upwards. May need to change signature.
         }
 
         public void OnCompleted()
         {
+            // TODO[JIRA REEF-1407]: Propagate completion upwards. May need to change signature.
         }
     }
 }

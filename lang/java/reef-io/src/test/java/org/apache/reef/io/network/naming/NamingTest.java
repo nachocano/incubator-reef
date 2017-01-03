@@ -19,17 +19,16 @@
 package org.apache.reef.io.network.naming;
 
 import org.apache.reef.io.naming.NameAssignment;
-import org.apache.reef.io.network.naming.parameters.NameResolverRetryCount;
-import org.apache.reef.io.network.naming.parameters.NameResolverRetryTimeout;
+import org.apache.reef.io.network.naming.parameters.*;
 import org.apache.reef.io.network.util.StringIdentifierFactory;
 import org.apache.reef.tang.Configuration;
 import org.apache.reef.tang.Injector;
 import org.apache.reef.tang.Tang;
 import org.apache.reef.tang.exceptions.InjectionException;
+import org.apache.reef.util.Optional;
 import org.apache.reef.wake.Identifier;
 import org.apache.reef.wake.IdentifierFactory;
 import org.apache.reef.wake.remote.address.LocalAddressProvider;
-import org.apache.reef.wake.remote.address.LocalAddressProviderFactory;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -72,7 +71,7 @@ public class NamingTest {
   private int port;
 
   public NamingTest() throws InjectionException {
-    this.localAddressProvider = LocalAddressProviderFactory.getInstance();
+    this.localAddressProvider = Tang.Factory.getTang().newInjector().getInstance(LocalAddressProvider.class);
   }
 
   /**
@@ -87,7 +86,7 @@ public class NamingTest {
     LOG.log(Level.FINEST, this.name.getMethodName());
 
     // names 
-    final Map<Identifier, InetSocketAddress> idToAddrMap = new HashMap<Identifier, InetSocketAddress>();
+    final Map<Identifier, InetSocketAddress> idToAddrMap = new HashMap<>();
     idToAddrMap.put(this.factory.getNewInstance("task1"), new InetSocketAddress(localAddress, 7001));
     idToAddrMap.put(this.factory.getNewInstance("task2"), new InetSocketAddress(localAddress, 7002));
 
@@ -102,13 +101,14 @@ public class NamingTest {
       }
 
       // run a client
-      try (final NameLookupClient client = new NameLookupClient(localAddress, this.port,
-          10000, this.factory, RETRY_COUNT, RETRY_TIMEOUT, new NameCache(this.TTL), this.localAddressProvider)) {
+      try (final NameLookupClient client =
+               getNewNameLookupClient(localAddress, port, TTL, RETRY_COUNT, RETRY_TIMEOUT,
+                   Optional.of(this.localAddressProvider), Optional.of(this.factory))) {
 
         final Identifier id1 = this.factory.getNewInstance("task1");
         final Identifier id2 = this.factory.getNewInstance("task2");
 
-        final Map<Identifier, InetSocketAddress> respMap = new HashMap<Identifier, InetSocketAddress>();
+        final Map<Identifier, InetSocketAddress> respMap = new HashMap<>();
         final InetSocketAddress addr1 = client.lookup(id1);
         respMap.put(id1, addr1);
         final InetSocketAddress addr2 = client.lookup(id2);
@@ -121,6 +121,36 @@ public class NamingTest {
         Assert.assertTrue(isEqual(idToAddrMap, respMap));
       }
     }
+  }
+
+  private static NameLookupClient getNewNameLookupClient(final String serverAddr,
+                                                         final int serverPort,
+                                                         final long timeout,
+                                                         final int retryCount,
+                                                         final int retryTimeout,
+                                                         final Optional<LocalAddressProvider> localAddressProvider,
+                                                         final Optional<IdentifierFactory> factory)
+      throws InjectionException {
+
+
+    final Configuration injectorConf = Tang.Factory.getTang().newConfigurationBuilder()
+        .bindNamedParameter(NameResolverNameServerAddr.class, serverAddr)
+        .bindNamedParameter(NameResolverNameServerPort.class, Integer.toString(serverPort))
+        .bindNamedParameter(NameResolverCacheTimeout.class, Long.toString(timeout))
+        .bindNamedParameter(NameResolverRetryCount.class, Integer.toString(retryCount))
+        .bindNamedParameter(NameResolverRetryTimeout.class, Integer.toString(retryTimeout))
+        .build();
+
+    final Injector injector = Tang.Factory.getTang().newInjector(injectorConf);
+    if (localAddressProvider.isPresent()) {
+      injector.bindVolatileInstance(LocalAddressProvider.class, localAddressProvider.get());
+    }
+
+    if (factory.isPresent()) {
+      injector.bindVolatileInstance(IdentifierFactory.class, factory.get());
+    }
+
+    return injector.getInstance(NameLookupClient.class);
   }
 
   /**
@@ -140,7 +170,7 @@ public class NamingTest {
       LOG.log(Level.FINEST, "test {0}", i);
 
       // names 
-      final Map<Identifier, InetSocketAddress> idToAddrMap = new HashMap<Identifier, InetSocketAddress>();
+      final Map<Identifier, InetSocketAddress> idToAddrMap = new HashMap<>();
       idToAddrMap.put(this.factory.getNewInstance("task1"), new InetSocketAddress(localAddress, 7001));
       idToAddrMap.put(this.factory.getNewInstance("task2"), new InetSocketAddress(localAddress, 7002));
       idToAddrMap.put(this.factory.getNewInstance("task3"), new InetSocketAddress(localAddress, 7003));
@@ -156,17 +186,16 @@ public class NamingTest {
         }
 
         // run a client
-        try (final NameLookupClient client = new NameLookupClient(localAddress, this.port,
-            10000, this.factory, RETRY_COUNT, RETRY_TIMEOUT, new NameCache(this.TTL), this.localAddressProvider)) {
-
+        try (final NameLookupClient client =
+            getNewNameLookupClient(localAddress, port, TTL, RETRY_COUNT, RETRY_TIMEOUT,
+                Optional.of(this.localAddressProvider), Optional.of(this.factory))) {
           final Identifier id1 = this.factory.getNewInstance("task1");
           final Identifier id2 = this.factory.getNewInstance("task2");
           final Identifier id3 = this.factory.getNewInstance("task3");
 
           final ExecutorService e = Executors.newCachedThreadPool();
 
-          final ConcurrentMap<Identifier, InetSocketAddress> respMap = 
-              new ConcurrentHashMap<Identifier, InetSocketAddress>();
+          final ConcurrentMap<Identifier, InetSocketAddress> respMap = new ConcurrentHashMap<>();
 
           final Future<?> f1 = e.submit(new Runnable() {
             @Override
@@ -240,7 +269,7 @@ public class NamingTest {
       final String localAddress = localAddressProvider.getLocalAddress();
 
       // names to start with
-      final Map<Identifier, InetSocketAddress> idToAddrMap = new HashMap<Identifier, InetSocketAddress>();
+      final Map<Identifier, InetSocketAddress> idToAddrMap = new HashMap<>();
       idToAddrMap.put(this.factory.getNewInstance("task1"), new InetSocketAddress(localAddress, 7001));
       idToAddrMap.put(this.factory.getNewInstance("task2"), new InetSocketAddress(localAddress, 7002));
 
@@ -257,7 +286,7 @@ public class NamingTest {
         busyWait(server, ids.size(), ids);
 
         // check the server side
-        Map<Identifier, InetSocketAddress> serverMap = new HashMap<Identifier, InetSocketAddress>();
+        Map<Identifier, InetSocketAddress> serverMap = new HashMap<>();
         Iterable<NameAssignment> nas = server.lookup(ids);
 
         for (final NameAssignment na : nas) {
@@ -276,7 +305,7 @@ public class NamingTest {
         // wait
         busyWait(server, 0, ids);
 
-        serverMap = new HashMap<Identifier, InetSocketAddress>();
+        serverMap = new HashMap<>();
         nas = server.lookup(ids);
         for (final NameAssignment na : nas) {
           serverMap.put(na.getIdentifier(), na.getAddress());
@@ -304,7 +333,7 @@ public class NamingTest {
     try (final NameServer server = injector.getInstance(NameServer.class)) {
       this.port = server.getPort();
 
-      final Map<Identifier, InetSocketAddress> idToAddrMap = new HashMap<Identifier, InetSocketAddress>();
+      final Map<Identifier, InetSocketAddress> idToAddrMap = new HashMap<>();
       idToAddrMap.put(this.factory.getNewInstance("task1"), new InetSocketAddress(localAddress, 7001));
       idToAddrMap.put(this.factory.getNewInstance("task2"), new InetSocketAddress(localAddress, 7002));
 
@@ -313,7 +342,7 @@ public class NamingTest {
       final Configuration nameResolverConf = NameResolverConfiguration.CONF
           .set(NameResolverConfiguration.NAME_SERVER_HOSTNAME, localAddress)
           .set(NameResolverConfiguration.NAME_SERVICE_PORT, this.port)
-          .set(NameResolverConfiguration.CACHE_TIMEOUT, this.TTL)
+          .set(NameResolverConfiguration.CACHE_TIMEOUT, TTL)
           .set(NameResolverConfiguration.RETRY_TIMEOUT, RETRY_TIMEOUT)
           .set(NameResolverConfiguration.RETRY_COUNT, RETRY_COUNT)
           .build();
@@ -332,7 +361,7 @@ public class NamingTest {
         final Identifier id1 = this.factory.getNewInstance("task1");
         final Identifier id2 = this.factory.getNewInstance("task2");
 
-        final Map<Identifier, InetSocketAddress> respMap = new HashMap<Identifier, InetSocketAddress>();
+        final Map<Identifier, InetSocketAddress> respMap = new HashMap<>();
         InetSocketAddress addr1 = client.lookup(id1);
         respMap.put(id1, addr1);
         InetSocketAddress addr2 = client.lookup(id2);
@@ -352,7 +381,7 @@ public class NamingTest {
         // wait
         busyWait(server, 0, ids);
 
-        final Map<Identifier, InetSocketAddress> serverMap = new HashMap<Identifier, InetSocketAddress>();
+        final Map<Identifier, InetSocketAddress> serverMap = new HashMap<>();
         addr1 = server.lookup(id1);
         if (addr1 != null) {
           serverMap.put(id1, addr1);

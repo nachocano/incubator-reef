@@ -17,7 +17,7 @@
  * under the License.
  */
 
-package org.apache.reef.driver.parameters;
+package org.apache.reef.runtime.yarn.driver.parameters;
 
 import org.apache.reef.tang.annotations.NamedParameter;
 import org.apache.reef.tang.annotations.Name;

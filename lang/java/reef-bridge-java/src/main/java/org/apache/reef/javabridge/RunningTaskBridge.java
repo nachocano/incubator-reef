@@ -18,11 +18,21 @@
  */
 package org.apache.reef.javabridge;
 
+import org.apache.reef.annotations.audience.Interop;
+import org.apache.reef.annotations.audience.Private;
 import org.apache.reef.driver.task.RunningTask;
+import org.apache.reef.io.naming.Identifiable;
 
 import java.util.logging.Logger;
 
-public final class RunningTaskBridge extends NativeBridge {
+/**
+ * The Java-CLR bridge object for {@link org.apache.reef.driver.task.RunningTask}.
+ */
+@Private
+@Interop(
+    CppFiles = { "Clr2JavaImpl.h", "RunningTaskClr2Java.cpp" },
+    CsFiles = { "IRunningTaskClr2Java.cs", "RunningTask.cs" })
+public final class RunningTaskBridge extends NativeBridge implements Identifiable {
   private static final Logger LOG = Logger.getLogger(RunningTaskBridge.class.getName());
 
   private final RunningTask jrunningTask;
@@ -33,12 +43,33 @@ public final class RunningTaskBridge extends NativeBridge {
     this.jactiveContext = factory.getActiveContextBridge(runningTask.getActiveContext());
   }
 
-  public String getId() {
-    return jrunningTask.getId();
-  }
-
   public void send(final byte[] message) {
     jrunningTask.send(message);
+  }
+
+  public void suspend(final byte[] message) {
+    if (message != null) {
+      jrunningTask.suspend(message);
+    } else {
+      jrunningTask.suspend();
+    }
+  }
+
+  public void close(final byte[] message) {
+    if (message != null) {
+      jrunningTask.close(message);
+    } else {
+      jrunningTask.close();
+    }
+  }
+
+  public ActiveContextBridge getActiveContext() {
+    return jactiveContext;
+  }
+
+  @Override
+  public String getId() {
+    return jrunningTask.getId();
   }
 
   @Override

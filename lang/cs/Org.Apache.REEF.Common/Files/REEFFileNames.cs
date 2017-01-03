@@ -1,26 +1,24 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using Org.Apache.REEF.Common.Attributes;
 using Org.Apache.REEF.Tang.Annotations;
+using Org.Apache.REEF.Utilities.Attributes;
 
 namespace Org.Apache.REEF.Common.Files
 {
@@ -49,9 +47,19 @@ namespace Org.Apache.REEF.Common.Files
         private const string DRIVER_CONFIGURATION_NAME = "driver.conf";
         private const string EVALUATOR_CONFIGURATION_NAME = "evaluator.conf";
         private const string CLR_DRIVER_CONFIGURATION_NAME = "clrdriver.conf";
+        private const string CLR_BRIDGE_CONFIGURATION_NAME = "clrBridge.config";
         private const string DRIVER_HTTP_ENDPOINT_FILE_NAME = "DriverHttpEndpoint.txt";
         private const string BRIDGE_EXE_NAME = "Org.Apache.REEF.Bridge.exe";
         private const string BRIDGE_EXE_CONFIG_NAME = "Org.Apache.REEF.Bridge.exe.config";
+        private const string SECURITY_TOKEN_IDENTIFIER_FILE = "SecurityTokenId";
+        private const string SECURITY_TOKEN_PASSWORD_FILE = "SecurityTokenPwd";
+        private const string APP_SUBMISSION_PARAMETERS_FILE = "app-submission-params.json";
+        private const string JOB_SUBMISSION_PARAMETERS_FILE = "job-submission-params.json";
+        private const string YARN_DEFAULT_DRIVER_OUT_VAR = "<LOG_DIR>";
+        private const string YARN_DRIVER_STDOUT_PATH = YARN_DEFAULT_DRIVER_OUT_VAR + "/driver.stdout";
+        private const string YARN_DRIVER_STDERR_PATH = YARN_DEFAULT_DRIVER_OUT_VAR + "/driver.stderr";
+        private const string DRIVER_COMMAND_LOGGING_CONFIG = "1> <LOG_DIR>/driver.stdout 2> <LOG_DIR>/driver.stderr";
+        private const string PID_FILE_NAME = "PID.txt";
 
         [Inject]
         public REEFFileNames()
@@ -149,6 +157,14 @@ namespace Org.Apache.REEF.Common.Files
 
         /// <summary>
         /// </summary>
+        /// <returns>It returns the clrBridge.config file name</returns>
+        public string GetClrBridgeConfigurationName()
+        {
+            return CLR_BRIDGE_CONFIGURATION_NAME;
+        }
+
+        /// <summary>
+        /// </summary>
         /// <returns> The suffix used for JAR files, including the "."</returns>
         public string GetJarFileSuffix()
         {
@@ -232,10 +248,88 @@ namespace Org.Apache.REEF.Common.Files
         }
 
         /// <summary>
+        /// The Job Submission application parameters file that is used to submit a job through Java,
+        /// either directly or via a "bootstrap" method.
+        /// </summary>
+        public string GetAppSubmissionParametersFile()
+        {
+            return APP_SUBMISSION_PARAMETERS_FILE;
+        }
+
+        /// <summary>
+        /// The Job Submission job parameters file that is used to submit a job through Java,
+        /// either directly or via a "bootstrap" method.
+        /// </summary>
+        public string GetJobSubmissionParametersFile()
+        {
+            return JOB_SUBMISSION_PARAMETERS_FILE;
+        }
+
+        /// <summary>
+        /// Returns the default driver log output variable for YARN.
+        /// Expands into the constant "&lt;LOG_DIR&gt;".
+        /// </summary>
+        /// <returns>"&lt;LOG_DIR&gt;"</returns>
+        public string GetYarnDriverLogOutputVariable()
+        {
+            return YARN_DEFAULT_DRIVER_OUT_VAR;
+        }
+
+        /// <summary>
+        /// The default YARN Driver stdout file path.
+        /// </summary>
+        /// <returns></returns>
+        public string GetDefaultYarnDriverStdoutFilePath()
+        {
+            return YARN_DRIVER_STDOUT_PATH;
+        }
+
+        /// <summary>
+        /// The default YARN Driver stderr file path.
+        /// </summary>
+        /// <returns></returns>
+        public string GetDefaultYarnDriverStderrFilePath()
+        {
+            return YARN_DRIVER_STDERR_PATH;
+        }
+
+        /// <summary>
+        /// The filename for security token identifier
+        /// </summary>
+        /// <returns>filename which contains raw bytes of security token identifier</returns>
+        [Unstable("0.13", "Security token should be handled by .NET only REEF client in the future")]
+        public string GetSecurityTokenIdentifierFileName()
+        {
+            return SECURITY_TOKEN_IDENTIFIER_FILE;
+        }
+
+        /// <summary>
+        /// The filename for security token password
+        /// </summary>
+        /// <returns>filename which contains raw bytes of security token password</returns>
+        [Unstable("0.13", "Security token should be handled by .NET only REEF client in the future")]
+        public string GetSecurityTokenPasswordFileName()
+        {
+            return SECURITY_TOKEN_PASSWORD_FILE;
+        }
+
+        /// <summary>
+        /// The file name of the PID file created in the current working directory of the process.
+        /// This is similar to the file name in the PIDStoreHandler.java
+        /// </summary>
+        public string GetPidFileName()
+        {
+            return PID_FILE_NAME;
+        }
+
+        /// <summary>
         /// </summary>
         /// <returns>File name that contains the dfs path for the DriverHttpEndpoint</returns>
         [Unstable("0.13", "Working in progress for what to return after submit")]
-        public string DriverHttpEndpoint { get { return DRIVER_HTTP_ENDPOINT_FILE_NAME; } }
+        public string DriverHttpEndpoint 
+        { 
+            get { return DRIVER_HTTP_ENDPOINT_FILE_NAME; } 
+        }
 
         private static readonly string GLOBAL_FOLDER_PATH = Path.Combine(REEF_BASE_FOLDER, GLOBAL_FOLDER);
         private static readonly string LOCAL_FOLDER_PATH = Path.Combine(REEF_BASE_FOLDER, LOCAL_FOLDER);

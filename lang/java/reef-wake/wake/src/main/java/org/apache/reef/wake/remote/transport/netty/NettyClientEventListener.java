@@ -28,11 +28,14 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * A Netty event listener for server.
+ */
 final class NettyClientEventListener extends AbstractNettyEventListener {
 
   private static final Logger LOG = Logger.getLogger(NettyClientEventListener.class.getName());
 
-  public NettyClientEventListener(
+  NettyClientEventListener(
       final ConcurrentMap<SocketAddress, LinkReference> addrToLinkRefMap,
       final EStage<TransportEvent> stage) {
     super(addrToLinkRefMap, stage);

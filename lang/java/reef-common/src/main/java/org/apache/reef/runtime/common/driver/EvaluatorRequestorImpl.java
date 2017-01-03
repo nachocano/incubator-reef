@@ -47,6 +47,7 @@ public final class EvaluatorRequestorImpl implements EvaluatorRequestor {
   /**
    * @param resourceCatalog
    * @param resourceRequestHandler
+   * @param loggingScopeFactory
    */
   @Inject
   public EvaluatorRequestorImpl(final ResourceCatalog resourceCatalog,
@@ -77,7 +78,9 @@ public final class EvaluatorRequestorImpl implements EvaluatorRequestor {
     if (req.getRackNames() == null) {
       throw new IllegalArgumentException("Rack names cannot be null");
     }
-
+    if(req.getRuntimeName() == null) {
+      throw new IllegalArgumentException("Runtime name cannot be null");
+    }
     // for backwards compatibility, we will always set the relax locality flag
     // to true unless the user configured racks, in which case we will check for
     // the ANY modifier (*), if not there, then we won't relax the locality
@@ -91,8 +94,12 @@ public final class EvaluatorRequestorImpl implements EvaluatorRequestor {
         relaxLocality = false;
       }
     }
+    // if the user specified any node, then we assume they do not want to relax locality
+    if (!req.getNodeNames().isEmpty()) {
+      relaxLocality = false;
+    }
 
-    try (LoggingScope ls = loggingScopeFactory.evaluatorSubmit(req.getNumber())) {
+    try (LoggingScope ls = this.loggingScopeFactory.evaluatorSubmit(req.getNumber())) {
       final ResourceRequestEvent request = ResourceRequestEventImpl
           .newBuilder()
           .setResourceCount(req.getNumber())
@@ -101,8 +108,29 @@ public final class EvaluatorRequestorImpl implements EvaluatorRequestor {
           .addNodeNames(req.getNodeNames())
           .addRackNames(req.getRackNames())
           .setRelaxLocality(relaxLocality)
+          .setRuntimeName(req.getRuntimeName())
           .build();
       this.resourceRequestHandler.onNext(request);
+    }
+  }
+
+  /**
+   * Get a new builder.
+   *
+   * @return a new EvaluatorRequest Builder extended with the new submit method.
+   */
+  @Override
+  public Builder newRequest() {
+    return new Builder();
+  }
+
+  /**
+   * {@link EvaluatorRequest.Builder} extended with a new submit method.
+   * {@link EvaluatorRequest}s are built using this builder.
+   */
+  public final class Builder extends EvaluatorRequest.Builder<Builder> {
+    public synchronized void submit() {
+      EvaluatorRequestorImpl.this.submit(this.build());
     }
   }
 }

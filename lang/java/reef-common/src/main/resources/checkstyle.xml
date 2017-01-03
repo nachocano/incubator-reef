@@ -60,7 +60,9 @@
 
     <!-- Checks whether files end with a new line.                        -->
     <!-- See http://checkstyle.sf.net/config_misc.html#NewlineAtEndOfFile -->
-    <!-- module name="NewlineAtEndOfFile"/-->
+    <module name="NewlineAtEndOfFile">
+        <property name="lineSeparator" value="lf_cr_crlf"/>
+    </module>
 
     <!-- Checks that property files contain the same keys.         -->
     <!-- See http://checkstyle.sf.net/config_misc.html#Translation -->
@@ -71,6 +73,13 @@
 
     <!-- not a check -->
     <module name="SuppressWarningsFilter"/>
+
+    <!-- Checks for Headers                                -->
+    <!-- See http://checkstyle.sf.net/config_header.html   -->
+    <module name="RegexpHeader">
+        <property name="header" value="^/\*$"/>
+        <property name="fileExtensions" value="java"/>
+    </module>
 
     <module name="TreeWalker">
         <!-- not a check -->
@@ -96,24 +105,6 @@
         <module name="ParameterName"/>
         <module name="StaticVariableName"/>
         <module name="TypeName"/>
-
-
-        <!-- Checks for Headers                                -->
-        <!-- See http://checkstyle.sf.net/config_header.html   -->
-        <!-- <module name="Header">                            -->
-        <!-- The follow property value demonstrates the ability     -->
-        <!-- to have access to ANT properties. In this case it uses -->
-        <!-- the ${basedir} property to allow Checkstyle to be run  -->
-        <!-- from any directory within a project. See property      -->
-        <!-- expansion,                                             -->
-        <!-- http://checkstyle.sf.net/config.html#properties        -->
-        <!-- <property                                              -->
-        <!--     name="headerFile"                                  -->
-        <!--     value="${basedir}/java.header"/>                   -->
-        <!-- </module> -->
-
-        <!-- Following interprets the header file as regular expressions. -->
-        <!-- <module name="RegexpHeader"/>                                -->
 
 
         <!-- Checks for imports                              -->
@@ -184,7 +175,13 @@
         <module name="MissingSwitchDefault"/>
         <module name="SimplifyBooleanExpression"/>
         <module name="SimplifyBooleanReturn"/>
-	<module name="FinalParameters"/>
+
+        <!-- Detects places in Java code where the diamond operator can be used -->
+        <!-- See REEF-838 -->
+        <module name="DiamondOperatorForVariableDefinition" />
+
+        <module name="FinalParameters"/>
+        <module name="UnnecessaryParentheses"/>
 
         <!-- Checks for class design                         -->
         <!-- See http://checkstyle.sf.net/config_design.html -->
@@ -211,7 +208,54 @@
             <property name="severity" value="info"/>
             <property name="format" value="TODO\[JIRA"/>
         </module>
+        <module name="TodoComment">
+            <property name="severity" value="warning"/>
+            <property name="format" value="XXX|FIX"/>
+        </module>
         <module name="UpperEll"/>
+
+        <!-- Exception-handling checks. -->
+        <!-- See https://issues.apache.org/jira/browse/REEF-864 -->
+        <module name="MutableException"/>
+        <module name="ForbidReturnInFinallyBlockCheck"/>
+        <module name="ForbidThrowAnonymousExceptionsCheck"/>
+        <module name="UselessSingleCatchCheck"/>
+        <module name="EmptyCatchBlock">
+            <property name="commentFormat" value="This is expected"/>
+            <property name="exceptionVariableName" value="expected|ignored"/>
+        </module>
+
+        <!-- IllegalThrows is suppressed for files with the word "Test" in the filename -->
+        <module name="IllegalThrows">
+            <property name="illegalClassNames" value="Throwable, Error, RuntimeException, NullPointerException"/>
+        </module>
+
+        <!-- IllegalCatch is suppressed for files with the word "Test" in the filename -->
+        <module name="IllegalCatch">
+            <property name="illegalClassNames" value="Throwable, RuntimeException, Error" />
+        </module>
+
+        <module name="IllegalInstantiation">
+            <property name="classes" value="java.lang.Throwable, java.lang.Error"/>
+        </module>
+
+        <module name="AvoidHidingCauseExceptionCheck" />
+
+        <!-- ConstructorWithoutParams is suppressed for files with the word "Test" in the filename -->
+        <module name="ConstructorWithoutParamsCheck" >
+          <property name="classNameFormat" value=".*Exception$" />
+          <property name="ignoredClassNameFormat" value="UnsupportedOperationException|NotImplementedException|NoSuchElementException" />
+        </module>
+
+        <!-- Checks for System.exit() call -->
+        <!-- See https://issues.apache.org/jira/browse/REEF-1139 -->
+        <module name="Regexp">
+            <property name="severity" value="warning"/>
+            <property name="format" value="System\.exit\("/>
+            <property name="illegalPattern" value="true"/>
+            <property name="ignoreComments" value="true"/>
+        </module>
+
     </module>
 
 </module>

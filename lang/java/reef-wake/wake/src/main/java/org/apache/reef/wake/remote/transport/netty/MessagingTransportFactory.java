@@ -27,7 +27,6 @@ import org.apache.reef.wake.impl.SyncStage;
 import org.apache.reef.wake.remote.RemoteConfiguration;
 import org.apache.reef.wake.remote.address.LocalAddressProvider;
 import org.apache.reef.wake.remote.impl.TransportEvent;
-import org.apache.reef.wake.remote.ports.RangeTcpPortProvider;
 import org.apache.reef.wake.remote.ports.TcpPortProvider;
 import org.apache.reef.wake.remote.transport.Transport;
 import org.apache.reef.wake.remote.transport.TransportFactory;
@@ -37,17 +36,12 @@ import javax.inject.Inject;
 /**
  * Factory that creates a messaging transport.
  */
-public class MessagingTransportFactory implements TransportFactory {
+public final class MessagingTransportFactory implements TransportFactory {
 
   private final String localAddress;
 
-  /**
-   * @deprecated Have an instance injected instead.
-   */
-  @Deprecated
   @Inject
-  // TODO[JIRA REEF-703]: change constructor to private
-  public MessagingTransportFactory(final LocalAddressProvider localAddressProvider) {
+  private MessagingTransportFactory(final LocalAddressProvider localAddressProvider) {
     this.localAddress = localAddressProvider.getLocalAddress();
   }
 
@@ -81,19 +75,46 @@ public class MessagingTransportFactory implements TransportFactory {
     }
   }
 
-  // TODO[REEF-547]: This method uses deprecated RangeTcpPortProvider.Default. Must remove usages and deprecate.
+  /**
+   * Creates a transport.
+   *
+   * @param hostAddress   a host address
+   * @param port          a listening port
+   * @param clientStage   a client stage
+   * @param serverStage   a server stage
+   * @param numberOfTries a number of tries
+   * @param retryTimeout  a timeout for retry
+   */
   @Override
-  public Transport newInstance(final String hostAddress, final int port,
+  public Transport newInstance(final String hostAddress,
+                               final int port,
                                final EStage<TransportEvent> clientStage,
                                final EStage<TransportEvent> serverStage,
                                final int numberOfTries,
                                final int retryTimeout) {
-    return newInstance(hostAddress, port, clientStage,
-        serverStage, numberOfTries, retryTimeout, RangeTcpPortProvider.Default);
+    try {
+      TcpPortProvider tcpPortProvider = Tang.Factory.getTang().newInjector().getInstance(TcpPortProvider.class);
+      return newInstance(hostAddress, port, clientStage,
+              serverStage, numberOfTries, retryTimeout, tcpPortProvider);
+    } catch (final InjectionException e) {
+      throw new RuntimeException(e);
+    }
   }
 
+  /**
+   * Creates a transport.
+   *
+   * @param hostAddress     a host address
+   * @param port            a listening port
+   * @param clientStage     a client stage
+   * @param serverStage     a server stage
+   * @param numberOfTries   a number of tries
+   * @param retryTimeout    a timeout for retry
+   * @param tcpPortProvider a provider for TCP port
+   */
   @Override
-  public Transport newInstance(final String hostAddress, final int port,
+  public Transport newInstance(final String hostAddress,
+                               final int port,
                                final EStage<TransportEvent> clientStage,
                                final EStage<TransportEvent> serverStage,
                                final int numberOfTries,

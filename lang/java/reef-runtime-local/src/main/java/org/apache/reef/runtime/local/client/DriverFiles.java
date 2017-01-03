@@ -32,7 +32,7 @@ import java.util.logging.Logger;
 
 /**
  * Represents the files added to a driver.
- * <p/>
+ * <p>
  * This class is constructed via the from() method that instantiates it based on a JobSubmissionProto
  */
 final class DriverFiles {
@@ -45,7 +45,7 @@ final class DriverFiles {
   private final FileSet globalLibs = new FileSet();
   private final REEFFileNames fileNames;
 
-  public DriverFiles(final REEFFileNames fileNames) {
+  DriverFiles(final REEFFileNames fileNames) {
     this.fileNames = fileNames;
   }
 
@@ -120,7 +120,7 @@ final class DriverFiles {
 
   /**
    * Copies this set of files to the destination folder given.
-   * <p/>
+   * <p>
    * Will attempt to create symbolic links for the files to the destination
    * folder.  If the filesystem does not support symbolic links or the user
    * does not have appropriate permissions, the entire file will be copied instead.
@@ -129,21 +129,27 @@ final class DriverFiles {
    * @throws IOException if one or more of the copies fail.
    */
   public void copyTo(final File destinationFolder) throws IOException {
-    destinationFolder.mkdirs();
+    if (!destinationFolder.exists() && !destinationFolder.mkdirs()) {
+      LOG.log(Level.WARNING, "Failed to create [{0}]", destinationFolder.getAbsolutePath());
+    }
     final File reefFolder = new File(destinationFolder, fileNames.getREEFFolderName());
 
     final File localFolder = new File(reefFolder, fileNames.getLocalFolderName());
     final File globalFolder = new File(reefFolder, fileNames.getGlobalFolderName());
-    localFolder.mkdirs();
-    globalFolder.mkdirs();
+    if (!localFolder.exists() && !localFolder.mkdirs()) {
+      LOG.log(Level.WARNING, "Failed to create [{0}]", localFolder.getAbsolutePath());
+    }
+    if (!globalFolder.exists() && !globalFolder.mkdirs()) {
+      LOG.log(Level.WARNING, "Failed to create [{0}]", globalFolder.getAbsolutePath());
+    }
 
     try {
       this.localFiles.createSymbolicLinkTo(localFolder);
       this.localLibs.createSymbolicLinkTo(localFolder);
       this.globalLibs.createSymbolicLinkTo(globalFolder);
       this.globalFiles.createSymbolicLinkTo(globalFolder);
-    } catch (final Throwable t) {
-      LOG.log(Level.FINE, "Can't symlink the files, copying them instead.", t);
+    } catch (final IOException e) {
+      LOG.log(Level.FINE, "Can't symlink the files, copying them instead.", e);
       this.localFiles.copyTo(localFolder);
       this.localLibs.copyTo(localFolder);
       this.globalLibs.copyTo(globalFolder);

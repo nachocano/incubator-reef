@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System.Collections.Generic;
 using System.Reflection;
@@ -30,7 +28,6 @@ using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Util;
 using Org.Apache.REEF.Utilities.Logging;
 
-
 namespace Org.Apache.REEF.Network.Group.Driver.Impl
 {
     /// <summary>
@@ -38,9 +35,9 @@ namespace Org.Apache.REEF.Network.Group.Driver.Impl
     /// All operators in the same Communication Group run on the the 
     /// same set of tasks.
     /// </summary>
-    public sealed class CommunicationGroupDriver : ICommunicationGroupDriver
+    internal sealed class CommunicationGroupDriver : ICommunicationGroupDriver
     {
-        private static readonly Logger LOGGER = Logger.GetLogger(typeof (CommunicationGroupDriver));
+        private static readonly Logger LOGGER = Logger.GetLogger(typeof(CommunicationGroupDriver));
 
         private readonly string _groupName;
         private readonly string _driverId;
@@ -61,6 +58,7 @@ namespace Org.Apache.REEF.Network.Group.Driver.Impl
         /// <param name="groupName">The communication group name</param>
         /// <param name="driverId">Identifier of the Reef driver</param>
         /// <param name="numTasks">The number of tasks each operator will use</param>
+        /// <param name="fanOut"></param>
         /// <param name="confSerializer">Used to serialize task configuration</param>
         public CommunicationGroupDriver(
             string groupName,
@@ -87,7 +85,7 @@ namespace Org.Apache.REEF.Network.Group.Driver.Impl
         /// <summary>
         /// Returns the list of task ids that belong to this Communication Group
         /// </summary>
-        public List<string> TaskIds { get; private set; }
+        public IList<string> TaskIds { get; private set; }
 
         /// <summary>
         /// </summary>
@@ -137,7 +135,7 @@ namespace Org.Apache.REEF.Network.Group.Driver.Impl
         /// <returns>The same CommunicationGroupDriver with the added Broadcast operator info</returns>
         public ICommunicationGroupDriver AddBroadcast(string operatorName, string masterTaskId, TopologyTypes topologyType = TopologyTypes.Flat)
         {
-            return AddBroadcast<int>( operatorName, masterTaskId, topologyType, GetDefaultConfiguration());
+            return AddBroadcast<int>(operatorName, masterTaskId, topologyType, GetDefaultConfiguration());
         }
 
         /// <summary>
@@ -329,14 +327,14 @@ namespace Org.Apache.REEF.Network.Group.Driver.Impl
         {
             var topology = _topologies[operatorName];
             MethodInfo info = topology.GetType().GetMethod("AddTask");
-            info.Invoke(topology, new[] {(object) taskId});
+            info.Invoke(topology, new[] { (object)taskId });
         }
 
         private IConfiguration GetOperatorConfiguration(string operatorName, string taskId)
         {
             var topology = _topologies[operatorName];
             MethodInfo info = topology.GetType().GetMethod("GetTaskConfiguration");
-            return (IConfiguration) info.Invoke(topology, new[] {(object) taskId});
+            return (IConfiguration)info.Invoke(topology, new[] { (object)taskId });
         }
 
         private IConfiguration[] GetDefaultConfiguration()

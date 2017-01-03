@@ -32,6 +32,8 @@ namespace Org.Apache.REEF.IMRU.OnREEF.Driver
     {
         private static readonly Logger Logger = Logger.GetLogger(typeof(ConfigurationManager));
 
+        private readonly IConfiguration _updateTaskStateConfiguration;
+        private readonly IConfiguration _mapTaskStateConfiguration;
         private readonly IConfiguration _mapFunctionConfiguration;
         private readonly IConfiguration _mapInputCodecConfiguration;
         private readonly IConfiguration _updateFunctionCodecsConfiguration;
@@ -39,23 +41,47 @@ namespace Org.Apache.REEF.IMRU.OnREEF.Driver
         private readonly IConfiguration _updateFunctionConfiguration;
         private readonly IConfiguration _mapOutputPipelineDataConverterConfiguration;
         private readonly IConfiguration _mapInputPipelineDataConverterConfiguration;
+        private readonly IConfiguration _resultHandlerConfiguration;
 
         [Inject]
         private ConfigurationManager(
             AvroConfigurationSerializer configurationSerializer,
+            [Parameter(typeof(SerializedUpdateTaskStateConfiguration))] string updateTaskStateConfig,
+            [Parameter(typeof(SerializedMapTaskStateConfiguration))] string mapTaskStateConfig,
             [Parameter(typeof(SerializedMapConfiguration))] string mapConfig,
             [Parameter(typeof(SerializedReduceConfiguration))] string reduceConfig,
             [Parameter(typeof(SerializedUpdateConfiguration))] string updateConfig,
             [Parameter(typeof(SerializedMapInputCodecConfiguration))] string mapInputCodecConfig,
             [Parameter(typeof(SerializedUpdateFunctionCodecsConfiguration))] string updateFunctionCodecsConfig,
             [Parameter(typeof(SerializedMapOutputPipelineDataConverterConfiguration))] string mapOutputPipelineDataConverterConfiguration,
-            [Parameter(typeof(SerializedMapInputPipelineDataConverterConfiguration))] string mapInputPipelineDataConverterConfiguration)
+            [Parameter(typeof(SerializedMapInputPipelineDataConverterConfiguration))] string mapInputPipelineDataConverterConfiguration,
+            [Parameter(typeof(SerializedResultHandlerConfiguration))] string resultHandlerConfiguration)
         {
+            try
+            {
+                _updateTaskStateConfiguration = configurationSerializer.FromString(updateTaskStateConfig);
+            }
+            catch (Exception)
+            {
+                Logger.Log(Level.Error, "Unable to deserialize update task state configuration");
+                throw;
+            }
+
+            try
+            {
+                _mapTaskStateConfiguration = configurationSerializer.FromString(mapTaskStateConfig);
+            }
+            catch (Exception)
+            {
+                Logger.Log(Level.Error, "Unable to deserialize map task state configuration");
+                throw;
+            }
+
             try
             {
                 _mapFunctionConfiguration = configurationSerializer.FromString(mapConfig);
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 Exceptions.Throw(e, "Unable to deserialize map function configuration", Logger);
             }
@@ -115,6 +141,33 @@ namespace Org.Apache.REEF.IMRU.OnREEF.Driver
             {
                 Exceptions.Throw(e, "Unable to deserialize map input pipeline data converter configuration", Logger);
             }
+
+            try
+            {
+                _resultHandlerConfiguration =
+                    configurationSerializer.FromString(resultHandlerConfiguration);
+                Logger.Log(Level.Verbose, "Serialized result handler is " + resultHandlerConfiguration);
+            }
+            catch (Exception e)
+            {
+                Exceptions.Throw(e, "Unable to deserialize map input pipeline data converter configuration", Logger);
+            }
+        }
+
+        /// <summary>
+        /// Configuration of update task state
+        /// </summary>
+        internal IConfiguration UpdateTaskStateConfiguration
+        {
+            get { return _updateTaskStateConfiguration; }
+        }
+
+        /// <summary>
+        /// Configuration of map task state
+        /// </summary>
+        internal IConfiguration MapTaskStateConfiguration
+        {
+            get { return _mapTaskStateConfiguration; }
         }
 
         /// <summary>
@@ -172,6 +225,14 @@ namespace Org.Apache.REEF.IMRU.OnREEF.Driver
         internal IConfiguration MapInputPipelineDataConverterConfiguration
         {
             get { return _mapInputPipelineDataConverterConfiguration; }
+        }
+
+        /// <summary>
+        /// Configuration of Result handler
+        /// </summary>
+        internal IConfiguration ResultHandlerConfiguration
+        {
+            get { return _resultHandlerConfiguration; }
         }
     }
 }

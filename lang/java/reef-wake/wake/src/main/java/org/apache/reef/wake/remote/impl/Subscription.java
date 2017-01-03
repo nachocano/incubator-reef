@@ -22,6 +22,8 @@ package org.apache.reef.wake.remote.impl;
  * Subscription of a handler.
  *
  * @param <T> type
+ * @deprecated [REEF-1544] Prefer using SubscriptionHandler and the corresponding handlers
+ * instead of the Subscription class. Remove class after release 0.16.
  */
 public class Subscription<T> implements AutoCloseable {
 

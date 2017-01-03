@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Net;
@@ -47,7 +45,8 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         /// </summary>
         /// <param name="remoteEndpoint">The remote endpoint to connect to</param>
         /// <param name="codec">The codec for serializing messages</param>
-        public Link(IPEndPoint remoteEndpoint, ICodec<T> codec)
+        /// <param name="tcpClientFactory">TcpClient factory</param>
+        public Link(IPEndPoint remoteEndpoint, ICodec<T> codec, ITcpClientConnectionFactory tcpClientFactory)
         {
             if (remoteEndpoint == null)
             {
@@ -58,12 +57,11 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
                 throw new ArgumentNullException("codec");
             }
 
-            Client = new TcpClient();
-            Client.Connect(remoteEndpoint);
+            Client = tcpClientFactory.Connect(remoteEndpoint);
 
             _codec = codec;
             _channel = new Channel(Client.GetStream());
-            _localEndpoint = GetLocalEndpoint();
+            _localEndpoint = (IPEndPoint)Client.Client.LocalEndPoint;
             _disposed = false;
         }
 
@@ -87,7 +85,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
             Client = client;
             _codec = codec;
             _channel = new Channel(Client.GetStream());
-            _localEndpoint = GetLocalEndpoint();
+            _localEndpoint = (IPEndPoint)Client.Client.LocalEndPoint;
             _disposed = false;
         }
 
@@ -104,7 +102,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         /// </summary>
         public IPEndPoint RemoteEndpoint
         {
-            get { return (IPEndPoint) Client.Client.RemoteEndPoint; }
+            get { return (IPEndPoint)Client.Client.RemoteEndPoint; }
         }
 
         /// <summary>
@@ -237,17 +235,6 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         public override int GetHashCode()
         {
             return RemoteEndpoint.GetHashCode();
-        }
-
-        /// <summary>
-        /// Discovers the IPEndpoint for the current machine.
-        /// </summary>
-        /// <returns>The local IPEndpoint</returns>
-        private IPEndPoint GetLocalEndpoint()
-        {
-            IPAddress address = NetworkUtils.LocalIPAddress;
-            int port = ((IPEndPoint) Client.Client.LocalEndPoint).Port;
-            return new IPEndPoint(address, port);
         }
     }
 }

@@ -86,13 +86,13 @@ public final class RunningTaskImpl implements RunningTask {
   public void close() {
     LOG.log(Level.FINEST, "CLOSE: TaskRuntime id[" + taskId + "] on evaluator id[" + evaluatorManager.getId() + "]");
 
-    if (this.taskRepresenter.isNotRunning()) {
-      LOG.log(Level.FINE, "Ignoring call to .close() because the task is no longer RUNNING.");
-    } else {
+    if (this.taskRepresenter.isClosable()) {
       final ContextControlProto contextControlProto = ContextControlProto.newBuilder()
           .setStopTask(StopTaskProto.newBuilder().build())
           .build();
       this.evaluatorManager.sendContextControlMessage(contextControlProto);
+    } else {
+      LOG.log(Level.INFO, "Ignoring call to .close() because the task is no longer RUNNING.");
     }
   }
 
@@ -100,15 +100,16 @@ public final class RunningTaskImpl implements RunningTask {
   public void close(final byte[] message) {
     LOG.log(Level.FINEST, "CLOSE: TaskRuntime id[" + taskId + "] on evaluator id[" + evaluatorManager.getId() +
         "] with message.");
-    if (this.taskRepresenter.isNotRunning()) {
-      throw new RuntimeException("Trying to send a message to a Task that is no longer RUNNING.");
+    if (this.taskRepresenter.isClosable()) {
+      final ContextControlProto contextControlProto = ContextControlProto.newBuilder()
+          .setStopTask(StopTaskProto.newBuilder().build())
+          .setTaskMessage(ByteString.copyFrom(message))
+          .build();
+      this.evaluatorManager.sendContextControlMessage(contextControlProto);
+    } else {
+      LOG.log(Level.INFO, "Ignoring call to .close(byte[] message) because the task is no longer RUNNING "
+          + "(see REEF-1503 for an example of scenario in which this happens).");
     }
-
-    final ContextControlProto contextControlProto = ContextControlProto.newBuilder()
-        .setStopTask(StopTaskProto.newBuilder().build())
-        .setTaskMessage(ByteString.copyFrom(message))
-        .build();
-    this.evaluatorManager.sendContextControlMessage(contextControlProto);
   }
 
   @Override
@@ -136,5 +137,9 @@ public final class RunningTaskImpl implements RunningTask {
   @Override
   public String toString() {
     return "RunningTask{taskId='" + taskId + "'}";
+  }
+
+  public TaskRepresenter getTaskRepresenter() {
+    return taskRepresenter;
   }
 }

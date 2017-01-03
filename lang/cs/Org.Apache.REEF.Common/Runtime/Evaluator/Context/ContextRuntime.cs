@@ -1,54 +1,103 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
+using System.Threading;
 using Org.Apache.REEF.Common.Context;
+using Org.Apache.REEF.Common.Events;
 using Org.Apache.REEF.Common.Protobuf.ReefProtocol;
 using Org.Apache.REEF.Common.Runtime.Evaluator.Task;
+using Org.Apache.REEF.Common.Services;
 using Org.Apache.REEF.Common.Tasks;
+using Org.Apache.REEF.Common.Tasks.Events;
+using Org.Apache.REEF.Tang.Exceptions;
+using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Utilities;
+using Org.Apache.REEF.Utilities.Attributes;
 using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Common.Runtime.Evaluator.Context
 {
-    public class ContextRuntime
+    internal sealed class ContextRuntime : IDisposable
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(ContextRuntime));
-        // Context-local injector. This contains information that will not be available in child injectors.
+
+        /// <summary>
+        /// Context-local injector. This contains information that will not be available in child injectors.
+        /// </summary>
         private readonly IInjector _contextInjector;
-        //// Service injector. State in this injector moves to child injectors.
+
+        /// <summary>
+        /// Service injector. State in this injector moves to child injectors.
+        /// </summary>
         private readonly IInjector _serviceInjector;
 
-        // Convenience class to hold all the event handlers for the context as well as the service instances.
+        /// <summary>
+        /// Convenience class to hold all the event handlers for the context as well as the service instances.
+        /// </summary>
         private readonly ContextLifeCycle _contextLifeCycle;
 
-        // The child context, if any.
+        /// <summary>
+        /// The parent context, if any.
+        /// </summary>
+        private readonly Optional<ContextRuntime> _parentContext;
+
+        /// <summary>
+        /// The service objects bound to ServiceConfiguration.
+        /// </summary> 
+        private readonly ISet<object> _injectedServices;
+
+        /// <summary>
+        /// The ContextStart handlers bound to ServiceConfiguration.
+        /// </summary>
+        private readonly ISet<IObserver<IContextStart>> _serviceContextStartHandlers;
+
+        /// <summary>
+        /// The ContextStop handlers bound to ServiceConfiguration.
+        /// </summary>
+        private readonly ISet<IObserver<IContextStop>> _serviceContextStopHandlers;
+
+        /// <summary>
+        /// The TaskStart handlers bound to ServiceConfiguration.
+        /// </summary>
+        private readonly ISet<IObserver<ITaskStart>> _serviceTaskStartHandlers;
+
+        /// <summary>
+        /// The TaskStop handlers bound to ServiceConfiguration.
+        /// </summary>
+        private readonly ISet<IObserver<ITaskStop>> _serviceTaskStopHandlers;
+
+        /// <summary>
+        /// The child context, if any.
+        /// </summary>
         private Optional<ContextRuntime> _childContext = Optional<ContextRuntime>.Empty();
 
-        // The parent context, if any.
-        private readonly Optional<ContextRuntime> _parentContext = Optional<ContextRuntime>.Empty();
-
-        // The currently running task, if any.
+        /// <summary>
+        /// The currently running task, if any.
+        /// </summary>
         private Optional<TaskRuntime> _task = Optional<TaskRuntime>.Empty();
 
+        /// <summary>
+        /// Current state of the context.
+        /// </summary>
         private ContextStatusProto.State _contextState = ContextStatusProto.State.READY;
 
         /// <summary>
@@ -62,45 +111,48 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Context
                 IConfiguration contextConfiguration,
                 Optional<ContextRuntime> parentContext)
         {
-            ContextConfiguration config = contextConfiguration as ContextConfiguration;
-            if (config == null)
-            {
-                var e = new ArgumentException("contextConfiguration is not of type ContextConfiguration");
-                Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
-            }
-            _contextLifeCycle = new ContextLifeCycle(config.Id);
             _serviceInjector = serviceInjector;
+
+            // Note that for Service objects and handlers, we are not merging them into a separate
+            // class (e.g. ServiceContainer) due to the inability to allow service stacking if an instance 
+            // of such a class were to be materialized. i.e. if a ServiceContainer object were initialized
+            // and a child ServiceConfiguration is submitted, when the child service injector tries to
+            // get the relevant handlers and services set, it will get the same set of handlers as
+            // previously instantiated by the parent injector, and thus will not allow the stacking
+            // of ServiceConfigurations.
+            _injectedServices = serviceInjector.GetNamedInstance<ServicesSet, ISet<object>>();
+
+            _serviceContextStartHandlers = 
+                serviceInjector.GetNamedInstance<ContextConfigurationOptions.StartHandlers, ISet<IObserver<IContextStart>>>();
+
+            _serviceContextStopHandlers = 
+                serviceInjector.GetNamedInstance<ContextConfigurationOptions.StopHandlers, ISet<IObserver<IContextStop>>>();
+
+            _serviceTaskStartHandlers = 
+                serviceInjector.GetNamedInstance<TaskConfigurationOptions.StartHandlers, ISet<IObserver<ITaskStart>>>();
+
+            _serviceTaskStopHandlers = 
+                serviceInjector.GetNamedInstance<TaskConfigurationOptions.StopHandlers, ISet<IObserver<ITaskStop>>>();
+
+            _contextInjector = serviceInjector.ForkInjector(contextConfiguration);
+            _contextLifeCycle = _contextInjector.GetInstance<ContextLifeCycle>();
             _parentContext = parentContext;
+
             try
             {
-                _contextInjector = serviceInjector.ForkInjector();
+                _contextLifeCycle.Start();
             }
             catch (Exception e)
             {
-                Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Caught(e, Level.Error, LOGGER);
-
-                Optional<string> parentId = ParentContext.IsPresent() ?
-                    Optional<string>.Of(ParentContext.Value.Id) :
-                    Optional<string>.Empty();
-                ContextClientCodeException ex = new ContextClientCodeException(ContextClientCodeException.GetId(contextConfiguration), parentId, "Unable to spawn context", e);
+                const string message = "Encountered Exception in ContextStartHandler.";
+                if (ParentContext.IsPresent())
+                {
+                    throw new ContextStartHandlerException(
+                        Id, Optional<string>.Of(ParentContext.Value.Id), message, e);
+                }
                 
-                Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
+                throw new ContextStartHandlerException(Id, Optional<string>.Empty(), message, e);
             }
-            // Trigger the context start events on contextInjector.
-            _contextLifeCycle.Start();
-        }
-
-        /// <summary>
-        ///  Create a new ContextRuntime for the root context.
-        /// </summary>
-        /// <param name="serviceInjector"> </param> the serviceInjector to be used.
-        /// <param name="contextConfiguration"> the Configuration for this context.</param>
-        public ContextRuntime(
-            IInjector serviceInjector,
-            IConfiguration contextConfiguration)
-            : this(serviceInjector, contextConfiguration, Optional<ContextRuntime>.Empty())
-        {
-            LOGGER.Log(Level.Info, "Instantiating root context");
         }
 
         public string Id
@@ -114,129 +166,166 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Context
         }
 
         /// <summary>
+        /// For testing only!
+        /// </summary>
+        [Testing]
+        internal ISet<object> Services
+        {
+            get { return _injectedServices; }
+        }
+
+        /// <summary>
+        /// For testing only!
+        /// </summary>
+        internal Optional<TaskRuntime> TaskRuntime
+        {
+            get { return _task; }
+        }
+
+        /// <summary>
+        /// For testing only!
+        /// </summary>
+        [Testing]
+        internal IInjector ContextInjector
+        {
+            get
+            {
+                return _contextInjector;
+            }
+        }
+
+        /// <summary>
+        /// For testing only!
+        /// </summary>
+        [Testing]
+        internal IInjector ServiceInjector 
+        {
+            get
+            {
+                return _serviceInjector;
+            }
+        }
+
+        /// <summary>
         ///  Spawns a new context.
         ///  The new context will have a serviceInjector that is created by forking the one in this object with the given
         ///  serviceConfiguration. The contextConfiguration is used to fork the contextInjector from that new serviceInjector.
         /// </summary>
-        /// <param name="contextConfiguration">the new context's context (local) Configuration.</param>
-        /// <param name="serviceConfiguration">the new context's service Configuration.</param>
+        /// <param name="childContextConfiguration">the new context's context (local) Configuration.</param>
+        /// <param name="childServiceConfiguration">the new context's service Configuration.</param>
         /// <returns>a child context.</returns>
-        public ContextRuntime SpawnChildContext(IConfiguration contextConfiguration, IConfiguration serviceConfiguration)
+        public ContextRuntime SpawnChildContext(
+            IConfiguration childContextConfiguration, 
+            IConfiguration childServiceConfiguration = null)
         {
-            ContextRuntime childContext = null;
             lock (_contextLifeCycle)
             {
                 if (_task.IsPresent())
                 {
-                    var e = new InvalidOperationException(
-                        string.Format(CultureInfo.InvariantCulture, "Attempting to spawn a child context when an Task with id '{0}' is running", _task.Value.TaskId)); // note: java code is putting thread id here
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
+                    throw new InvalidOperationException(
+                        string.Format(
+                            CultureInfo.InvariantCulture, 
+                            "Attempting to spawn a child context when an Task with id '{0}' is running",
+                            _task.Value.TaskId));
                 }
-                if (_childContext.IsPresent())
-                {
-                    var e = new InvalidOperationException("Attempting to instantiate a child context on a context that is not the topmost active context.");
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
-                }
+
+                AssertChildContextNotPresent("Attempting to instantiate a child context on a context that is not the topmost active context.");
+                
                 try
                 {
-                    IInjector childServiceInjector = _serviceInjector.ForkInjector(serviceConfiguration);
-                    childContext = new ContextRuntime(childServiceInjector, contextConfiguration, Optional<ContextRuntime>.Of(this));
-                    _childContext = Optional<ContextRuntime>.Of(childContext);
-                    return childContext;
+                    var childServiceInjector = childServiceConfiguration == null 
+                        ? _serviceInjector.ForkInjector() 
+                        : _serviceInjector.ForkInjector(childServiceConfiguration);
+
+                    _childContext = Optional<ContextRuntime>.Of(
+                        new ContextRuntime(childServiceInjector, childContextConfiguration, Optional<ContextRuntime>.Of(this)));
+
+                    return _childContext.Value;
                 }
                 catch (Exception e)
                 {
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Caught(e, Level.Error, LOGGER);
+                    Utilities.Diagnostics.Exceptions.Caught(e, Level.Error, LOGGER);
+                    var childContextId = GetChildContextId(childContextConfiguration);
 
-                    Optional<string> parentId = ParentContext.IsPresent() ?
-                        Optional<string>.Of(ParentContext.Value.Id) :
-                        Optional<string>.Empty();
-                    ContextClientCodeException ex = new ContextClientCodeException(ContextClientCodeException.GetId(contextConfiguration), parentId, "Unable to spawn context", e);
-                    
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
+                    throw new ContextClientCodeException(childContextId, Optional<string>.Of(Id), "Unable to spawn context", e);
                 }
             }
-            return childContext;
         }
 
-        /// <summary>
-        /// Spawns a new context without services of its own.
-        /// The new context will have a serviceInjector that is created by forking the one in this object. The
-        /// contextConfiguration is used to fork the contextInjector from that new serviceInjector.
-        /// </summary>
-        /// <param name="contextConfiguration">the new context's context (local) Configuration.</param>
-        /// <returns> a child context.</returns>
-        public ContextRuntime SpawnChildContext(IConfiguration contextConfiguration)
+        private static string GetChildContextId(IConfiguration childContextConfiguration)
         {
-            lock (_contextLifeCycle)
+            var contextId = string.Empty;
+            try
             {
-                if (_task.IsPresent())
-                {
-                    var e = new InvalidOperationException(
-                        string.Format(CultureInfo.InvariantCulture, "Attempting to spawn a child context when an Task with id '{0}' is running", _task.Value.TaskId)); // note: java code is putting thread id here
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
-                }
-                if (_childContext.IsPresent())
-                {
-                    var e = new InvalidOperationException("Attempting to instantiate a child context on a context that is not the topmost active context.");
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
-                }
-                IInjector childServiceInjector = _serviceInjector.ForkInjector();
-                ContextRuntime childContext = new ContextRuntime(childServiceInjector, contextConfiguration, Optional<ContextRuntime>.Of(this));
-                _childContext = Optional<ContextRuntime>.Of(childContext);
-                return childContext;
+                var injector = TangFactory.GetTang().NewInjector(childContextConfiguration);
+                contextId = injector.GetNamedInstance<ContextConfigurationOptions.ContextIdentifier, string>();
             }
+            catch (InjectionException)
+            {
+                LOGGER.Log(Level.Error, "Unable to get Context ID from child ContextConfiguration. Using empty string.");
+            }
+
+            return contextId;
         }
 
         /// <summary>
-        ///  Launches an Task on this context.
+        /// Launches an Task on this context.
         /// </summary>
         /// <param name="taskConfiguration"></param>
-        /// <param name="contextId"></param>
-        /// <param name="heartBeatManager"></param>
-        public void StartTask(TaskConfiguration taskConfiguration, string contextId, HeartBeatManager heartBeatManager)
+        public Thread StartTaskOnNewThread(IConfiguration taskConfiguration)
         {
             lock (_contextLifeCycle)
             {
-                bool taskPresent = _task.IsPresent();
-                bool taskEnded = taskPresent && _task.Value.HasEnded();
+                LOGGER.Log(Level.Info, "ContextRuntime::StartTask(TaskConfiguration) task is present: " + _task.IsPresent());
 
-                LOGGER.Log(Level.Info, "ContextRuntime::StartTask(TaskConfiguration)" + "task is present: " + taskPresent + " task has ended: " + taskEnded);
-                if (taskPresent)
+                if (_task.IsPresent())
                 {
                     LOGGER.Log(Level.Info, "Task state: " + _task.Value.GetTaskState());
+                    LOGGER.Log(Level.Info, "ContextRuntime::StartTask(TaskConfiguration) task has ended: " + _task.Value.HasEnded());
+
+                    if (_task.Value.HasEnded())
+                    {
+                        // clean up state
+                        _task = Optional<TaskRuntime>.Empty();
+                    }
+                    else
+                    {
+                        // note: java code is putting thread id here
+                        var e = new InvalidOperationException(
+                        string.Format(CultureInfo.InvariantCulture, "Attempting to spawn a child context when an Task with id '{0}' is running", _task.Value.TaskId));
+                        Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
+                    }
                 }
 
-                if (taskEnded)
-                {
-                    // clean up state
-                    _task = Optional<TaskRuntime>.Empty();
-                    taskPresent = false;
-                }
-                if (taskPresent)
-                {
-                    var e = new InvalidOperationException(
-                        string.Format(CultureInfo.InvariantCulture, "Attempting to spawn a child context when an Task with id '{0}' is running", _task.Value.TaskId)); // note: java code is putting thread id here
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
-                }
-                if (_childContext.IsPresent())
-                {
-                    var e = new InvalidOperationException("Attempting to instantiate a child context on a context that is not the topmost active context.");
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
-                }
+                AssertChildContextNotPresent("Attempting to instantiate a child context on a context that is not the topmost active context.");
+
+                var taskInjector = _contextInjector.ForkInjector(taskConfiguration);
+
                 try
                 {
-                    IInjector taskInjector = _contextInjector.ForkInjector(taskConfiguration.TangConfig);
-                    LOGGER.Log(Level.Info, "Trying to inject task with configuration" + taskConfiguration.ToString());
-                    TaskRuntime taskRuntime = new TaskRuntime(taskInjector, contextId, taskConfiguration.TaskId, heartBeatManager); // taskInjector.getInstance(TaskRuntime.class);
-                    taskRuntime.Initialize();
-                    System.Threading.Tasks.Task.Run(new Action(taskRuntime.Start));                    
+                    var taskRuntime = taskInjector.GetInstance<TaskRuntime>();
                     _task = Optional<TaskRuntime>.Of(taskRuntime);
+                    return taskRuntime.StartTaskOnNewThread();
+                }
+                catch (InjectionException e)
+                {
+                    var taskId = string.Empty;
+                    try
+                    {
+                        taskId = taskInjector.GetNamedInstance<TaskConfigurationOptions.Identifier, string>();
+                    }
+                    catch (Exception)
+                    {
+                        LOGGER.Log(Level.Error, "Unable to get Task ID from TaskConfiguration.");
+                    }
+
+                    var ex = TaskClientCodeException.Create(taskId, Id, "Unable to run the new task", e);
+                    Utilities.Diagnostics.Exceptions.CaughtAndThrow(ex, Level.Error, "Task start error.", LOGGER);
+                    return null;
                 }
                 catch (Exception e)
                 {
-                    var ex = new TaskClientCodeException(taskConfiguration.TaskId, Id, "Unable to instantiate the new task", e);
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.CaughtAndThrow(ex, Level.Error, "Task start error.", LOGGER);
+                    throw new ReefRuntimeException("System error in starting Task.", e);
                 }
             }
         }
@@ -260,10 +349,33 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Context
                     LOGGER.Log(Level.Warning, "Closing a context because its parent context is being closed.");
                     _childContext.Value.Dispose();
                 }
-                _contextLifeCycle.Close();
-                if (_parentContext.IsPresent())
+
+                try
                 {
-                    ParentContext.Value.ResetChildContext();
+                    _contextLifeCycle.Close();
+                }
+                catch (Exception e)
+                {
+                    const string message = "Encountered Exception in ContextStopHandler.";
+                    if (ParentContext.IsPresent())
+                    {
+                        throw new ContextStopHandlerException(
+                            Id, Optional<string>.Of(ParentContext.Value.Id), message, e);
+                    }
+
+                    throw new ContextStopHandlerException(Id, Optional<string>.Empty(), message, e);
+                }
+                finally
+                {
+                    if (_parentContext.IsPresent())
+                    {
+                        ParentContext.Value.ResetChildContext();
+                    }
+
+                    foreach (var injectedService in _injectedServices.OfType<IDisposable>())
+                    {
+                        injectedService.Dispose();
+                    }
                 }
             }
         }
@@ -281,11 +393,9 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Context
                 if (!_task.IsPresent())
                 {
                     LOGGER.Log(Level.Warning, "Received a suspend task while there was no task running. Ignored");
+                    return;
                 }
-                else
-                {
-                    _task.Value.Suspend(message);
-                }
+                _task.Value.Suspend(message);
             }
         }
 
@@ -302,11 +412,9 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Context
                 if (!_task.IsPresent())
                 {
                     LOGGER.Log(Level.Warning, "Received a close task while there was no task running. Ignored");
+                    return;
                 }
-                else
-                {
-                    _task.Value.Close(message);
-                }
+                _task.Value.Close(message);
             }
         }
 
@@ -323,17 +431,15 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Context
                 if (!_task.IsPresent())
                 {
                     LOGGER.Log(Level.Warning, "Received an task message while there was no task running. Ignored");
+                    return;
                 }
-                else
-                {
-                    _task.Value.Deliver(message);
-                }
+                _task.Value.Deliver(message);
             }
         }
 
-        public void HandleContextMessaage(byte[] mesage)
+        public void HandleContextMessage(byte[] message)
         {
-            _contextLifeCycle.HandleContextMessage(mesage);
+            _contextLifeCycle.HandleContextMessage(message);
         }
 
         /// <summary>
@@ -344,30 +450,19 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Context
         {
             lock (_contextLifeCycle)
             {
-                if (_task.IsPresent())
-                {
-                    if (_task.Value.HasEnded())
-                    {
-                        _task = Optional<TaskRuntime>.Empty();
-                        return Optional<TaskStatusProto>.Empty();
-                    }
-                    else
-                    {
-                        TaskStatusProto taskStatusProto = _task.Value.GetStatusProto();
-                        if (taskStatusProto.state == State.RUNNING)
-                        {
-                            // only RUNNING status is allowed to rurn here, all other state pushed out to heartbeat 
-                            return Optional<TaskStatusProto>.Of(taskStatusProto);
-                        }
-                        var e = new InvalidOperationException(string.Format(CultureInfo.InvariantCulture, "Task state must be RUNNING, but instead is in {0} state", taskStatusProto.state));
-                        Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
-                        return Optional<TaskStatusProto>.Empty();
-                    }
-                }
-                else
+                if (!_task.IsPresent())
                 {
                     return Optional<TaskStatusProto>.Empty();
                 }
+
+                if (_task.Value.HasEnded())
+                {
+                    _task = Optional<TaskRuntime>.Empty();
+                    return Optional<TaskStatusProto>.Empty();
+                }
+
+                var taskStatusProto = _task.Value.GetStatusProto();
+                return Optional<TaskStatusProto>.Of(taskStatusProto);
             }
         }
 
@@ -381,12 +476,11 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Context
                 if (_childContext.IsPresent())
                 {
                     _childContext = Optional<ContextRuntime>.Empty();
+                    return;
                 }
-                else
-                {
-                    var e = new InvalidOperationException("no child context set");
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
-                }
+
+                // To reset a child context, there should always be a child context already present.
+                Utilities.Diagnostics.Exceptions.Throw(new InvalidOperationException("no child context set"), LOGGER);
             }
         }
 
@@ -398,7 +492,7 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Context
         {
             lock (_contextLifeCycle)
             {
-                ContextStatusProto contextStatusProto = new ContextStatusProto()
+                var contextStatusProto = new ContextStatusProto
                 {
                     context_id = Id,
                     context_state = _contextState,
@@ -408,71 +502,61 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Context
                     contextStatusProto.parent_id = _parentContext.Value.Id;
                 }
 
-                foreach (IContextMessageSource source in _contextLifeCycle.ContextMessageSources)
+                foreach (var source in _contextLifeCycle.ContextMessageSources)
                 {
-                    Optional<ContextMessage> contextMessageOptional = source.Message;
-                    if (contextMessageOptional.IsPresent())
+                    // Note: Please do not convert to LINQ expression, as source.Message
+                    // may not return the same object in subsequent Get calls.
+                    var sourceMessage = source.Message;
+                    if (sourceMessage.IsPresent())
                     {
-                        ContextStatusProto.ContextMessageProto contextMessageProto
-                            = new ContextStatusProto.ContextMessageProto()
-                            {
-                                source_id = contextMessageOptional.Value.MessageSourceId,
-                            };
-                        contextMessageProto.message = ByteUtilities.CopyBytesFrom(contextMessageOptional.Value.Bytes);
+                        var contextMessageProto = new ContextStatusProto.ContextMessageProto
+                        {
+                            source_id = sourceMessage.Value.MessageSourceId,
+                            message = ByteUtilities.CopyBytesFrom(sourceMessage.Value.Bytes),
+                        };
+
                         contextStatusProto.context_message.Add(contextMessageProto);
                     }
                 }
+
                 return contextStatusProto;
+            }
+        }
+
+        /// <summary>
+        /// Propagates the IDriverConnection message to the TaskRuntime.
+        /// </summary>
+        internal void HandleDriverConnectionMessage(IDriverConnectionMessage message)
+        {
+            lock (_contextLifeCycle)
+            {
+                if (!_task.IsPresent())
+                {
+                    LOGGER.Log(Level.Warning, "Received a IDriverConnectionMessage while there was no task running. Ignored");
+                    return;
+                }
+
+                _task.Value.HandleDriverConnectionMessage(message);
+            }
+        }
+
+        internal IEnumerable<ContextRuntime> GetContextStack()
+        {
+            var context = Optional<ContextRuntime>.Of(this);
+            while (context.IsPresent())
+            {
+                yield return context.Value;
+                context = context.Value.ParentContext;
+            }
+        }
+
+        private void AssertChildContextNotPresent(string message)
+        {
+            if (_childContext.IsPresent())
+            {
+                var e = new InvalidOperationException(message);
+                Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
             }
         }
     }
 }
-        ///// <summary>
-        ///// TODO: remove and use parameterless GetContextStatus above
-        ///// </summary>
-        ///// <returns>this context's status in protocol buffer form.</returns>
-        //public ContextStatusProto GetContextStatus(string contextId)
-        //{
-        //    ContextStatusProto contextStatusProto = new ContextStatusProto()
-        //    {
-        //        context_id = contextId,
-        //        context_state = _contextState,
-        //    };
-        //    return contextStatusProto;
-        //}
-
-        ////// TODO: remove and use injection
-        //public void StartTask(ITask task, HeartBeatManager heartBeatManager, string taskId, string contextId)
-        //{
-        //    lock (_contextLifeCycle)
-        //    {
-        //        if (_task.IsPresent() && _task.Value.HasEnded())
-        //        {
-        //            // clean up state
-        //            _task = Optional<TaskRuntime>.Empty();
-        //        }
-        //        if (_task.IsPresent())
-        //        {
-        //            throw new InvalidOperationException(
-        //                string.Format(CultureInfo.InvariantCulture, "Attempting to spawn a child context when an Task with id '{0}' is running", _task.Value.TaskId)); // note: java code is putting thread id here
-        //        }
-        //        if (_childContext.IsPresent())
-        //        {
-        //            throw new InvalidOperationException("Attempting to instantiate a child context on a context that is not the topmost active context.");
-        //        }
-        //        try
-        //        {
-        //            // final Injector taskInjector = contextInjector.forkInjector(taskConfiguration);
-        //            TaskRuntime taskRuntime  // taskInjector.getInstance(TaskRuntime.class);
-        //                = new TaskRuntime(task, heartBeatManager);
-        //            LOGGER.Log(Level.Info, string.Format(CultureInfo.InvariantCulture, "Starting task '{0}'", taskId));
-        //            taskRuntime.Initialize(taskId, contextId);
-        //            taskRuntime.Start();
-        //            _task = Optional<TaskRuntime>.Of(taskRuntime);
-        //        }
-        //        catch (Exception e)
-        //        {
-        //            throw new InvalidOperationException("Unable to instantiate the new task");
-        //        }
-        //    }
-        //}

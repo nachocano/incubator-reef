@@ -18,12 +18,15 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Org.Apache.REEF.IO.FileSystem.Local;
+using Org.Apache.REEF.Tang.Annotations;
 
 namespace Org.Apache.REEF.IO.FileSystem
 {
     /// <summary>
     /// A file system abstraction.
     /// </summary>
+    [DefaultImplementation(typeof(LocalFileSystem), "default")]
     public interface IFileSystem
     {
         /// <summary>
@@ -101,5 +104,22 @@ namespace Org.Apache.REEF.IO.FileSystem
         /// <returns></returns>
         /// <exception cref="IOException"></exception>
         IEnumerable<Uri> GetChildren(Uri directoryUri);
+
+        /// <summary>
+        /// Create Uri from a given file path.
+        /// The file path can be full with prefix or relative without prefix.
+        /// If null is passed as the path, ArgumentException will be thrown.
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        Uri CreateUriForPath(string path);
+
+        /// <summary>
+        /// Gets the FileStatus for remote file.
+        /// </summary>
+        /// <param name="remoteFileUri"></param>
+        /// <exception cref="ArgumentNullException">If remote file URI is null</exception>
+        /// <returns>FileStatus</returns>
+        FileStatus GetFileStatus(Uri remoteFileUri);
     }
 }

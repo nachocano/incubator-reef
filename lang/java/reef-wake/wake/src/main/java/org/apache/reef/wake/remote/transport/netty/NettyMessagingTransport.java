@@ -61,9 +61,15 @@ import java.util.logging.Logger;
 /**
  * Messaging transport implementation with Netty.
  */
-public class NettyMessagingTransport implements Transport {
+public final class NettyMessagingTransport implements Transport {
 
-  private static final String CLASS_NAME = NettyMessagingTransport.class.getName();
+  /**
+   * Indicates a hostname that isn't set or known.
+   */
+  public static final String UNKNOWN_HOST_NAME = "##UNKNOWN##";
+
+  private static final String CLASS_NAME = NettyMessagingTransport.class.getSimpleName();
+
   private static final Logger LOG = Logger.getLogger(CLASS_NAME);
 
   private static final int SERVER_BOSS_NUM_THREADS = 3;
@@ -91,10 +97,6 @@ public class NettyMessagingTransport implements Transport {
 
   private final int numberOfTries;
   private final int retryTimeout;
-  /**
-   * Indicates a hostname that isn't set or known.
-   */
-  public static final String UNKNOWN_HOST_NAME = "##UNKNOWN##";
 
   /**
    * Constructs a messaging transport.
@@ -108,7 +110,7 @@ public class NettyMessagingTransport implements Transport {
    * @param tcpPortProvider  gives an iterator that produces random tcp ports in a range
    */
   @Inject
-  NettyMessagingTransport(
+  private NettyMessagingTransport(
       @Parameter(RemoteConfiguration.HostAddress.class) final String hostAddress,
       @Parameter(RemoteConfiguration.Port.class) final int port,
       @Parameter(RemoteConfiguration.RemoteClientStage.class) final EStage<TransportEvent> clientStage,
@@ -131,11 +133,11 @@ public class NettyMessagingTransport implements Transport {
     this.serverEventListener = new NettyServerEventListener(this.addrToLinkRefMap, serverStage);
 
     this.serverBossGroup = new NioEventLoopGroup(SERVER_BOSS_NUM_THREADS,
-        new DefaultThreadFactory(CLASS_NAME + "ServerBoss"));
+        new DefaultThreadFactory(CLASS_NAME + ":ServerBoss"));
     this.serverWorkerGroup = new NioEventLoopGroup(SERVER_WORKER_NUM_THREADS,
-        new DefaultThreadFactory(CLASS_NAME + "ServerWorker"));
+        new DefaultThreadFactory(CLASS_NAME + ":ServerWorker"));
     this.clientWorkerGroup = new NioEventLoopGroup(CLIENT_WORKER_NUM_THREADS,
-        new DefaultThreadFactory(CLASS_NAME + "ClientWorker"));
+        new DefaultThreadFactory(CLASS_NAME + ":ClientWorker"));
 
     this.clientBootstrap = new Bootstrap();
     this.clientBootstrap.group(this.clientWorkerGroup)
@@ -164,7 +166,7 @@ public class NettyMessagingTransport implements Transport {
         final Iterator<Integer> ports = tcpPortProvider.iterator();
         while (acceptorFound == null) {
           if (!ports.hasNext()) {
-            break;
+            throw new IllegalStateException("tcpPortProvider cannot find a free port.");
           }
           p = ports.next();
           LOG.log(Level.FINEST, "Try port {0}", p);
@@ -179,9 +181,19 @@ public class NettyMessagingTransport implements Transport {
           }
         }
       }
+    } catch (final IllegalStateException ex) {
+      final RuntimeException transportException =
+                new TransportRuntimeException("tcpPortProvider failed to return free ports.", ex);
+      LOG.log(Level.SEVERE, "Cannot find a free port with " + tcpPortProvider, transportException);
+
+      this.clientWorkerGroup.shutdownGracefully();
+      this.serverBossGroup.shutdownGracefully();
+      this.serverWorkerGroup.shutdownGracefully();
+      throw transportException;
+
     } catch (final Exception ex) {
       final RuntimeException transportException =
-          new TransportRuntimeException("Cannot bind to port " + p);
+          new TransportRuntimeException("Cannot bind to port " + p, ex);
       LOG.log(Level.SEVERE, "Cannot bind to port " + p, ex);
 
       this.clientWorkerGroup.shutdownGracefully();
@@ -201,16 +213,22 @@ public class NettyMessagingTransport implements Transport {
    * Closes all channels and releases all resources.
    */
   @Override
-  public void close() throws Exception {
+  public void close() {
 
     LOG.log(Level.FINE, "Closing netty transport socket address: {0}", this.localAddress);
 
     this.clientChannelGroup.close().awaitUninterruptibly();
     this.serverChannelGroup.close().awaitUninterruptibly();
-    this.acceptor.close().sync();
-    this.clientWorkerGroup.shutdownGracefully();
-    this.serverBossGroup.shutdownGracefully();
-    this.serverWorkerGroup.shutdownGracefully();
+
+    try {
+      this.acceptor.close().sync();
+    } catch (final Exception ex) {
+      LOG.log(Level.SEVERE, "Error closing the acceptor channel for " + this.localAddress, ex);
+    }
+
+    this.clientWorkerGroup.shutdownGracefully().awaitUninterruptibly();
+    this.serverBossGroup.shutdownGracefully().awaitUninterruptibly();
+    this.serverWorkerGroup.shutdownGracefully().awaitUninterruptibly();
 
     LOG.log(Level.FINE, "Closing netty transport socket address: {0} done", this.localAddress);
   }

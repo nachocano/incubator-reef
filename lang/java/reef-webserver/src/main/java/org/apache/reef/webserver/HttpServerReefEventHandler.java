@@ -18,9 +18,11 @@
  */
 package org.apache.reef.webserver;
 
+import org.apache.reef.driver.ProgressProvider;
 import org.apache.reef.driver.evaluator.EvaluatorDescriptor;
 import org.apache.reef.driver.parameters.ClientCloseHandlers;
 import org.apache.reef.runtime.common.files.REEFFileNames;
+import org.apache.reef.tang.InjectionFuture;
 import org.apache.reef.tang.Tang;
 import org.apache.reef.tang.annotations.Parameter;
 import org.apache.reef.tang.exceptions.InjectionException;
@@ -29,15 +31,17 @@ import org.apache.reef.util.logging.LogParser;
 import org.apache.reef.util.logging.LoggingScopeFactory;
 import org.apache.reef.util.logging.LoggingScopeImpl;
 import org.apache.reef.wake.EventHandler;
+
 import javax.inject.Inject;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.InetSocketAddress;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +49,9 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Http handler for REEF events.
+ */
 public final class HttpServerReefEventHandler implements HttpHandler {
 
   private static final Logger LOG = Logger.getLogger(HttpServerReefEventHandler.class.getName());
@@ -56,6 +63,7 @@ public final class HttpServerReefEventHandler implements HttpHandler {
   private final ReefEventStateManager reefStateManager;
   private final Set<EventHandler<Void>> clientCloseHandlers;
   private final LoggingScopeFactory loggingScopeFactory;
+  private final InjectionFuture<ProgressProvider> progressProvider;
 
   /**
    * Log level string prefix in the log lines.
@@ -73,11 +81,13 @@ public final class HttpServerReefEventHandler implements HttpHandler {
       @Parameter(ClientCloseHandlers.class) final Set<EventHandler<Void>> clientCloseHandlers,
       @Parameter(LogLevelName.class) final String logLevel,
       final LoggingScopeFactory loggingScopeFactory,
-      final REEFFileNames reefFileNames) {
+      final REEFFileNames reefFileNames,
+      final InjectionFuture<ProgressProvider> progressProvider) {
     this.reefStateManager = reefStateManager;
     this.clientCloseHandlers = clientCloseHandlers;
     this.loggingScopeFactory = loggingScopeFactory;
     this.logLevelPrefix = new StringBuilder().append(logLevel).append(": ").toString();
+    this.progressProvider = progressProvider;
     driverStdoutFile = reefFileNames.getDriverStdoutFileName();
     driverStderrFile = reefFileNames.getDriverStderrFileName();
   }
@@ -86,7 +96,7 @@ public final class HttpServerReefEventHandler implements HttpHandler {
    * read a file and output it as a String.
    */
   private static String readFile(final String fileName) throws IOException {
-    return new String(Files.readAllBytes(Paths.get(fileName)));
+    return new String(Files.readAllBytes(Paths.get(fileName)), StandardCharsets.UTF_8);
   }
 
   /**
@@ -166,21 +176,26 @@ public final class HttpServerReefEventHandler implements HttpHandler {
       writeLines(response, result, "Current Stages...");
       break;
     case "logfile":
-      final List names = parsedHttpRequest.getQueryMap().get("filename");
+      final List<String> names = parsedHttpRequest.getQueryMap().get("filename");
+      final PrintWriter writer = response.getWriter();
       if (names == null || names.size() == 0) {
-        response.getWriter().println(String.format("File name is not provided"));
+        writer.println("File name is not provided");
+      } else {
+        final String fileName = names.get(0);
+        if (!fileName.equals(driverStdoutFile) && !fileName.equals(driverStderrFile)) {
+          writer.println(String.format("Unsupported file names: [%s] ", fileName));
+        } else {
+          try {
+            final byte[] outputBody = readFile(fileName).getBytes(StandardCharsets.UTF_8);
+            writer.print(Arrays.toString(outputBody));
+          } catch (final IOException e) {
+            writer.println(String.format("Cannot find the log file: [%s].", fileName));
+          }
+        }
       }
-
-      final String fileName = (String)names.get(0);
-      if (!fileName.equals(driverStdoutFile) && !fileName.equals(driverStderrFile)) {
-        response.getWriter().println(String.format("Unsupported file names: [%s] ", fileName));
-      }
-      try {
-        final byte[] outputBody = readFile((String) names.get(0)).getBytes(Charset.forName("UTF-8"));
-        response.getOutputStream().write(outputBody);
-      } catch(final IOException e) {
-        response.getWriter().println(String.format("Cannot find the log file: [%s].", fileName));
-      }
+      break;
+    case "progress":
+      response.getWriter().println(progressProvider.get().getProgress());
       break;
     default:
       response.getWriter().println(String.format("Unsupported query for entity: [%s].", target));
@@ -265,6 +280,8 @@ public final class HttpServerReefEventHandler implements HttpHandler {
         writer.write("<br/>");
         writer.println("Evaluator Type: " + evaluatorDescriptor.getProcess());
         writer.write("<br/>");
+        writer.println("Evaluator Runtime Name: " + evaluatorDescriptor.getRuntimeName());
+        writer.write("<br/>");
       } else {
         writer.println("Incorrect Evaluator Id: " + id);
       }
@@ -275,7 +292,7 @@ public final class HttpServerReefEventHandler implements HttpHandler {
    * Get all evaluator ids and send it back to response as JSON.
    */
   private void writeEvaluatorsJsonOutput(final HttpServletResponse response) throws IOException {
-    LOG.log(Level.INFO, "HttpServerReefEventHandler getEvaluators is called");
+    LOG.log(Level.INFO, "HttpServerReefEventHandler writeEvaluatorsJsonOutput is called");
     try {
       final EvaluatorListSerializer serializer =
           Tang.Factory.getTang().newInjector().getInstance(EvaluatorListSerializer.class);
@@ -297,7 +314,7 @@ public final class HttpServerReefEventHandler implements HttpHandler {
    */
   private void writeEvaluatorsWebOutput(final HttpServletResponse response) throws IOException {
 
-    LOG.log(Level.INFO, "HttpServerReefEventHandler getEvaluators is called");
+    LOG.log(Level.INFO, "HttpServerReefEventHandler writeEvaluatorsWebOutput is called");
 
     final PrintWriter writer = response.getWriter();
 
@@ -324,6 +341,9 @@ public final class HttpServerReefEventHandler implements HttpHandler {
    * Write Driver Info as JSON string to Response.
    */
   private void writeDriverJsonInformation(final HttpServletResponse response) throws IOException {
+
+    LOG.log(Level.INFO, "HttpServerReefEventHandler writeDriverJsonInformation invoked.");
+
     try {
       final DriverInfoSerializer serializer =
           Tang.Factory.getTang().newInjector().getInstance(DriverInfoSerializer.class);
@@ -341,7 +361,7 @@ public final class HttpServerReefEventHandler implements HttpHandler {
    * Write a String to HTTP Response.
    */
   private void writeResponse(final HttpServletResponse response, final String data) throws IOException {
-    final byte[] outputBody = data.getBytes(Charset.forName("UTF-8"));
+    final byte[] outputBody = data.getBytes(StandardCharsets.UTF_8);
     response.getOutputStream().write(outputBody);
   }
 
@@ -350,7 +370,7 @@ public final class HttpServerReefEventHandler implements HttpHandler {
    */
   private void writeDriverWebInformation(final HttpServletResponse response) throws IOException {
 
-    LOG.log(Level.INFO, "HttpServerReefEventHandler writeDriverInformation invoked.");
+    LOG.log(Level.INFO, "HttpServerReefEventHandler writeDriverWebInformation invoked.");
 
     final PrintWriter writer = response.getWriter();
 

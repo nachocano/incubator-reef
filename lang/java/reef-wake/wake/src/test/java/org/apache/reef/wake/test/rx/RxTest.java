@@ -26,6 +26,9 @@ import org.junit.Test;
 import org.junit.rules.TestName;
 
 
+/**
+ * Tests for Rx-style communication.
+ */
 public class RxTest {
 
   @Rule
@@ -35,7 +38,7 @@ public class RxTest {
   public void testRx() throws Exception {
     System.out.println(name.getMethodName());
 
-    final RxStage<TestEvent> stage = new RxThreadPoolStage<TestEvent>(new TestObserver("o1"), 1);
+    final RxStage<TestEvent> stage = new RxThreadPoolStage<>(new TestObserver("o1"), 1);
 
     int i = 0;
     try {

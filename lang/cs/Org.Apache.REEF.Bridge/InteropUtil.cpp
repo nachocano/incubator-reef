@@ -1,21 +1,20 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 #include "InteropUtil.h"
 #include "Clr2JavaImpl.h"
 
@@ -59,9 +58,9 @@ String^ ManagedStringFromJavaString (
 }
 
 bool ClrBoolFromJavaBoolean(
-	JNIEnv * env,
-	jboolean jbool) {
-	return jbool != JNI_FALSE;
+  JNIEnv * env,
+  jboolean jbool) {
+  return jbool != JNI_FALSE;
 }
 
 jstring JavaStringFromManagedString(
@@ -102,6 +101,7 @@ array<byte>^ ManagedByteArrayFromJavaByteArray(
     for (int i = 0; i < len; i++) {
       managedByteArray[i] = bytes[i];
     }
+    env->ReleaseByteArrayElements(javaByteArray, (jbyte*)bytes, JNI_ABORT);
     return managedByteArray;
   }
   return nullptr;
@@ -110,19 +110,14 @@ array<byte>^ ManagedByteArrayFromJavaByteArray(
 jbyteArray JavaByteArrayFromManagedByteArray(
   JNIEnv *env,
   array<byte>^ managedByteArray) {
-  jbyteArray javaByteArray = env->NewByteArray(managedByteArray->Length);
-  pin_ptr<Byte> p = &managedByteArray[0];
-  env->SetByteArrayRegion(javaByteArray, 0, managedByteArray->Length, (jbyte*) p);
-  return javaByteArray;
-}
+  if (managedByteArray != nullptr) {
+    jbyteArray javaByteArray = env->NewByteArray(managedByteArray->Length);
+    pin_ptr<Byte> p = &managedByteArray[0];
+    env->SetByteArrayRegion(javaByteArray, 0, managedByteArray->Length, (jbyte*)p);
+    return javaByteArray;
+  }
 
-jlongArray JavaLongArrayFromManagedLongArray(
-  JNIEnv *env,
-  array<unsigned long long>^ managedLongArray) {
-  jlongArray javaLongArray = env->NewLongArray(managedLongArray->Length);
-  pin_ptr<unsigned long long> p = &managedLongArray[0];
-  env->SetLongArrayRegion(javaLongArray, 0, managedLongArray->Length, (jlong*) p);
-  return javaLongArray;
+  return NULL;
 }
 
 JNIEnv* RetrieveEnv(JavaVM* jvm) {
@@ -132,4 +127,16 @@ JNIEnv* RetrieveEnv(JavaVM* jvm) {
     throw;
   }
   return env;
+}
+
+String^ FormatJavaExceptionMessage(String^ errorMessage, Exception^ exception, int recursionDepth) {
+	
+	return (!exception)
+		? String::Concat(errorMessage, "null")
+		: recursionDepth >= 0
+			? String::Concat(errorMessage, Environment::NewLine,
+				exception->Message, Environment::NewLine,
+				exception->StackTrace, Environment::NewLine,
+				FormatJavaExceptionMessage( "Inner Exception: ", exception->InnerException, --recursionDepth))
+			: String::Concat(errorMessage, exception->GetType(), " ...");
 }

@@ -24,10 +24,10 @@ import java.util.Collection;
 
 /**
  * A catalog of the resources available to a REEF instance.
- * <p/>
+ * <p>
  * This catalog contains static information about the resources and does not
  * reflect that dynamic availability of resources. In other words: Its entries
- * are an upper bound to what is available to a REEF {@link Driver} at any given
+ * are an upper bound to what is available to a REEF Driver at any given
  * moment in time.
  */
 @Unstable
@@ -51,12 +51,15 @@ public interface ResourceCatalog {
   /**
    * Get the node descriptor with the given identifier.
    *
-   * @param id of the node.
+   * @param nodeId id of the node.
    * @return the node descriptor assigned to the identifier.
    */
   NodeDescriptor getNode(String nodeId);
 
-  public interface Descriptor {
+  /**
+   * Resource descriptor interface.
+   */
+  interface Descriptor {
 
     String getName();
 

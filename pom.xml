@@ -22,12 +22,12 @@ under the License.
 
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.apache.reef</groupId>
-    <version>0.13.0-incubating-SNAPSHOT</version>
+    <version>0.16.0-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>REEF</name>
     <artifactId>reef-project</artifactId>
     <description>Retainable Evaluator Execution Framework</description>
-    <url>http://reef.incubator.apache.org</url>
+    <url>http://reef.apache.org</url>
 
     <parent>
         <groupId>org.apache</groupId>
@@ -44,6 +44,8 @@ under the License.
     </licenses>
 
     <properties>
+        <!-- The latest released version. This is used e.g. on the website -->
+        <currentStableVersion>0.15.0</currentStableVersion>
         <reef.conf.dir>${project.build.directory}/conf</reef.conf.dir>
         <reef.log.dir>${project.build.directory}/log</reef.log.dir>
         <bundle.snappy>false</bundle.snappy>
@@ -53,16 +55,21 @@ under the License.
         <jetty.version>6.1.26</jetty.version>
         <jackson.version>1.9.13</jackson.version>
         <protobuf.version>2.5.0</protobuf.version>
-        <maven-checkstyle-plugin.version>2.15</maven-checkstyle-plugin.version>
-        <checkstyle.version>6.6</checkstyle.version>
+        <maven-checkstyle-plugin.version>2.17</maven-checkstyle-plugin.version>
+        <sevntu.checkstyle.plugin.version>1.20.0</sevntu.checkstyle.plugin.version>
+        <checkstyle.version>6.17</checkstyle.version>
         <findbugs.version>3.0.2</findbugs.version>
+        <reflections.version>0.9.9-RC1</reflections.version>
+        <jsr305.version>3.0.1</jsr305.version>
+        <kryo.version>3.0.3</kryo.version>
+        <kryo-serializers.version>0.37</kryo-serializers.version>
         <rootPath>${user.dir}</rootPath>
     </properties>
 
     <scm>
-        <connection>scm:git:git@github.com:apache/incubator-reef</connection>
-        <developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/incubator-reef</developerConnection>
-        <url>scm:git:git@github.com:apache/incubator-reef</url>
+        <connection>scm:git:git@github.com:apache/reef</connection>
+        <developerConnection>scm:git:https://git-wip-us.apache.org/repos/asf/reef</developerConnection>
+        <url>scm:git:git@github.com:apache/reef</url>
         <tag>HEAD</tag>
     </scm>
 
@@ -77,16 +84,24 @@ under the License.
     <mailingLists>
         <mailingList>
             <name>Dev Mailing List</name>
-            <post>dev@reef.incubator.apache.org</post>
-            <subscribe>dev-subscribe@reef.incubator.apache.org</subscribe>
-            <unsubscribe>dev-unsubscribe@reef.incubator.apache.org</unsubscribe>
-            <archive>http://mail-archives.apache.org/mod_mbox/incubator-reef-dev/</archive>
+            <post>dev@reef.apache.org</post>
+            <subscribe>dev-subscribe@reef.apache.org</subscribe>
+            <unsubscribe>dev-unsubscribe@reef.apache.org</unsubscribe>
+            <archive>http://mail-archives.apache.org/mod_mbox/reef-dev/</archive>
         </mailingList>
     </mailingLists>
 
     <prerequisites>
         <maven>3.0</maven>
     </prerequisites>
+
+    <pluginRepositories>
+        <pluginRepository>
+            <id>sevntu-maven</id>
+            <name>sevntu-maven</name>
+            <url>http://sevntu-checkstyle.github.io/sevntu.checkstyle/maven2</url>
+        </pluginRepository>
+    </pluginRepositories>
 
     <build>
         <pluginManagement>
@@ -105,8 +120,9 @@ under the License.
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>2.17</version>
+                    <version>2.19.1</version>
                     <configuration>
+                        <argLine>-Xmx2g</argLine>
                         <systemProperties>
                             <property>
                                 <name>org.apache.reef.runtime.local.folder</name>
@@ -152,7 +168,11 @@ under the License.
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-javadoc-plugin</artifactId>
-                    <version>2.10.1</version>
+                    <version>2.10.3</version>
+                    <configuration>
+                        <show>public</show>
+                        <linksource>true</linksource>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -235,6 +255,19 @@ under the License.
                     <groupId>org.apache.rat</groupId>
                     <artifactId>apache-rat-plugin</artifactId>
                     <version>0.11</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.apache.maven.doxia</groupId>
+                            <artifactId>doxia-core</artifactId>
+                            <version>1.6</version>
+                            <exclusions>
+                                <exclusion>
+                                    <groupId>xerces</groupId>
+                                    <artifactId>xercesImpl</artifactId>
+                                </exclusion>
+                            </exclusions>
+                        </dependency>
+                    </dependencies>
                     <configuration>
                         <excludes>
                             <exclude>.gitattributes</exclude>
@@ -250,6 +283,7 @@ under the License.
                             <!-- The below are sometimes created during tests -->
                             <exclude>REEF_LOCAL_RUNTIME/**</exclude>
                             <exclude>REEF_MESOS_RUNTIME/**</exclude>
+                            <exclude>REEF_STANDALONE_RUNTIME/**</exclude>
                             <!-- JVM error logs, especially troublesome on CI servers -->
                             <exclude>**/hs_err_*.log</exclude>
                             <!-- The Visual Studio and Nuget build files -->
@@ -259,6 +293,7 @@ under the License.
                             <exclude>**/*.opensdf*</exclude>
                             <exclude>**/*.sdf*</exclude>
                             <exclude>**/*.snk</exclude>
+                            <exclude>**/*.opendb</exclude>
                             <!-- The below are auto generated during the .Net build -->
                             <exclude>**/bin/**</exclude>
                             <exclude>**/obj/**</exclude>
@@ -266,6 +301,7 @@ under the License.
                             <exclude>**/Debug/**</exclude>
                             <exclude>**/TestResults/**</exclude>
                             <exclude>**/x64/**</exclude>
+                            <exclude>**/StyleCop.Cache</exclude>
 
                             <!-- NuGet dependencies downloaded as part of the build -->
                             <exclude>**/packages/**</exclude>
@@ -273,8 +309,10 @@ under the License.
                             <exclude>Org.Apache.REEF.Common/Protobuf/ReefProtocol/*</exclude>
                             <exclude>Org.Apache.REEF.Common/Avro/*</exclude>
                             <!-- The below are binary data files used in tests -->
-                            <exclude>Org.Apache.REEF.Examples/ConfigFiles/evaluator.conf</exclude>
+                            <exclude>Org.Apache.REEF.Examples/ConfigFiles/*</exclude>
                             <exclude>Org.Apache.REEF.Tang.Tests/simpleConstructorJavaProto.bin</exclude>
+                            <!-- Bibliography info for papers about REEF -->
+                            <exclude>**/bib/**</exclude>
                         </excludes>
                     </configuration>
                 </plugin>
@@ -288,9 +326,16 @@ under the License.
                             <artifactId>checkstyle</artifactId>
                             <version>${checkstyle.version}</version>
                         </dependency>
+                        <dependency>
+                            <groupId>com.github.sevntu.checkstyle</groupId>
+                            <artifactId>sevntu-checkstyle-maven-plugin</artifactId>
+                            <version>${sevntu.checkstyle.plugin.version}</version>
+                        </dependency>
                     </dependencies>
                     <configuration>
                         <configLocation>lang/java/reef-common/src/main/resources/checkstyle.xml</configLocation>
+                        <suppressionsLocation>lang/java/reef-common/src/main/resources/checkstyle-suppress.xml</suppressionsLocation>
+                        <packageNamesLocation>lang/java/reef-common/src/main/resources/packagenames.xml</packageNamesLocation>
                         <failOnViolation>true</failOnViolation>
                         <format>xml</format>
                         <format>html</format>
@@ -304,8 +349,8 @@ under the License.
                     <version>${findbugs.version}</version>
                     <configuration>
                         <effort>Max</effort>
-                        <threshold>Low</threshold>
-                        <failOnError>false</failOnError>
+                        <threshold>Default</threshold>
+                        <failOnError>true</failOnError>
                         <findbugsXmlOutputDirectory>${project.build.directory}/findbugs</findbugsXmlOutputDirectory>
                         <excludeFilterFile>${rootPath}/lang/java/reef-common/src/main/resources/findbugs-exclude.xml</excludeFilterFile>
                     </configuration>
@@ -340,6 +385,22 @@ under the License.
                         </transformationSets>
                     </configuration>
                 </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>cobertura-maven-plugin</artifactId>
+                    <version>2.7</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-pmd-plugin</artifactId>
+                    <version>3.5</version>
+                    <configuration>
+                        <targetJdk>1.7</targetJdk>
+                        <excludes>
+                            <exclude>*/target/generated-sources/*</exclude>
+                        </excludes>
+                    </configuration>
+                </plugin>
             </plugins>
         </pluginManagement>
         <plugins>
@@ -354,60 +415,11 @@ under the License.
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>com.mycila.maven-license-plugin</groupId>
-                <artifactId>maven-license-plugin</artifactId>
-                <configuration>
-                    <header>LICENSE_HEADER.txt</header>
-                    <strictCheck>true</strictCheck>
-                    <excludes>
-                        <exclude>LICENSE.txt</exclude>
-                        <exclude>NOTICES.txt</exclude>
-                        <exclude>README.*</exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-resources-plugin</artifactId>
                 <configuration>
                     <encoding>${project.build.sourceEncoding}</encoding>
                 </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-javadoc-plugin</artifactId>
-                <configuration>
-                    <show>public</show>
-                    <linksource>true</linksource>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.rat</groupId>
-                <artifactId>apache-rat-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>validate</id>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>check</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-checkstyle-plugin</artifactId>
-                <version>${maven-checkstyle-plugin.version}</version>
-                <executions>
-                    <execution>
-                        <id>validate</id>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>check</goal>
-                            <goal>checkstyle</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
         </plugins>
     </build>
@@ -429,9 +441,10 @@ under the License.
             <!-- Testing -->
             <dependency>
                 <groupId>${project.groupId}</groupId>
-                <artifactId>test-jar</artifactId>
+                <artifactId>reef-tests</artifactId>
+                <type>test-jar</type>
                 <version>${project.version}</version>
-                <classifier>tests</classifier>
+                <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>junit</groupId>
@@ -673,12 +686,6 @@ under the License.
                 <version>1</version>
             </dependency>
 
-            <dependency>
-                <groupId>org.reflections</groupId>
-                <artifactId>reflections</artifactId>
-                <version>0.9.9-RC1</version>
-            </dependency>
-
             <!-- Microsoft Azure libraries -->
             <dependency>
                 <groupId>com.microsoft.windowsazure.storage</groupId>
@@ -712,7 +719,7 @@ under the License.
             <dependency>
                 <groupId>org.apache.mesos</groupId>
                 <artifactId>mesos</artifactId>
-                <version>0.21.0</version>
+                <version>0.25.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -734,6 +741,8 @@ under the License.
         <module>lang/java/reef-runtime-local</module>
         <module>lang/java/reef-runtime-yarn</module>
         <module>lang/java/reef-runtime-mesos</module>
+        <module>lang/java/reef-runtime-multi</module>
+        <module>lang/java/reef-runtime-standalone</module>
         <module>lang/java/reef-tang</module>
         <module>lang/java/reef-tests</module>
         <module>lang/java/reef-wake</module>
@@ -764,5 +773,92 @@ under the License.
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <id>code-quality</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.mycila.maven-license-plugin</groupId>
+                        <artifactId>maven-license-plugin</artifactId>
+                        <configuration>
+                            <header>LICENSE_HEADER.txt</header>
+                            <strictCheck>true</strictCheck>
+                            <excludes>
+                                <exclude>LICENSE.txt</exclude>
+                                <exclude>NOTICES.txt</exclude>
+                                <exclude>README.*</exclude>
+                            </excludes>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.rat</groupId>
+                        <artifactId>apache-rat-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>validate</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-checkstyle-plugin</artifactId>
+                        <version>${maven-checkstyle-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>validate</id>
+                                <phase>validate</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                    <goal>checkstyle</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>findbugs-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>analyze-compile</id>
+                                <phase>compile</phase>
+                                <goals>
+                                    <goal>check</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>cobertura-maven-plugin</artifactId>
+                        <configuration>
+                            <instrumentation>
+                                <excludes>
+                                    <exclude>org/apache/reef/examples/**/*.class</exclude>
+                                    <exclude>org/apache/reef/tang/examples/**/*.class</exclude>
+                                    <exclude>org/apache/reef/vortex/examples/**/*.class</exclude>
+                                    <exclude>org/apache/reef/wake/examples/**/*.class</exclude>
+                                </excludes>
+                            </instrumentation>
+                            <aggregate>true</aggregate>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>clean</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
+
 </project>

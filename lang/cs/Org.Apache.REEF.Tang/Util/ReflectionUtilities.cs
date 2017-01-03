@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -29,7 +27,7 @@ using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Tang.Util
 {
-    public class ReflectionUtilities
+    public static class ReflectionUtilities
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(ReflectionUtilities));
 
@@ -46,7 +44,7 @@ namespace Org.Apache.REEF.Tang.Util
         {
             if (name == null)
             {
-                Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(new ArgumentException("null is passed in FullName() in ReflectionUtilities"), LOGGER);
+                Utilities.Diagnostics.Exceptions.Throw(new ArgumentException("null is passed in FullName() in ReflectionUtilities"), LOGGER);
             }
 
             Type t = EnsureInterfaceType(name);
@@ -78,21 +76,21 @@ namespace Org.Apache.REEF.Tang.Util
                 return name.FullName;
             }
 
-            //The following lines should be not reached by C# syntax definition. However, it happens  for some generic type such as AbstractObserver<T>
-            //It results in name as null. When null name in the class node gets deserialzed, as name is required filed in class hierarchy proto buffer schame,
-            //it causes exception during deserialization. The code below is to use first portion of AssemblyQualifiedName for the name of the node node in case type.name is null. 
+            // The following lines should be not reached by C# syntax definition. However, it happens  for some generic type such as AbstractObserver<T>
+            // It results in name as null. When null name in the class node gets deserialized, as name is required filed in class hierarchy proto buffer schema,
+            // it causes exception during deserialization. The code below is to use first portion of AssemblyQualifiedName for the name of the node node in case type.name is null. 
             string[] parts = GetAssemblyQualifiedName(name).Split(',');
             return parts[0];
         }
 
         /// <summary>
         /// Gets the interface target.
-        // Foo<T> ,  given Foo<T> and Foo return T
-        // example class Foo : Bar<U>, Bas<T>
-        // iface: Bar, type: Foo, return U
-        // iface: Bas, type: Foo, return T
-        // class ACons implements IExternalConstructor<A> 
-        // iface: IExternalConstructor<>, type: ACons return A
+        /// Foo<T> ,  given Foo<T> and Foo return T
+        /// example class Foo : Bar<U>, Bas<T>
+        /// iface: Bar, type: Foo, return U
+        /// iface: Bas, type: Foo, return T
+        /// class ACons implements IExternalConstructor<A> 
+        /// iface: IExternalConstructor<>, type: ACons return A
         /// </summary>
         /// <param name="iface">The iface.</param>
         /// <param name="type">The type.</param>
@@ -103,7 +101,7 @@ namespace Org.Apache.REEF.Tang.Util
             {
                 if (IsGenericTypeof(iface, t))
                 {
-                    return t.GetGenericArguments()[0]; //verify it
+                    return t.GetGenericArguments()[0]; // verify it
                 }
             }
             return null;
@@ -113,7 +111,7 @@ namespace Org.Apache.REEF.Tang.Util
         {
             if (IsGenericTypeof(iface, type))
             {
-                return type.GetGenericArguments()[0]; //verify it
+                return type.GetGenericArguments()[0]; // verify it
             }
             return null;
         }
@@ -126,15 +124,15 @@ namespace Org.Apache.REEF.Tang.Util
         /// <returns>
         ///   <c>true</c> if [is generic typeof] [the specified iface]; otherwise, <c>false</c>.
         /// </returns>
-        /// <exception cref="System.ApplicationException"></exception>
+        /// <exception cref="TangApplicationException">The type passed in IsGenericTypeof is null: iface : + iface + type: + type + .</exception>
         public static bool IsGenericTypeof(Type iface, Type type)
         {
             if (iface == null || type == null)
             {
-                var ex = new ApplicationException(string.Format(CultureInfo.CurrentCulture,
+                var ex = new TangApplicationException(string.Format(CultureInfo.CurrentCulture,
                                                              "The type passed in IsGenericTypeof is null: iface : {0} type: {1}. ",
                                                              iface, type));
-                Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
+                Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
             }
             if (type.IsGenericType)
             {
@@ -154,7 +152,7 @@ namespace Org.Apache.REEF.Tang.Util
         public static IEnumerable<Type> ClassAndAncestors(Type c)
         {
             List<Type> workQueue = new List<Type>();
-            workQueue.Add(c); //including itself
+            workQueue.Add(c); // including itself
 
             foreach (Type t in c.GetInterfaces())
             {
@@ -179,7 +177,7 @@ namespace Org.Apache.REEF.Tang.Util
         public static IEnumerable<Type> ClassAndAncestorsExcludeSelf(Type c)
         {
             List<Type> workQueue = new List<Type>();
-            //workQueue.Add(c); //including itself
+            //// workQueue.Add(c); // including itself
 
             foreach (Type t in c.GetInterfaces())
             {
@@ -213,39 +211,39 @@ namespace Org.Apache.REEF.Tang.Util
             {
                 if (c == typeof(bool))
                 {
-                    return typeof(Boolean);
+                    return typeof(bool);
                 }
                 else if (c == typeof(byte))
                 {
-                    return typeof(Byte);
+                    return typeof(byte);
                 }
                 else if (c == typeof(char))
                 {
-                    return typeof(Char);
+                    return typeof(char);
                 }
                 else if (c == typeof(short))
                 {
-                    return typeof(Int16);
+                    return typeof(short);
                 }
                 else if (c == typeof(int))
                 {
-                    return typeof(Int32);
+                    return typeof(int);
                 }
                 else if (c == typeof(long))
                 {
-                    return typeof(Int64);
+                    return typeof(long);
                 }
                 else if (c == typeof(float))
                 {
-                    return typeof(Single);
+                    return typeof(float);
                 }
                 else if (c == typeof(double))
                 {
-                    return typeof(Double);
+                    return typeof(double);
                 }
                 else
                 {
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(new NotSupportedException(
+                    Utilities.Diagnostics.Exceptions.Throw(new NotSupportedException(
                         "Encountered unknown primitive type!"), LOGGER);
                     return c;
                 }
@@ -269,12 +267,12 @@ namespace Org.Apache.REEF.Tang.Util
         {
             to = BoxClass(to);
             from = BoxClass(from);
-            //TODO
-            //if (Number.class.isAssignableFrom(to)
-            //    && Number.class.isAssignableFrom(from)) {
-            //return sizeof.get(from) <= sizeof.get(to);
+            ////TODO
+            ////if (Number.class.isAssignableFrom(to)
+            ////   && Number.class.isAssignableFrom(from)) {
+            ////return sizeof.get(from) <= sizeof.get(to);
             return to.IsAssignableFrom(from);
-            //return IsAssignableFromIgnoreGeneric(to, from);
+            //// return IsAssignableFromIgnoreGeneric(to, from);
         }
 
         /// <summary>
@@ -300,7 +298,7 @@ namespace Org.Apache.REEF.Tang.Util
 
         /// <summary>
         /// Ensures the type of the interface. For generic types, full name could be null. In this case, we need to 
-        /// get GetGenericTypeDefinition for the type so that to rerain all teh type information
+        /// get GetGenericTypeDefinition for the type so that to retain all teh type information
         /// </summary>
         /// <param name="interf">The interf.</param>
         /// <returns></returns>
@@ -308,7 +306,7 @@ namespace Org.Apache.REEF.Tang.Util
         {
             if (interf != null && interf.IsGenericType && null == interf.FullName)
             {
-                return interf.GetGenericTypeDefinition(); //this is to test if this line is ever reached
+                return interf.GetGenericTypeDefinition(); // this is to test if this line is ever reached
             }
             return interf;
         }
@@ -353,7 +351,7 @@ namespace Org.Apache.REEF.Tang.Util
         /// </summary>
         /// <param name="name">The name.</param>
         /// <returns></returns>
-        /// <exception cref="System.ApplicationException">Not able to get Type from the name provided:  +  name</exception>
+        /// <exception cref="TangApplicationException">Not able to get Type from the name provided:  +  name</exception>
         public static Type GetTypeByName(string name)
         {
             Type t = null;
@@ -366,13 +364,15 @@ namespace Org.Apache.REEF.Tang.Util
                 {
                     t = a.GetType(name);
                     if (t != null)
+                    {
                         break;
+                    }
                 }
             }
             if (t == null)
             {
-                Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(
-                    new ApplicationException("Not able to get Type from the name provided: " + name), LOGGER);
+                Utilities.Diagnostics.Exceptions.Throw(
+                    new TangApplicationException("Not able to get Type from the name provided: " + name), LOGGER);
             }
 
             return t;
@@ -401,12 +401,12 @@ namespace Org.Apache.REEF.Tang.Util
         /// </summary>
         /// <param name="t">The t.</param>
         /// <returns></returns>
-        /// <exception cref="System.ApplicationException">The Type passed to GetEnclosingClassShortNames is null</exception>
+        /// <exception cref="TangApplicationException">The Type passed to GetEnclosingClassShortNames is null</exception>
         public static string[] GetEnclosingClassNames(Type t)
         {
             if (t == null)
             {
-                Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(new ApplicationException("The Type passed to GetEnclosingClassShortNames is null"), LOGGER);
+                Utilities.Diagnostics.Exceptions.Throw(new TangApplicationException("The Type passed to GetEnclosingClassShortNames is null"), LOGGER);
             }
             Type[] ts = GetEnclosingClasses(t);
             string[] result = new string[ts.Length];
@@ -423,12 +423,12 @@ namespace Org.Apache.REEF.Tang.Util
         /// </summary>
         /// <param name="fullName">The full name.</param>
         /// <returns></returns>
-        /// <exception cref="System.ApplicationException">The name passed to GetEnclosingClassShortNames is null</exception>
+        /// <exception cref="TangApplicationException">The name passed to GetEnclosingClassShortNames is null</exception>
         public static string[] GetEnclosingClassNames(string fullName)
         {
             if (fullName == null)
             {
-                Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(new ApplicationException("The name passed to GetEnclosingClassShortNames is null"), LOGGER);
+                Utilities.Diagnostics.Exceptions.Throw(new TangApplicationException("The name passed to GetEnclosingClassShortNames is null"), LOGGER);
             }
             Type t = ReflectionUtilities.GetTypeByName(fullName);
             return GetEnclosingClassNames(t);
@@ -440,7 +440,7 @@ namespace Org.Apache.REEF.Tang.Util
         /// <param name="type">The type.</param>
         /// <returns></returns>
         /// <exception cref="ClassHierarchyException">Named parameter  + GetName(type) +  implements 
-        ///                                   + multiple interfaces.  It is only allowed to implement Name</exception>
+        /// + multiple interfaces.  It is only allowed to implement Name</exception>
         public static Type GetNamedParameterTargetOrNull(Type type)
         {
             var npAnnotation = type.GetCustomAttribute<NamedParameterAttribute>();
@@ -451,44 +451,44 @@ namespace Org.Apache.REEF.Tang.Util
                 {
                     var ex = new ClassHierarchyException("Named parameter " + GetName(type) + " implements "
                                   + "multiple interfaces.  It is only allowed to implement Name<T>");
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
-
+                    Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
                 }
                 else if (intfs.Length == 0 || !IsName(intfs[0]))
                 {
                     var ex = new ClassHierarchyException("Found illegal [NamedParameter " + GetName(type)
                                   + " does not implement Name<T>");
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
+                    Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
                 }
                 Type[] args = intfs[0].GetGenericArguments();
                 if (args.Length > 1)
                 {
                     var ex = new ClassHierarchyException("Found illegal [NamedParameter " + GetName(type)
                         + " that has more than one arguments");
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
+                    Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
                 }
                 if (args.Length == 0)
                 {
                     var ex = new ClassHierarchyException("Found illegal [NamedParameter " + GetName(type)
                         + " that has no argument");
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
+                    Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
                 }
                 if (HasConstructor(type) || HasInjectableConstructor(type))
                 {
                     var ex = new ClassHierarchyException("Named parameter " + GetName(type) + " has "
                                   + (HasInjectableConstructor(type) ? "an injectable" : "a") + " constructor. "
                                   + " Named parameters must not declare any constructors.");
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
+                    Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
                 }
 
                 return args[0];
             }
 
-            if (ImplementName(type)) //Implement Name<> but no  [NamedParameter] attribute
+            if (ImplementName(type))
             {
+                // Implement Name<> but no  [NamedParameter] attribute
                 var ex = new ClassHierarchyException("Named parameter " + GetName(type)
                                   + " is missing its [NamedParameter] attribute.");
-                Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
+                Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
             }
             return null;
         }
@@ -496,22 +496,27 @@ namespace Org.Apache.REEF.Tang.Util
         public static IEnumerable<Type> GetInterfaces(Type type, bool includeInherited)
         {
             if (includeInherited || type.BaseType == null)
+            {
                 return type.GetInterfaces();
+            }
             else
+            {
                 return type.GetInterfaces().Except(type.BaseType.GetInterfaces());
+            }
         }
 
-        // Here is a more elaborate hack to test for annonymous type:
+        // Here is a more elaborate hack to test for anonymous type:
         // http://stackoverflow.com/questions/2483023/how-to-test-if-a-type-is-anonymous
         // compiler generated classes are always recreatable and need not additional references to check for.
-        public static bool IsAnnonymousType(Type type)
+        public static bool IsAnonymousType(Type type)
         {
             if (type != null)
             {
                 // HACK: The only way to detect anonymous types right now.
-                return Attribute.IsDefined(type, typeof(CompilerGeneratedAttribute), false)
+                CompareInfo myComp = CultureInfo.CurrentCulture.CompareInfo;
+                return CustomAttributeExtensions.IsDefined(type, typeof(CompilerGeneratedAttribute), false)
                        && type.IsGenericType && type.Name.Contains("AnonymousType")
-                       && (type.Name.StartsWith("<>", true, CultureInfo.CurrentCulture) || type.Name.StartsWith("VB$", true, CultureInfo.CurrentCulture))
+                       && (myComp.IsPrefix(type.Name, "<>", CompareOptions.IgnoreCase) || myComp.IsPrefix(type.Name, "VB$", CompareOptions.IgnoreCase))
                        && (type.Attributes & TypeAttributes.NotPublic) == TypeAttributes.NotPublic;
             }
             return false;
@@ -533,7 +538,7 @@ namespace Org.Apache.REEF.Tang.Util
         {
             if (t.IsGenericType)
             {
-                return t.GetGenericTypeDefinition().AssemblyQualifiedName.Equals(typeof (Name<>).AssemblyQualifiedName);
+                return t.GetGenericTypeDefinition().AssemblyQualifiedName.Equals(typeof(Name<>).AssemblyQualifiedName);
             }
             return false;
         }

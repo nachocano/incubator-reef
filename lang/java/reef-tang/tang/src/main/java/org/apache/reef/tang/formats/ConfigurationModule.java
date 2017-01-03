@@ -37,6 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Allows applications to bundle sets of configuration options together into
@@ -44,9 +46,12 @@ import java.util.Set;
  * ConfigurationModules store such information in static data structures that
  * can be statically discovered and sanity-checked.
  *
- * @see org.apache.reef.tang.formats.TestConfigurationModule for more information and examples.
+ * See org.apache.reef.tang.formats.TestConfigurationModule for more information and examples.
  */
 public class ConfigurationModule {
+
+  private static final Logger LOG = Logger.getLogger(ConfigurationModule.class.getName());
+
   private final ConfigurationModuleBuilder builder;
   // Set of required unset parameters. Must be empty before build.
   private final Set<Field> reqSet = new MonotonicHashSet<>();
@@ -115,8 +120,8 @@ public class ConfigurationModule {
    *
    * @param opt      Target optional/required Impl
    * @param implList List object to be injected
-   * @param <T>
-   * @return
+   * @param <T> a type
+   * @return the configuration module
    */
   public final <T> ConfigurationModule set(final Impl<List> opt, final List implList) {
     final ConfigurationModule c = deepCopy();
@@ -153,8 +158,8 @@ public class ConfigurationModule {
    *
    * @param opt    Target Param
    * @param values Values to bind to the Param
-   * @param <T>
-   * @return
+   * @param <T> type
+   * @return the Configuration module
    */
   public final <T> ConfigurationModule setMultiple(final Param<T> opt, final Iterable<String> values) {
     ConfigurationModule c = deepCopy();
@@ -169,8 +174,8 @@ public class ConfigurationModule {
    *
    * @param opt    Target Param
    * @param values Values to bind to the Param
-   * @param <T>
-   * @return
+   * @param <T> type
+   * @return the Configuration module
    */
   public final <T> ConfigurationModule setMultiple(final Param<T> opt, final String... values) {
     ConfigurationModule c = deepCopy();
@@ -185,8 +190,8 @@ public class ConfigurationModule {
    *
    * @param opt      target optional/required Param
    * @param implList List object to be injected
-   * @param <T>
-   * @return
+   * @param <T>      type
+   * @return the Configuration module
    */
   public final <T> ConfigurationModule set(final Param<List> opt, final List implList) {
     final ConfigurationModule c = deepCopy();
@@ -198,6 +203,8 @@ public class ConfigurationModule {
   @SuppressWarnings({"unchecked", "rawtypes"})
   public Configuration build() throws BindException {
     final ConfigurationModule c = deepCopy();
+
+    //TODO[REEF-968] check that required parameters have not been set to null
 
     if (!c.reqSet.containsAll(c.builder.reqDecl)) {
       final Set<Field> missingSet = new MonotonicHashSet<>();
@@ -213,19 +220,42 @@ public class ConfigurationModule {
 
     for (final Class<?> clazz : c.builder.freeImpls.keySet()) {
       final Impl<?> i = c.builder.freeImpls.get(clazz);
+      boolean foundOne = false;
       if (c.setImpls.containsKey(i)) {
-        c.builder.b.bind(clazz, c.setImpls.get(i));
-      } else if (c.setLateImpls.containsKey(i)) {
-        c.builder.b.bind(ReflectionUtilities.getFullName(clazz), c.setLateImpls.get(i));
-      } else if (c.setImplSets.containsKey(i) || c.setLateImplSets.containsKey(i)) {
-        for (final Class<?> clz : c.setImplSets.getValuesForKey(i)) {
-          c.builder.b.bindSetEntry((Class) clazz, (Class) clz);
+        if (c.setImpls.get(i) != null) {
+          c.builder.b.bind(clazz, c.setImpls.get(i));
+          foundOne = true;
         }
-        for (final String s : c.setLateImplSets.getValuesForKey(i)) {
-          c.builder.b.bindSetEntry((Class) clazz, s);
+      } else if (c.setLateImpls.containsKey(i)) {
+        if (c.setLateImpls.get(i) != null) {
+          c.builder.b.bind(ReflectionUtilities.getFullName(clazz), c.setLateImpls.get(i));
+          foundOne = true;
+        }
+      } else if (c.setImplSets.containsKey(i) || c.setLateImplSets.containsKey(i)) {
+        if (c.setImplSets.getValuesForKey(i) != null) {
+          for (final Class<?> clz : c.setImplSets.getValuesForKey(i)) {
+            c.builder.b.bindSetEntry((Class) clazz, (Class) clz);
+          }
+          foundOne = true;
+        }
+        if (c.setLateImplSets.getValuesForKey(i) != null) {
+          for (final String s : c.setLateImplSets.getValuesForKey(i)) {
+            c.builder.b.bindSetEntry((Class) clazz, s);
+          }
+          foundOne = true;
         }
       } else if (c.setImplLists.containsKey(i)) {
-        c.builder.b.bindList((Class) clazz, c.setImplLists.get(i));
+        if (c.setImplLists.get(i) != null) {
+          c.builder.b.bindList((Class) clazz, c.setImplLists.get(i));
+          foundOne = true;
+        }
+      }
+      if(!foundOne && !(i instanceof  OptionalImpl)) {
+        final IllegalStateException e =
+            new IllegalStateException("Cannot find the value for the RequiredImplementation of the " + clazz
+            + ". Check that you don't pass null as an implementation value.");
+        LOG.log(Level.SEVERE, "Failed to build configuration", e);
+        throw e;
       }
     }
     for (final Class<? extends Name<?>> clazz : c.builder.freeParams.keySet()) {
@@ -246,15 +276,21 @@ public class ConfigurationModule {
         c.builder.b.bindSetEntry((Class) clazz, paramStr);
         foundOne = true;
       }
-      if (!foundOne) {
-        if (!(p instanceof OptionalParameter)) {
-          throw new IllegalStateException();
-        }
+
+      if (!foundOne && !(p instanceof OptionalParameter)) {
+        final IllegalStateException e =
+            new IllegalStateException("Cannot find the value for the RequiredParameter of the " + clazz
+                    + ". Check that you don't pass null as the parameter value.");
+        LOG.log(Level.SEVERE, "Failed to build configuration", e);
+        throw e;
       }
+
     }
+
     return c.builder.b.build();
 
   }
+
 
   public Set<NamedParameterNode<?>> getBoundNamedParameters() {
     final Configuration c = this.builder.b.build();
@@ -340,7 +376,8 @@ public class ConfigurationModule {
         } else if (value instanceof Node) {
           val = ((Node) value).getFullName();
         } else {
-          throw new IllegalStateException();
+          throw new IllegalStateException("The value bound to a given NamedParameterNode "
+                  + key + " is neither the set of class hierarchy nodes nor strings.");
         }
         l.add(key.getFullName() + '=' + escape(val));
       }
@@ -354,7 +391,7 @@ public class ConfigurationModule {
       private final String k;
       private final String v;
 
-      public MyEntry(final String k, final String v) {
+      MyEntry(final String k, final String v) {
         this.k = k;
         this.v = v;
       }

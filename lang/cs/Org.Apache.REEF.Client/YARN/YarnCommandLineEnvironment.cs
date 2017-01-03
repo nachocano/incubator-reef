@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -27,12 +25,12 @@ using Org.Apache.REEF.Tang.Annotations;
 using Org.Apache.REEF.Utilities.Diagnostics;
 using Org.Apache.REEF.Utilities.Logging;
 
-namespace Org.Apache.REEF.Client.YARN
+namespace Org.Apache.REEF.Client.Yarn
 {
     /// <summary>
     /// Helper class to interact with the YARN command line.
     /// </summary>
-    internal sealed class YarnCommandLineEnvironment
+    internal sealed class YarnCommandLineEnvironment : IYarnCommandLineEnvironment
     {
         private static readonly Logger Logger = Logger.GetLogger(typeof(YarnCommandLineEnvironment));
 
@@ -42,10 +40,19 @@ namespace Org.Apache.REEF.Client.YARN
         }
 
         /// <summary>
+        /// Returns the class path returned by `yarn classpath`.
+        /// </summary>
+        /// <returns>The class path returned by `yarn classpath`.</returns>
+        public IReadOnlyList<string> GetYarnClasspathList()
+        {
+            return Yarn("classpath").Split(';').Distinct().ToList();
+        }
+
+        /// <summary>
         /// Returns the full Path to HADOOP_HOME
         /// </summary>
         /// <returns>The full Path to HADOOP_HOME</returns>
-        internal string GetHadoopHomePath()
+        private string GetHadoopHomePath()
         {
             var path = Environment.GetEnvironmentVariable("HADOOP_HOME");
             if (string.IsNullOrWhiteSpace(path))
@@ -70,7 +77,7 @@ namespace Org.Apache.REEF.Client.YARN
         /// Returns the full Path to the `yarn.cmd` file.
         /// </summary>
         /// <returns>The full Path to the `yarn.cmd` file.</returns>
-        internal string GetYarnCommandPath()
+        private string GetYarnCommandPath()
         {
             var result = Path.Combine(GetHadoopHomePath(), "bin", "yarn.cmd");
             if (!File.Exists(result))
@@ -87,7 +94,7 @@ namespace Org.Apache.REEF.Client.YARN
         /// </summary>
         /// <param name="arguments"></param>
         /// <returns>Whatever was printed to stdout by YARN.</returns>
-        internal string Yarn(params string[] arguments)
+        private string Yarn(params string[] arguments)
         {
             var startInfo = new ProcessStartInfo
             {
@@ -110,6 +117,12 @@ namespace Org.Apache.REEF.Client.YARN
                 };
                 process.BeginOutputReadLine();
                 process.WaitForExit();
+
+                if (process.ExitCode != 0)
+                {
+                    var ex = new Exception("YARN process exited with non-zero error code.");
+                    Exceptions.Throw(ex, Logger);
+                }
             }
             else
             {
@@ -118,15 +131,6 @@ namespace Org.Apache.REEF.Client.YARN
                 throw ex;
             }
             return output.ToString();
-        }
-
-        /// <summary>
-        /// Returns the class path returned by `yarn classpath`.
-        /// </summary>
-        /// <returns>The class path returned by `yarn classpath`.</returns>
-        internal IList<string> GetYarnClasspathList()
-        {
-            return Yarn("classpath").Split(';').Distinct().ToList();
         }
     }
 }

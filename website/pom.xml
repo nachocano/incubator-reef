@@ -23,7 +23,7 @@ under the License.
     <parent>
         <groupId>org.apache.reef</groupId>
         <artifactId>reef-project</artifactId>
-        <version>0.13.0-incubating-SNAPSHOT</version>
+        <version>0.16.0-SNAPSHOT</version>
         <relativePath>..</relativePath>
     </parent>
     
@@ -82,7 +82,7 @@ under the License.
                 <version>1.1</version>
                 <configuration>
                     <tryUpdate>true</tryUpdate>
-                    <pubScmUrl>scm:svn:https://svn.apache.org/repos/asf/incubator/reef/</pubScmUrl>
+                    <pubScmUrl>scm:svn:https://svn.apache.org/repos/asf/reef/</pubScmUrl>
                     <ignorePathsToDelete>
                         <ignorePathToDelete>apidocs/**</ignorePathToDelete>
                     </ignorePathsToDelete>

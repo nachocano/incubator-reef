@@ -19,7 +19,6 @@
 package org.apache.reef.javabridge.generic;
 
 import org.apache.reef.client.*;
-import org.apache.reef.client.DriverRestartConfiguration;
 import org.apache.reef.io.network.naming.NameServerConfiguration;
 import org.apache.reef.javabridge.NativeInterop;
 import org.apache.reef.runtime.yarn.driver.YarnDriverRestartConfiguration;
@@ -40,6 +39,7 @@ import org.apache.reef.webserver.ReefEventStateManager;
 import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -165,9 +165,12 @@ public class JobClient {
   public void addCLRFiles(final File folder) throws BindException {
     try (final LoggingScope ls = this.loggingScopeFactory.getNewLoggingScope("JobClient::addCLRFiles")) {
       ConfigurationModule result = this.driverConfigModule;
-      for (final File f : folder.listFiles()) {
-        if (f.canRead() && f.exists() && f.isFile()) {
-          result = result.set(DriverConfiguration.GLOBAL_FILES, f.getAbsolutePath());
+      final File[] files = folder.listFiles();
+      if (files != null) {
+        for (final File f : files) {
+          if (f.canRead() && f.exists() && f.isFile()) {
+            result = result.set(DriverConfiguration.GLOBAL_FILES, f.getAbsolutePath());
+          }
         }
       }
 
@@ -185,7 +188,7 @@ public class JobClient {
       } else {
         String globalLibString = "";
         try {
-          globalLibString = new String(Files.readAllBytes(globalLibFile));
+          globalLibString = new String(Files.readAllBytes(globalLibFile), StandardCharsets.UTF_8);
         } catch (final Exception e) {
           LOG.log(Level.WARNING, "Cannot read from {0}, global libraries not added  " + globalLibFile.toAbsolutePath());
         }
@@ -210,7 +213,7 @@ public class JobClient {
                      final boolean local, final Configuration clientConfig) {
     try (final LoggingScope ls = this.loggingScopeFactory.driverSubmit(submitDriver)) {
       if (!local) {
-        this.driverConfiguration = Configurations.merge(this.driverConfiguration, this.getYarnConfiguration());
+        this.driverConfiguration = Configurations.merge(this.driverConfiguration, getYarnConfiguration());
       }
 
       try {
@@ -227,7 +230,7 @@ public class JobClient {
               driverConfig);
           LOG.log(Level.INFO, "Driver configuration file created at " + driverConfig.getAbsolutePath());
         } catch (final IOException e) {
-          throw new RuntimeException("Cannot create driver configuration file at " + driverConfig.getAbsolutePath());
+          throw new RuntimeException("Cannot create driver configuration file at " + driverConfig.getAbsolutePath(), e);
         }
       }
     }

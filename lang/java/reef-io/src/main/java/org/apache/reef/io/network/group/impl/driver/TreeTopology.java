@@ -18,6 +18,7 @@
  */
 package org.apache.reef.io.network.group.impl.driver;
 
+import org.apache.reef.driver.parameters.DriverIdentifier;
 import org.apache.reef.io.network.group.api.operators.GroupCommOperator;
 import org.apache.reef.io.network.group.api.GroupChanges;
 import org.apache.reef.io.network.group.api.config.OperatorSpec;
@@ -30,9 +31,7 @@ import org.apache.reef.io.network.group.impl.config.BroadcastOperatorSpec;
 import org.apache.reef.io.network.group.impl.config.GatherOperatorSpec;
 import org.apache.reef.io.network.group.impl.config.ReduceOperatorSpec;
 import org.apache.reef.io.network.group.impl.config.ScatterOperatorSpec;
-import org.apache.reef.io.network.group.impl.config.parameters.DataCodec;
-import org.apache.reef.io.network.group.impl.config.parameters.ReduceFunctionParam;
-import org.apache.reef.io.network.group.impl.config.parameters.TaskVersion;
+import org.apache.reef.io.network.group.impl.config.parameters.*;
 import org.apache.reef.io.network.group.impl.operators.*;
 import org.apache.reef.io.network.group.impl.utils.Utils;
 import org.apache.reef.io.network.proto.ReefNetworkGroupCommProtos;
@@ -41,12 +40,14 @@ import org.apache.reef.tang.Configuration;
 import org.apache.reef.tang.JavaConfigurationBuilder;
 import org.apache.reef.tang.Tang;
 import org.apache.reef.tang.annotations.Name;
+import org.apache.reef.tang.annotations.Parameter;
 import org.apache.reef.tang.formats.AvroConfigurationSerializer;
 import org.apache.reef.tang.formats.ConfigurationSerializer;
 import org.apache.reef.wake.EStage;
 import org.apache.reef.wake.EventHandler;
 import org.apache.reef.wake.impl.SingleThreadStage;
 
+import javax.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +58,7 @@ import java.util.logging.Logger;
 /**
  * Implements a tree topology with the specified Fan Out.
  */
-public class TreeTopology implements Topology {
+public final class TreeTopology implements Topology {
 
   private static final Logger LOG = Logger.getLogger(TreeTopology.class.getName());
 
@@ -76,10 +77,12 @@ public class TreeTopology implements Topology {
   private final ConcurrentMap<String, TaskNode> nodes = new ConcurrentSkipListMap<>();
   private final ConfigurationSerializer confSer = new AvroConfigurationSerializer();
 
-
-  public TreeTopology(final EStage<GroupCommunicationMessage> senderStage,
-                      final Class<? extends Name<String>> groupName, final Class<? extends Name<String>> operatorName,
-                      final String driverId, final int numberOfTasks, final int fanOut) {
+  @Inject
+  private TreeTopology(@Parameter(GroupCommSenderStage.class) final EStage<GroupCommunicationMessage> senderStage,
+                       @Parameter(CommGroupNameClass.class) final Class<? extends Name<String>> groupName,
+                       @Parameter(OperatorNameClass.class) final Class<? extends Name<String>> operatorName,
+                       @Parameter(DriverIdentifier.class) final String driverId,
+                       @Parameter(TreeTopologyFanOut.class) final int fanOut) {
     this.senderStage = senderStage;
     this.groupName = groupName;
     this.operName = operatorName;
@@ -101,6 +104,14 @@ public class TreeTopology implements Topology {
     LOG.entering("TreeTopology", "getRootId", getQualifiedName());
     LOG.exiting("TreeTopology", "getRootId", getQualifiedName() + rootId);
     return rootId;
+  }
+
+  @Override
+  public boolean isRootPresent() {
+    LOG.entering("TreeTopology", "isRootPresent", getQualifiedName());
+    final boolean retVal = root != null;
+    LOG.exiting("TreeTopology", "isRootPresent", String.format("%s%s", getQualifiedName(), retVal));
+    return retVal;
   }
 
   @Override
@@ -198,7 +209,6 @@ public class TreeTopology implements Topology {
     } else {
       addChild(taskId);
     }
-    prev = nodes.get(taskId);
     LOG.exiting("TreeTopology", "addTask", getQualifiedName() + taskId);
   }
 
@@ -208,6 +218,7 @@ public class TreeTopology implements Topology {
     final TaskNode node = new TaskNodeImpl(senderStage, groupName, operName, taskId, driverId, false);
     if (logicalRoot != null) {
       addTaskNode(node);
+      prev = node;
     }
     nodes.put(taskId, node);
     LOG.exiting("TreeTopology", "addChild", getQualifiedName() + taskId);
@@ -235,8 +246,7 @@ public class TreeTopology implements Topology {
 
   private void setRootNode(final String newRootId) {
     LOG.entering("TreeTopology", "setRootNode", new Object[]{getQualifiedName(), newRootId});
-    final TaskNode node = new TaskNodeImpl(senderStage, groupName, operName, newRootId, driverId, true);
-    this.root = node;
+    this.root = new TaskNodeImpl(senderStage, groupName, operName, newRootId, driverId, true);
     this.logicalRoot = this.root;
     this.prev = this.root;
 
@@ -252,9 +262,9 @@ public class TreeTopology implements Topology {
   private void unsetRootNode(final String taskId) {
     LOG.entering("TreeTopology", "unsetRootNode", new Object[]{getQualifiedName(), taskId});
     nodes.remove(rootId);
+    root = null;
 
     for (final Map.Entry<String, TaskNode> nodeEntry : nodes.entrySet()) {
-      final String id = nodeEntry.getKey();
       final TaskNode leaf = nodeEntry.getValue();
       leaf.setParent(null);
     }

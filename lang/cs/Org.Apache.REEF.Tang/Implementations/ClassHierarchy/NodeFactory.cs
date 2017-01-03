@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -30,7 +28,7 @@ using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
 {
-    public class NodeFactory
+    internal static class NodeFactory
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(NodeFactory));
 
@@ -41,24 +39,25 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
 
         public static INode CreateClassNode(INode parent, Type clazz)
         {
-            //var namedParameter = clazz.GetCustomAttribute<NamedParameterAttribute>();
+            // var namedParameter = clazz.GetCustomAttribute<NamedParameterAttribute>();
             var unit = null != clazz.GetCustomAttribute<UnitAttribute>();
             string simpleName = ReflectionUtilities.GetName(clazz);
             string fullName = ReflectionUtilities.GetAssemblyQualifiedName(clazz);
-            //bool isStatic = true; // clazz.IsSealed && clazz.IsAbstract; always true in C# for Java static class
-            //bool injectable = true; // always true in C#
+
+            //// bool isStatic = true; // clazz.IsSealed && clazz.IsAbstract; always true in C# for Java static class
+            //// bool injectable = true; // always true in C#
 
             bool isAssignableFromExternalConstructor = ReflectionUtilities.IsAssignableFromIgnoreGeneric(typeof(IExternalConstructor<>), clazz); 
 
-            //bool parentIsUnit = false; 
+            // bool parentIsUnit = false; 
 
-            //No such thing in C#, should be false
-            //bool foundNonStaticInnerClass = false;
-            //foreach (Type c in clazz.getNestedTypes()) {
-            //  if (!Modifier.isStatic(c.getModifiers())) {
-            //    foundNonStaticInnerClass = true;
-            //  }
-            //}
+            ////No such thing in C#, should be false
+            ////bool foundNonStaticInnerClass = false;
+            ////foreach (Type c in clazz.getNestedTypes()) {
+            ////  if (!Modifier.isStatic(c.getModifiers())) {
+            ////    foundNonStaticInnerClass = true;
+            ////  }
+            ////}
 
             var injectableConstructors = new List<IConstructorDef>();
             var allConstructors = new List<IConstructorDef>();
@@ -73,7 +72,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
 
                 if (constructorInjectable)
                 {
-//                    if (injectableConstructors.Contains(constructorDef))
+                    // if (injectableConstructors.Contains(constructorDef))
                     if (constructorDef.IsInList(injectableConstructors))
                     {
                         var e = new ClassHierarchyException(
@@ -88,7 +87,6 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
                     }
                 }
                 allConstructors.Add(constructorDef);
-
             }
 
             string defaultImplementation = null;
@@ -122,7 +120,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
                 injectableConstructors, allConstructors, defaultImplementation);
         }
 
-        //TODO
+        // TODO
         private static ConstructorDefImpl CreateConstructorDef(ConstructorInfo constructor, bool injectable)
         {
             var parameters = constructor.GetParameters();
@@ -131,16 +129,16 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
 
             for (int i = 0; i < parameters.Length; i++)
             {
-                //TODO for getInterfaceTarget() call
+                // TODO for getInterfaceTarget() call
                 Type type = parameters[i].ParameterType;
                 type = ReflectionUtilities.EnsureInterfaceType(type);
-                //if (type.IsGenericType && type.FullName == null)
-                //{
-                //    type = type.GetGenericTypeDefinition();
-                //}
+                ////if (type.IsGenericType && type.FullName == null)
+                ////{
+                ////   type = type.GetGenericTypeDefinition();
+                ////}
                 bool isFuture;
 
-                if(ReflectionUtilities.IsAssignableFromIgnoreGeneric(typeof(IInjectionFuture<>), type)) 
+                if (ReflectionUtilities.IsAssignableFromIgnoreGeneric(typeof(IInjectionFuture<>), type)) 
                 {
                     type = ReflectionUtilities.GetInterfaceTarget(typeof(IInjectionFuture<>), type);
                     isFuture = true;
@@ -158,7 +156,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
 
                 if (type == null)
                 {
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(new ApplicationException("Exception"), LOGGER);
+                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(new TangApplicationException("Exception"), LOGGER);
                 }
 
                 string typename = ReflectionUtilities.GetAssemblyQualifiedName(type);
@@ -175,11 +173,12 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
         {
             Type setRawArgType = ReflectionUtilities.GetInterfaceTarget(typeof(ISet<>), argClass);
             bool isSet = setRawArgType != null;
-            if(isSet) {
+            if (isSet) 
+            {
                 argClass = setRawArgType;
             }
 
-            Type listRawArgType = ReflectionUtilities.GetInterfaceTargetForType(typeof (IList<>), argClass);
+            Type listRawArgType = ReflectionUtilities.GetInterfaceTargetForType(typeof(IList<>), argClass);
             bool isList = listRawArgType != null;
             if (isList)
             {
@@ -200,15 +199,14 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
 
             bool hasStringDefault, hasClassDefault, hasStringSetDefault, hasClassSetDefault;
             int default_count = 0;
-            //if(!namedParameter.default_value().isEmpty()) {  //QUESTION: difference from below? 
-            if (namedParameter.DefaultValue != null && namedParameter.DefaultValue.Length > 0)
+            if (namedParameter.DefaultValue == null || namedParameter.DefaultValue.Equals(NamedParameterAttribute.ReefUninitializedValue))
             {
-                hasStringDefault = true;
-                default_count++;
+                hasStringDefault = false;
             }
             else
             {
-                hasStringDefault = false;
+                hasStringDefault = true;
+                default_count++;
             }
 
             if (namedParameter.DefaultClass != null /*Void.class*/)
@@ -247,27 +245,27 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
                 Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
             }
 
-            string[] defaultInstanceAsStrings = new string[]{};
+            string[] defaultInstanceAsStrings = new string[] { };
 
             if (default_count == 0)
             {
-                defaultInstanceAsStrings = new String[] { };
+                defaultInstanceAsStrings = new string[] { };
             }
             else if (hasClassDefault)
             {
                 Type default_class = namedParameter.DefaultClass;
                 AssertIsSubclassOf(clazz, default_class, argClass);
-                defaultInstanceAsStrings = new String[] { ReflectionUtilities.GetAssemblyQualifiedName(default_class) };
+                defaultInstanceAsStrings = new string[] { ReflectionUtilities.GetAssemblyQualifiedName(default_class) };
             }
             else if (hasStringDefault)
             {
                 // Don't know if the string is a class or literal here, so don't bother validating.
-                defaultInstanceAsStrings = new String[] { namedParameter.DefaultValue };
+                defaultInstanceAsStrings = new string[] { namedParameter.DefaultValue };
             }
             else if (hasClassSetDefault)
             {
                 Type[] clzs = namedParameter.DefaultClasses;
-                defaultInstanceAsStrings = new String[clzs.Length];
+                defaultInstanceAsStrings = new string[clzs.Length];
                 for (int i = 0; i < clzs.Length; i++)
                 {
                     AssertIsSubclassOf(clazz, clzs[i], argClass);
@@ -306,7 +304,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
                     isSubclass = true;
                 }
             }
-            if (!(isSubclass))
+            if (!isSubclass)
             {
                 var e = new ClassHierarchyException(namedparameter + " defines a default class "
                     + ReflectionUtilities.GetName(defaultclass) + " with a type that does not extend of its target's type " + argClass);

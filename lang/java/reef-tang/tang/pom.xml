@@ -23,7 +23,7 @@ under the License.
     <parent>
         <groupId>org.apache.reef</groupId>
         <artifactId>tang-project</artifactId>
-        <version>0.13.0-incubating-SNAPSHOT</version>
+        <version>0.16.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>tang</artifactId>
@@ -37,7 +37,7 @@ under the License.
                         <id>generate-sources</id>
                         <phase>generate-sources</phase>
                         <configuration>
-                            <tasks>
+                            <target>
                                 <mkdir dir="target/generated-sources/proto"/>
                                 <exec executable="protoc">
                                     <arg value="--proto_path=src/main/proto/"/>
@@ -45,7 +45,7 @@ under the License.
                                     <arg value="src/main/proto/injection_plan.proto"/>
                                     <arg value="src/main/proto/class_hierarchy.proto"/>
                                 </exec>
-                            </tasks>
+                            </target>
                             <sourceRoot>target/generated-sources/proto</sourceRoot>
                         </configuration>
                         <goals>
@@ -134,10 +134,6 @@ under the License.
         <dependency>
             <groupId>javax.inject</groupId>
             <artifactId>javax.inject</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.reflections</groupId>
-            <artifactId>reflections</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.avro</groupId>

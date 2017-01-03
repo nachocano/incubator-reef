@@ -1,49 +1,46 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using System.Reactive;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Wake.Remote;
 using Org.Apache.REEF.Wake.Remote.Impl;
 using Org.Apache.REEF.Wake.Remote.Parameters;
-using Org.Apache.REEF.Wake.Util;
+using Xunit;
 
 namespace Org.Apache.REEF.Wake.Tests
 {
-    [TestClass]
     public class TransportTest
     {
         private readonly IPAddress _localIpAddress = IPAddress.Parse("127.0.0.1");
         private readonly ITcpPortProvider _tcpPortProvider = GetTcpProvider(8900, 8940);
-        [TestMethod]
+        private readonly ITcpClientConnectionFactory _tcpClientFactory = GetTcpClientFactory(5, 500);
+
+        [Fact]
         public void TestTransportServer()
         {
             ICodec<string> codec = new StringCodec();
 
             BlockingCollection<string> queue = new BlockingCollection<string>();
             List<string> events = new List<string>();
-
 
             IPEndPoint endpoint = new IPEndPoint(_localIpAddress, 0);
             var remoteHandler = Observer.Create<TransportEvent<string>>(tEvent => queue.Add(tEvent.Data));
@@ -53,7 +50,7 @@ namespace Org.Apache.REEF.Wake.Tests
                 server.Run();
 
                 IPEndPoint remoteEndpoint = new IPEndPoint(_localIpAddress, server.LocalEndpoint.Port);
-                using (var client = new TransportClient<string>(remoteEndpoint, codec))
+                using (var client = new TransportClient<string>(remoteEndpoint, codec, _tcpClientFactory))
                 {
                     client.Send("Hello");
                     client.Send(", ");
@@ -65,10 +62,13 @@ namespace Org.Apache.REEF.Wake.Tests
                 } 
             }
 
-            Assert.AreEqual(3, events.Count);
+            Assert.Equal(3, events.Count);
+            Assert.Equal(events[0], "Hello");
+            Assert.Equal(events[1], ", ");
+            Assert.Equal(events[2], "World!");
         }
 
-        [TestMethod]
+        [Fact]
         public void TestTransportServerEvent()
         {
             ICodec<TestEvent> codec = new TestEventCodec();
@@ -84,7 +84,7 @@ namespace Org.Apache.REEF.Wake.Tests
                 server.Run();
 
                 IPEndPoint remoteEndpoint = new IPEndPoint(_localIpAddress, server.LocalEndpoint.Port);
-                using (var client = new TransportClient<TestEvent>(remoteEndpoint, codec))
+                using (var client = new TransportClient<TestEvent>(remoteEndpoint, codec, _tcpClientFactory))
                 {
                     client.Send(new TestEvent("Hello"));
                     client.Send(new TestEvent(", "));
@@ -96,10 +96,13 @@ namespace Org.Apache.REEF.Wake.Tests
                 } 
             }
 
-            Assert.AreEqual(3, events.Count);
+            Assert.Equal(3, events.Count);
+            Assert.Equal(events[0].Message, "Hello");
+            Assert.Equal(events[1].Message, ", ");
+            Assert.Equal(events[2].Message, "World!");
         }
 
-        [TestMethod]
+        [Fact]
         public void TestTransportSenderStage()
         {
             ICodec<string> codec = new StringCodec();
@@ -117,7 +120,7 @@ namespace Org.Apache.REEF.Wake.Tests
 
                 var clientHandler = Observer.Create<TransportEvent<string>>(tEvent => queue.Add(tEvent.Data));
                 IPEndPoint remoteEndpoint = new IPEndPoint(_localIpAddress, server.LocalEndpoint.Port);
-                using (var client = new TransportClient<string>(remoteEndpoint, codec, clientHandler))
+                using (var client = new TransportClient<string>(remoteEndpoint, codec, clientHandler, _tcpClientFactory))
                 {
                     client.Send("Hello");
                     client.Send(", ");
@@ -129,10 +132,13 @@ namespace Org.Apache.REEF.Wake.Tests
                 } 
             }
 
-            Assert.AreEqual(3, events.Count);
+            Assert.Equal(3, events.Count);
+            Assert.Equal(events[0], "Hello");
+            Assert.Equal(events[1], ", ");
+            Assert.Equal(events[2], " World");
         }
 
-        [TestMethod]
+        [Fact]
         public void TestRaceCondition()
         {
             ICodec<string> codec = new StringCodec();
@@ -153,7 +159,7 @@ namespace Org.Apache.REEF.Wake.Tests
                     Task.Run(() =>
                     {
                         IPEndPoint remoteEndpoint = new IPEndPoint(_localIpAddress, server.LocalEndpoint.Port);
-                        using (var client = new TransportClient<string>(remoteEndpoint, codec))
+                        using (var client = new TransportClient<string>(remoteEndpoint, codec, _tcpClientFactory))
                         {
                             client.Send("Hello");
                             client.Send(", ");
@@ -168,7 +174,7 @@ namespace Org.Apache.REEF.Wake.Tests
                 }
             }
 
-            Assert.AreEqual(numEventsExpected, events.Count);
+            Assert.Equal(numEventsExpected, events.Count);
         }
 
         private class TestEvent
@@ -199,7 +205,6 @@ namespace Org.Apache.REEF.Wake.Tests
             }
         }
 
-
         private static ITcpPortProvider GetTcpProvider(int portRangeStart, int portRangeEnd)
         {
             var configuration = TangFactory.GetTang().NewConfigurationBuilder()
@@ -210,5 +215,15 @@ namespace Org.Apache.REEF.Wake.Tests
             return TangFactory.GetTang().NewInjector(configuration).GetInstance<ITcpPortProvider>();
         }
 
+        private static ITcpClientConnectionFactory GetTcpClientFactory(int connectionRetryCount, int sleepTimeInMs)
+        {
+            var config =
+                TangFactory.GetTang()
+                    .NewConfigurationBuilder()
+                    .BindIntNamedParam<ConnectionRetryCount>(connectionRetryCount.ToString())
+                    .BindIntNamedParam<SleepTimeInMs>(sleepTimeInMs.ToString())
+                    .Build();
+            return TangFactory.GetTang().NewInjector(config).GetInstance<ITcpClientConnectionFactory>();
+        }
     }
 }

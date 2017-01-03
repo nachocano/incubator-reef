@@ -18,6 +18,9 @@
  */
 package org.apache.reef.javabridge;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.reef.annotations.audience.Interop;
+import org.apache.reef.annotations.audience.Private;
 import org.apache.reef.driver.context.ActiveContext;
 import org.apache.reef.io.naming.Identifiable;
 import org.apache.reef.runtime.common.driver.context.EvaluatorContext;
@@ -25,6 +28,13 @@ import org.apache.reef.runtime.common.driver.context.EvaluatorContext;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * The Java-CLR bridge object for {@link org.apache.reef.driver.context.ActiveContext}.
+ */
+@Private
+@Interop(
+    CppFiles = { "Clr2JavaImpl.h", "ActiveContextClr2Java.cpp" },
+    CsFiles = { "IActiveContextClr2Java.cs", "ActiveContext.cs" })
 public final class ActiveContextBridge extends NativeBridge implements Identifiable {
   private static final Logger LOG = Logger.getLogger(ActiveContextBridge.class.getName());
 
@@ -38,8 +48,29 @@ public final class ActiveContextBridge extends NativeBridge implements Identifia
     this.evaluatorId = activeContext.getEvaluatorId();
   }
 
+  /**
+   * @return the context ID.
+   */
+  public String getContextId() {
+    return contextId;
+  }
+
+  /**
+   * @return the context ID of the parent.
+   */
+  public String getParentContextId() {
+    return jactiveContext.getParentId().get();
+  }
+
+  /**
+   * @return the Evaluator ID of the Evaluator on which the Context runs.
+   */
+  public String getEvaluatorId() {
+    return evaluatorId;
+  }
+
   public void submitTaskString(final String taskConfigurationString) {
-    if (taskConfigurationString.isEmpty()) {
+    if (StringUtils.isEmpty(taskConfigurationString)) {
       throw new RuntimeException("empty taskConfigurationString provided.");
     }
 
@@ -48,10 +79,23 @@ public final class ActiveContextBridge extends NativeBridge implements Identifia
     ((EvaluatorContext)jactiveContext).submitTask(taskConfigurationString);
   }
 
-  public String getEvaluatorDescriptorSring() {
+  public void submitContextStringAndServiceString(final String contextConfigurationString,
+                                                  final String serviceConfigurationString) {
+    if (StringUtils.isEmpty(contextConfigurationString)) {
+      throw new RuntimeException("empty contextConfigurationString provided.");
+    }
+
+    ((EvaluatorContext)jactiveContext).submitContextAndService(contextConfigurationString, serviceConfigurationString);
+  }
+
+  public String getEvaluatorDescriptorString() {
     final String descriptorString = Utilities.getEvaluatorDescriptorString(jactiveContext.getEvaluatorDescriptor());
     LOG.log(Level.FINE, "active context - serialized evaluator descriptor: " + descriptorString);
     return descriptorString;
+  }
+
+  public void sendMessage(final byte[] message) {
+    jactiveContext.sendMessage(message);
   }
 
   @Override

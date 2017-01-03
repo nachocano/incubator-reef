@@ -23,6 +23,9 @@ import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * Step sizes array.
+ */
 public class StepSizes {
 
   private static final Logger LOG = Logger.getLogger(StepSizes.class.getName());
@@ -33,7 +36,7 @@ public class StepSizes {
   @Inject
   public StepSizes() {
     this.t = new double[gridSize];
-    final int mid = (gridSize / 2);
+    final int mid = gridSize / 2;
     t[mid] = 1;
     for (int i = mid - 1; i >= 0; i--) {
       t[i] = t[i + 1] / 2.0;
@@ -52,7 +55,6 @@ public class StepSizes {
   }
 
   public static void main(final String[] args) {
-    // TODO Auto-generated method stub
     final StepSizes t = new StepSizes();
     LOG.log(Level.INFO, "OUT: {0}", Arrays.toString(t.getT()));
   }

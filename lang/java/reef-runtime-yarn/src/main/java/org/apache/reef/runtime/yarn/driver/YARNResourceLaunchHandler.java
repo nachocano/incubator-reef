@@ -30,10 +30,12 @@ import org.apache.reef.runtime.common.files.REEFFileNames;
 import org.apache.reef.runtime.common.parameters.JVMHeapSlack;
 import org.apache.reef.runtime.yarn.client.SecurityTokenProvider;
 import org.apache.reef.runtime.yarn.util.YarnTypes;
+import org.apache.reef.runtime.yarn.util.YarnUtilities;
 import org.apache.reef.tang.InjectionFuture;
 import org.apache.reef.tang.annotations.Parameter;
 
 import javax.inject.Inject;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
@@ -90,12 +92,12 @@ public final class YARNResourceLaunchHandler implements ResourceLaunchHandler {
 
       final byte[] securityTokensBuffer = this.tokenProvider.getTokens();
       final ContainerLaunchContext ctx = YarnTypes.getContainerLaunchContext(
-          command, localResources, securityTokensBuffer);
+          command, localResources, securityTokensBuffer, YarnUtilities.getApplicationId());
       this.yarnContainerManager.get().submit(container, ctx);
 
       LOG.log(Level.FINEST, "TIME: End ResourceLaunch {0}", containerId);
 
-    } catch (final Throwable e) {
+    } catch (final IOException e) {
       LOG.log(Level.WARNING, "Error handling resource launch message: " + resourceLaunchEvent, e);
       throw new RuntimeException(e);
     }

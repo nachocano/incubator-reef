@@ -25,11 +25,11 @@ import org.apache.reef.annotations.audience.Public;
 
 /**
  * Represents Preemption requests issued by the underlying resource manager.
- * <p/>
+ * <p>
  * REEF exposes two kinds of preemption requests: Strict ones merely inform the Driver about machines that are about to
  * be preempted. Flexible ones provide that list, but also expose the resource request that the underlying resource
  * manager wants to satisfy, thereby giving the Driver a chance to satisfy it in another way.
- * <p/>
+ * <p>
  * NOTE: This currently not implemented. Consider it a preview of the API.
  */
 @DriverSide
@@ -41,7 +41,7 @@ public interface PreemptionEvent {
   /**
    * @return the Set of RunningEvaluators that the underlying resource manager is about to take away from the Driver.
    */
-  // TODO: We need to have a set of things to present to the user as preempted.
+  // TODO[JIRA REEF-836]: We need to have a set of things to present to the user as preempted.
   // Probably a Set<String> with the Evaluator IDs.
   // public Set<RunningEvaluator> getToBePreemptedEvaluators();
 

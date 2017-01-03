@@ -1,47 +1,44 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
-using System;
 using System.Collections.Generic;
 using Org.Apache.REEF.Tang.Types;
 using Org.Apache.REEF.Tang.Util;
 
 namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
 {
-    public class AbstractNode : INode
+    internal abstract class AbstractNode : INode
     {
         /// It is from Type.FullName. This name is used as Name in a Node. 
         /// It is not unique for a generic type with different type of arguments.
         /// It is used for toString or debug info as AssemblyQualifiedName is really long
-        private readonly String name;
+        private readonly string name;
 
         /// It is from Type.AssemblyQualifiedName. THis name is used as full name in a Node
         /// It is unique for a generic type with different type of arguments.
-        private readonly String fullName; //it comes from 
+        private readonly string fullName;
 
-        //parent node in the class hierarchy
+        // parent node in the class hierarchy
         private readonly INode parent; 
         
-        //children in the class hierarchy
-        protected IDictionary<String, INode> children = new MonotonicTreeMap<string, INode>();
+        // children in the class hierarchy
+        protected IDictionary<string, INode> children = new MonotonicTreeMap<string, INode>();
 
-        public AbstractNode(INode parent, String name, String fullName)
+        protected AbstractNode(INode parent, string name, string fullName)
         {
             this.parent = parent;
             this.name = name;
@@ -57,12 +54,12 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             return children.Values;
         }
 
-        public bool Contains(String key) 
+        public bool Contains(string key) 
         {
             return children.ContainsKey(key);
         }
 
-        public INode Get(String key)
+        public INode Get(string key)
         {
             INode val;
             if (children.TryGetValue(key, out val))
@@ -92,23 +89,37 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             return parent;
         }
 
-        public override bool Equals(Object o) 
+        public override bool Equals(object o) 
         {
-            if(o == null) return false;
-            if(o == this) return true;
+            if (o == null)
+            {
+                return false;
+            }
+            if (o == this)
+            {
+                return true;
+            }
     
-            AbstractNode n = (AbstractNode) o;
+            AbstractNode n = (AbstractNode)o;
             bool parentsEqual;
-            if (n.parent == this.parent) {
+            if (n.parent == this.parent) 
+            {
                 parentsEqual = true;
-            } else if (n.parent == null) {
+            } 
+            else if (n.parent == null) 
+            {
                 parentsEqual = false;
-            } else if (this.parent == null) {
+            } 
+            else if (this.parent == null) 
+            {
                 parentsEqual = false;
-            } else {
+            } 
+            else 
+            {
                 parentsEqual = n.parent.Equals(this.parent);
             }
-            if (!parentsEqual) {
+            if (!parentsEqual) 
+            {
                 return false;
             }
             return fullName.Equals(n.fullName);
@@ -119,7 +130,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             return fullName.GetHashCode();
         }
 
-        public override String ToString()
+        public override string ToString()
         {
             return "[" + this.GetType().FullName + " '" + fullName + "']";
         }

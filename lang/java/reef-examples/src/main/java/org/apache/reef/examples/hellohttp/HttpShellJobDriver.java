@@ -23,7 +23,6 @@ import org.apache.reef.driver.context.ClosedContext;
 import org.apache.reef.driver.context.ContextConfiguration;
 import org.apache.reef.driver.context.FailedContext;
 import org.apache.reef.driver.evaluator.AllocatedEvaluator;
-import org.apache.reef.driver.evaluator.EvaluatorRequest;
 import org.apache.reef.driver.evaluator.EvaluatorRequestor;
 import org.apache.reef.driver.evaluator.FailedEvaluator;
 import org.apache.reef.driver.task.CompletedTask;
@@ -53,19 +52,19 @@ import java.util.logging.Logger;
 @SuppressWarnings("checkstyle:hideutilityclassconstructor")
 @Unit
 public final class HttpShellJobDriver {
+  private static final Logger LOG = Logger.getLogger(HttpShellJobDriver.class.getName());
 
   /**
    * String codec is used to encode the results
    * before passing them back to the client.
    */
   public static final ObjectSerializableCodec<String> CODEC = new ObjectSerializableCodec<>();
-  private static final Logger LOG = Logger.getLogger(HttpShellJobDriver.class.getName());
   /**
    * Evaluator Requester.
    */
   private final EvaluatorRequestor evaluatorRequestor;
   /**
-   * Number of Evalutors to request (default is 1).
+   * Number of Evaluators to request (default is 2).
    */
   private final int numEvaluators = 2;
   /**
@@ -92,7 +91,7 @@ public final class HttpShellJobDriver {
   /**
    * Callback handler for http return message.
    */
-  private HttpServerShellCmdtHandler.ClientCallBackHandler httpCallbackHandler;
+  private HttpServerShellCmdHandler.ClientCallBackHandler httpCallbackHandler;
 
   /**
    * Job Driver Constructor.
@@ -102,10 +101,10 @@ public final class HttpShellJobDriver {
    */
   @Inject
   public HttpShellJobDriver(final EvaluatorRequestor requestor,
-                            final HttpServerShellCmdtHandler.ClientCallBackHandler clientCallBackHandler) {
+                            final HttpServerShellCmdHandler.ClientCallBackHandler clientCallBackHandler) {
     this.evaluatorRequestor = requestor;
     this.httpCallbackHandler = clientCallBackHandler;
-    LOG.log(Level.FINE, "Instantiated 'HelloDriver'");
+    LOG.log(Level.FINE, "Instantiated 'HttpShellJobDriver'");
   }
 
   /**
@@ -126,10 +125,10 @@ public final class HttpShellJobDriver {
    *
    * @param command shell command to execute.
    */
-  private void submit(final String command) {
+  private synchronized void submit(final String command) {
     LOG.log(Level.INFO, "Submit command {0} to {1} evaluators. state: {2}",
         new Object[]{command, this.contexts.size(), this.state});
-    assert (this.state == State.READY);
+    assert this.state == State.READY;
     this.expectCount = this.contexts.size();
     this.state = State.WAIT_TASKS;
     this.cmd = null;
@@ -165,14 +164,13 @@ public final class HttpShellJobDriver {
    * Request the evaluators.
    */
   private synchronized void requestEvaluators() {
-    assert (this.state == State.INIT);
+    assert this.state == State.INIT;
     LOG.log(Level.INFO, "Schedule on {0} Evaluators.", this.numEvaluators);
-    this.evaluatorRequestor.submit(
-        EvaluatorRequest.newBuilder()
-            .setMemory(128)
-            .setNumberOfCores(1)
-            .setNumber(this.numEvaluators).build()
-    );
+    this.evaluatorRequestor.newRequest()
+        .setMemory(128)
+        .setNumberOfCores(1)
+        .setNumber(this.numEvaluators)
+        .submit();
     this.state = State.WAIT_EVALUATORS;
     this.expectCount = this.numEvaluators;
   }
@@ -200,7 +198,7 @@ public final class HttpShellJobDriver {
       synchronized (HttpShellJobDriver.this) {
         LOG.log(Level.INFO, "Allocated Evaluator: {0} expect {1} running {2}",
             new Object[]{eval.getId(), HttpShellJobDriver.this.expectCount, HttpShellJobDriver.this.contexts.size()});
-        assert (HttpShellJobDriver.this.state == State.WAIT_EVALUATORS);
+        assert HttpShellJobDriver.this.state == State.WAIT_EVALUATORS;
         try {
           eval.submitContext(ContextConfiguration.CONF.set(
               ContextConfiguration.IDENTIFIER, eval.getId() + "_context").build());
@@ -239,7 +237,7 @@ public final class HttpShellJobDriver {
       synchronized (HttpShellJobDriver.this) {
         LOG.log(Level.INFO, "Context available: {0} expect {1} state {2}",
             new Object[]{context.getId(), HttpShellJobDriver.this.expectCount, HttpShellJobDriver.this.state});
-        assert (HttpShellJobDriver.this.state == State.WAIT_EVALUATORS);
+        assert HttpShellJobDriver.this.state == State.WAIT_EVALUATORS;
         HttpShellJobDriver.this.contexts.put(context.getId(), context);
         if (--HttpShellJobDriver.this.expectCount <= 0) {
           HttpShellJobDriver.this.state = State.READY;
@@ -328,12 +326,12 @@ public final class HttpShellJobDriver {
         final String command = CODEC.decode(message);
         LOG.log(Level.INFO, "Client message: {0} state: {1}",
             new Object[]{command, HttpShellJobDriver.this.state});
-        assert (HttpShellJobDriver.this.cmd == null);
+        assert HttpShellJobDriver.this.cmd == null;
         if (HttpShellJobDriver.this.state == State.READY) {
           HttpShellJobDriver.this.submit(command);
         } else {
           // not ready yet - save the command for better times.
-          assert (HttpShellJobDriver.this.state == State.WAIT_EVALUATORS);
+          assert HttpShellJobDriver.this.state == State.WAIT_EVALUATORS;
           HttpShellJobDriver.this.cmd = command;
         }
       }
@@ -346,9 +344,11 @@ public final class HttpShellJobDriver {
   final class StartHandler implements EventHandler<StartTime> {
     @Override
     public void onNext(final StartTime startTime) {
-      LOG.log(Level.INFO, "{0} StartTime: {1}", new Object[]{state, startTime});
-      assert (state == State.INIT);
-      requestEvaluators();
+      synchronized (HttpShellJobDriver.this) {
+        LOG.log(Level.INFO, "{0} StartTime: {1}", new Object[]{state, startTime});
+        assert state == State.INIT;
+        requestEvaluators();
+      }
     }
   }
 
@@ -358,9 +358,11 @@ public final class HttpShellJobDriver {
   final class StopHandler implements EventHandler<StopTime> {
     @Override
     public void onNext(final StopTime time) {
-      LOG.log(Level.INFO, "{0} StopTime: {1}", new Object[]{state, time});
-      for (final ActiveContext context : contexts.values()) {
-        context.close();
+      synchronized (HttpShellJobDriver.this) {
+        LOG.log(Level.INFO, "{0} StopTime: {1}", new Object[]{state, time});
+        for (final ActiveContext context : contexts.values()) {
+          context.close();
+        }
       }
     }
   }

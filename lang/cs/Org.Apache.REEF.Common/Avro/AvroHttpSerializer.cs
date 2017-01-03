@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System.IO;
 using Microsoft.Hadoop.Avro;
@@ -27,7 +25,7 @@ namespace Org.Apache.REEF.Common.Avro
     /// <summary>
     /// Class AvroHttpSerializer. Provides methods to serialize and deserialize HttpRequest
     /// </summary>
-    public class AvroHttpSerializer
+    internal static class AvroHttpSerializer
     {
         public static AvroHttpRequest FromBytes(byte[] serializedBytes)
         {
@@ -39,24 +37,24 @@ namespace Org.Apache.REEF.Common.Avro
         }
 
         /// <summary>
-        /// Conver bytes which contains Json string into AvroHttpRequest object
+        /// Convert bytes which contains Json string into AvroHttpRequest object
         /// </summary>
         /// <param name="serializedBytes">The serialized bytes.</param>
         /// <returns>AvroHttpRequest.</returns>
-        public static AvroHttpRequest FromBytesWithJoson(byte[] serializedBytes)
+        public static AvroHttpRequest FromBytesWithJson(byte[] serializedBytes)
         {
-            string s = ByteUtilities.ByteArrarysToString(serializedBytes);
+            string s = ByteUtilities.ByteArraysToString(serializedBytes);
             return FromJson(s);
         }
 
         /// <summary>
         /// Convert from Json string into AvroHttpRequest object
         /// </summary>
-        /// <param name="josonString">The joson string.</param>
+        /// <param name="jsonString">The json string.</param>
         /// <returns>AvroHttpRequest.</returns>
-        public static AvroHttpRequest FromJson(string josonString)
+        public static AvroHttpRequest FromJson(string jsonString)
         {
-           return JsonConvert.DeserializeObject<AvroHttpRequest>(josonString);
+           return JsonConvert.DeserializeObject<AvroHttpRequest>(jsonString);
         }
 
         /// <summary>
@@ -106,7 +104,7 @@ namespace Org.Apache.REEF.Common.Avro
             var bytes = ToBytes(avroHttprequest);
             using (var file = File.OpenWrite(fileName))
             {
-                file.Write(bytes,0,bytes.Length);
+                file.Write(bytes, 0, bytes.Length);
             }
         }
     }

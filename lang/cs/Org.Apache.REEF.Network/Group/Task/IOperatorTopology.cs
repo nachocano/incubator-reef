@@ -1,23 +1,22 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System.Collections.Generic;
+using System.Threading;
 using Org.Apache.REEF.Network.Group.Driver.Impl;
 using Org.Apache.REEF.Network.Group.Operators;
 
@@ -36,7 +35,7 @@ namespace Org.Apache.REEF.Network.Group.Task
         /// Waits until all Tasks in the CommunicationGroup have registered themselves
         /// with the Name Service.
         /// </summary>
-        void Initialize();
+        void Initialize(CancellationTokenSource cancellationSource);
 
         /// <summary>
         /// Sends the message to the parent Task.
@@ -81,22 +80,27 @@ namespace Org.Apache.REEF.Network.Group.Task
         /// <summary>
         /// Receive an incoming message from the parent Task.
         /// </summary>
+        /// <param name="cancellationSource">The cancellation token for the data reading operation cancellation</param>
         /// <returns>The parent Task's message</returns>
-        T ReceiveFromParent();
+        //// TODO : REEF-1489 to remove null
+        T ReceiveFromParent(CancellationTokenSource cancellationSource = null);
 
         /// <summary>
         /// Receive a list of incoming messages from the parent Task.
         /// </summary>
         /// <returns>The parent Task's list of messages</returns>
-        IList<T> ReceiveListFromParent();
+        //// TODO : REEF-1489 to remove null
+        IList<T> ReceiveListFromParent(CancellationTokenSource cancellationSource = null);
 
         /// <summary>
         /// Receives all messages from child Tasks and reduces them with the
         /// given IReduceFunction.
         /// </summary>
         /// <param name="reduceFunction">The class used to reduce messages</param>
+        /// <param name="cancellationSource">The cancellationSource to cancel the operation</param>
         /// <returns>The result of reducing messages</returns>
-        T ReceiveFromChildren(IReduceFunction<T> reduceFunction);
+        //// TODO : REEF-1489 to remove null
+        T ReceiveFromChildren(IReduceFunction<T> reduceFunction, CancellationTokenSource cancellationSource = null);
 
         /// <summary>
         /// Checks if the node has children

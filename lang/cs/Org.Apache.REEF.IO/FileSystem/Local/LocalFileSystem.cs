@@ -33,6 +33,38 @@ namespace Org.Apache.REEF.IO.FileSystem.Local
         {
         }
 
+        /// <summary>
+        /// Create Uri from given file name
+        /// </summary>
+        /// <param name="path"></param>
+        /// <returns></returns>
+        public Uri CreateUriForPath(string path)
+        {
+            if (path == null)
+            {
+                throw new ArgumentException("null path passed in CreateUriForPath");
+            }
+
+            return new Uri(path);
+        }
+
+        /// <summary>
+        /// Gets the FileStatus for given file.
+        /// </summary>
+        /// <param name="remoteFileUri"></param>
+        /// <exception cref="ArgumentNullException">If file URI is null</exception>
+        /// <returns>FileStatus</returns>
+        public FileStatus GetFileStatus(Uri remoteFileUri)
+        {
+            if (remoteFileUri == null)
+            {
+                throw new ArgumentNullException("remoteFileUri");
+            }
+
+            FileInfo fileInfo = new FileInfo(remoteFileUri.LocalPath);
+            return new FileStatus(fileInfo.LastWriteTime, fileInfo.Length);
+        }
+
         public Stream Open(Uri fileUri)
         {
             return File.Open(fileUri.LocalPath, FileMode.Open);

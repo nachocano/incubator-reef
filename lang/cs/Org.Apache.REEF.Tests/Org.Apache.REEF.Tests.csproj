@@ -29,44 +29,148 @@ under the License.
     <RestorePackages>true</RestorePackages>
   </PropertyGroup>
   <Import Project="$(SolutionDir)\build.props" />
+  <Import Project="$(SolutionDir)\xunit.targets" />
   <PropertyGroup>
     <BuildPackage>false</BuildPackage>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Microsoft.VisualStudio.QualityTools.UnitTestFramework, Version=10.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL" />
-    <Reference Include="Microsoft.WindowsAzure.Storage">
-      <HintPath>$(PackagesDir)\WindowsAzure.Storage.4.3.0\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
+    <Reference Include="Microsoft.Azure.KeyVault.Core, Version=1.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>$(PackagesDir)\Microsoft.Azure.KeyVault.Core.1.0.0\lib\net40\Microsoft.Azure.KeyVault.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Data.Edm, Version=5.6.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>$(PackagesDir)\Microsoft.Data.Edm.5.6.4\lib\net40\Microsoft.Data.Edm.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Data.OData, Version=5.6.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>$(PackagesDir)\Microsoft.Data.OData.5.6.4\lib\net40\Microsoft.Data.OData.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.Data.Services.Client, Version=5.6.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>$(PackagesDir)\Microsoft.Data.Services.Client.5.6.4\lib\net40\Microsoft.Data.Services.Client.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Microsoft.WindowsAzure.Storage, Version=6.1.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>$(PackagesDir)\WindowsAzure.Storage.6.1.0\lib\net40\Microsoft.WindowsAzure.Storage.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Newtonsoft.Json">
+      <HintPath>$(PackagesDir)\Newtonsoft.Json.$(NewtonsoftJsonVersion)\lib\net45\Newtonsoft.Json.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
     <Reference Include="System.Reactive.Core">
       <HintPath>$(PackagesDir)\Rx-Core.$(RxVersion)\lib\net45\System.Reactive.Core.dll</HintPath>
     </Reference>
     <Reference Include="System.Reactive.Interfaces">
       <HintPath>$(PackagesDir)\Rx-Interfaces.$(RxVersion)\lib\net45\System.Reactive.Interfaces.dll</HintPath>
     </Reference>
+    <Reference Include="System.Spatial, Version=5.6.4.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
+      <HintPath>$(PackagesDir)\System.Spatial.5.6.4\lib\net40\System.Spatial.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="$(SolutionDir)\SharedAssemblyInfo.cs">
+      <Link>Properties\SharedAssemblyInfo.cs</Link>
+    </Compile>
     <Compile Include="Functional\Bridge\HelloSimpleEventHandlers.cs" />
+    <Compile Include="Functional\Bridge\Parameters\ShouldThrowSerializableException.cs" />
     <Compile Include="Functional\Bridge\TestBridgeClient.cs" />
+    <Compile Include="Functional\Bridge\TestCloseTask.cs" />
+    <Compile Include="Functional\Bridge\TestContextStack.cs" />
+    <Compile Include="Functional\Bridge\TestDriverConcurrency.cs" />
+    <Compile Include="Functional\Bridge\TestFailedEvaluatorEventHandler.cs" />
+    <Compile Include="Functional\Common\Task\ExceptionTask.cs" />
+    <Compile Include="Functional\Common\Task\NullTask.cs" />
+    <Compile Include="Functional\Failure\User\ContextStopExceptionTest.cs" />
+    <Compile Include="Functional\Common\EventMonitor.cs" />
+    <Compile Include="Functional\Failure\User\SendTaskMessageExceptionTest.cs" />
+    <Compile Include="Functional\Failure\User\SendContextMessageExceptionTest.cs" />
+    <Compile Include="Functional\Failure\User\ServiceConstructorExceptionTest.cs" />
+    <Compile Include="Functional\Failure\User\ReceiveContextMessageExceptionTest.cs" />
+    <Compile Include="Functional\Failure\User\ContextStartExceptionTest.cs" />
+    <Compile Include="Functional\Failure\User\ReceiveTaskMessageExceptionTest.cs" />
+    <Compile Include="Functional\Failure\User\TaskCallExceptionTest.cs" />
+    <Compile Include="Functional\Bridge\Exceptions\TestNonSerializableException.cs" />
+    <Compile Include="Functional\Bridge\Exceptions\TestSerializableException.cs" />
+    <Compile Include="Functional\Bridge\TestSimpleContext.cs" />
     <Compile Include="Functional\Bridge\TestSimpleEventHandlers.cs" />
+    <Compile Include="Functional\Bridge\TestSuspendTask.cs" />
+    <Compile Include="Functional\Common\Task\Handlers\LoggingHandler.cs" />
+    <Compile Include="Functional\Common\Task\LoggingTask.cs" />
+    <Compile Include="Functional\Common\Task\Handlers\ExceptionThrowingHandler.cs" />
+    <Compile Include="Functional\Failure\User\TaskStartExceptionTest.cs" />
+    <Compile Include="Functional\Failure\User\TaskSuspendExceptionTest.cs" />
+    <Compile Include="Functional\Failure\User\UnhandledThreadExceptionInTaskTest.cs" />
+    <Compile Include="Functional\Common\Task\WaitingTask.cs" />
     <Compile Include="Functional\Driver\DriverTestStartHandler.cs" />
+    <Compile Include="Functional\Failure\BasePoisonedEvaluatorWithActiveContextDriver.cs" />
+    <Compile Include="Functional\Failure\BasePoisonedEvaluatorWithRunningTaskDriver.cs" />
+    <Compile Include="Functional\Failure\BasePoisonedEvaluatorDriver.cs" />
+    <Compile Include="Functional\Failure\TestEvaluatorWithActiveContextDelayedPoison.cs" />
+    <Compile Include="Functional\Failure\TestEvaluatorWithCompletedTaskDelayedPoison.cs" />
+    <Compile Include="Functional\Failure\TestEvaluatorWithRunningTaskDelayedPoison.cs" />
+    <Compile Include="Functional\Failure\TestEvaluatorWithActiveContextImmediatePoison.cs" />
+    <Compile Include="Functional\Failure\TestEvaluatorWithRunningTaskImmediatePoison.cs" />
+    <Compile Include="Functional\Failure\SleepTask.cs" />
+    <Compile Include="Functional\Failure\User\TaskCloseExceptionTest.cs" />
+    <Compile Include="Functional\Failure\User\TaskConstructorExceptionTest.cs" />
+    <Compile Include="Functional\Failure\User\TaskStopExceptionTest.cs" />
+    <Compile Include="Functional\FaultTolerant\TestContextStart.cs" />
+    <Compile Include="Functional\FaultTolerant\TestResubmitEvaluator.cs" />
+    <Compile Include="Functional\FaultTolerant\TestResubmitTask.cs" />
+    <Compile Include="Functional\IMRU\IMRUBroadcastReduceJobCancelledTest.cs" />
+    <Compile Include="Functional\IMRU\IMRUBroadcastReduceTest.cs" />
+    <Compile Include="Functional\IMRU\IMRUBroadcastReduceWithFilePartitionDataSetTest.cs" />
+    <Compile Include="Functional\IMRU\IMRUBroadcastReduceWithLocalFile.cs" />
+    <Compile Include="Functional\IMRU\IMRUBrodcastReduceWithoutIMRUClientTest.cs" />
+    <Compile Include="Functional\IMRU\IMRUBrodcastReduceTestBase.cs" />
+    <Compile Include="Functional\IMRU\IMRUCloseTaskTest.cs" />
+    <Compile Include="Functional\IMRU\IMRUMapperCountTest.cs" />
+    <Compile Include="Functional\IMRU\TestExceptionInResultHandlerDispose.cs" />
+    <Compile Include="Functional\IMRU\TestFailMapperEvaluatorsWithFailedResultHandlerOnDispose.cs" />
+    <Compile Include="Functional\IMRU\TestFailUpdateEvaluatorOnWaitingForEvaluator.cs" />
+    <Compile Include="Functional\IMRU\TestFailMapperTasksOnDispose.cs" />
+    <Compile Include="Functional\IMRU\TestFailMapperEvaluatorsOnDispose.cs" />
+    <Compile Include="Functional\IMRU\TestFailMapperEvaluatorsOnInit.cs" />
+    <Compile Include="Functional\IMRU\TestFailMapperTasksOnInit.cs" />
+    <Compile Include="Functional\IMRU\TestFailUpdateEvaluator.cs" />
+    <Compile Include="Functional\IMRU\TestFailMapperTasks.cs" />
+    <Compile Include="Functional\IMRU\TestFailMapperEvaluators.cs" />
+    <Compile Include="Functional\IMRU\TestTaskExceptions.cs" />
+    <Compile Include="Functional\Messaging\TestContextMessageSourceAndHandler.cs" />
+    <Compile Include="Functional\Messaging\TestMessageEventManager.cs" />
+    <Compile Include="Functional\RuntimeName\EvaluatorRequestingDriverSpecifyingDefaultRuntimeName.cs" />
+    <Compile Include="Functional\RuntimeName\EvaluatorRequestingDriverSpecifyingInvalidRuntimeName.cs" />
+    <Compile Include="Functional\RuntimeName\EvaluatorRequestingDriverSpecifyingRuntimeName.cs" />
+    <Compile Include="Functional\RuntimeName\EvaluatorRequestingDriver.cs" />
     <Compile Include="Functional\Driver\TestDriver.cs" />
     <Compile Include="Functional\Messaging\MessageDriver.cs" />
     <Compile Include="Functional\Messaging\MessageTask.cs" />
-    <Compile Include="Functional\Messaging\TestTaskMessage.cs" />
+    <Compile Include="Functional\Messaging\TestEvaluatorMessaging.cs" />
     <Compile Include="Functional\ML\KMeans\TestKMeans.cs" />
     <Compile Include="Functional\Group\BroadcastReduceTest.cs" />
     <Compile Include="Functional\Group\PipelinedBroadcastReduceTest.cs" />
     <Compile Include="Functional\Group\ScatterReduceTest.cs" />
     <Compile Include="Functional\ReefFunctionalTest.cs" />
+    <Compile Include="Functional\RuntimeName\RuntimeNameTask.cs" />
+    <Compile Include="Functional\RuntimeName\RuntimeNameTest.cs" />
+    <Compile Include="Functional\Bridge\TestDisposeTasks.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utility\TestDriverConfigGenerator.cs" />
     <Compile Include="Utility\TestExceptions.cs" />
+    <Compile Include="Utility\TestOptional.cs" />
+    <Compile Include="Utility\TestPriorityQueue.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="$(SolutionDir)\Org.Apache.REEF.Client\run.cmd">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Include="$(SolutionDir)\App.config">
+      <Link>App.config</Link>
     </None>
     <None Include="packages.config" />
   </ItemGroup>
@@ -107,10 +211,6 @@ under the License.
       <Project>{1b983182-9c30-464c-948d-f87eb93a8240}</Project>
       <Name>Org.Apache.REEF.Evaluator</Name>
     </ProjectReference>
-    <ProjectReference Include="$(SolutionDir)\Org.Apache.REEF.Bridge\Org.Apache.REEF.Bridge.vcxproj">
-      <Project>{4e69d40a-26d6-4d4a-b96d-729946c07fe1}</Project>
-      <Name>Org.Apache.REEF.Bridge</Name>
-    </ProjectReference>
     <ProjectReference Include="$(SolutionDir)\Org.Apache.REEF.Network.Examples\Org.Apache.REEF.Network.Examples.csproj">
       <Project>{b1b43b60-ddd0-4805-a9b4-ba84a0ccb7c7}</Project>
       <Name>Org.Apache.REEF.Network.Examples</Name>
@@ -119,24 +219,24 @@ under the License.
       <Project>{159f7d70-8acc-4d97-9f6d-2fc4ca0d8682}</Project>
       <Name>Org.Apache.REEF.Examples.AllHandlers</Name>
     </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)\Org.Apache.REEF.IMRU.Examples\Org.Apache.REEF.IMRU.Examples.csproj">
+      <Project>{6dc3b04e-2b99-4fda-bd23-2c7864f4c477}</Project>
+      <Name>Org.Apache.REEF.IMRU.Examples</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)\Org.Apache.REEF.IMRU\Org.Apache.REEF.IMRU.csproj">
+      <Project>{cc797c57-b465-4d11-98ac-edaaef5899a6}</Project>
+      <Name>Org.Apache.REEF.IMRU</Name>
+    </ProjectReference>
+    <ProjectReference Include="$(SolutionDir)\Org.Apache.REEF.IO\Org.Apache.REEF.IO.csproj">
+      <Project>{dec0f0a8-dbef-4ebf-b69c-e2369c15abf1}</Project>
+      <Name>Org.Apache.REEF.IO</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Service Include="{82A7F48D-3B50-4B1E-B82E-3ADA8210C358}" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
-  <!--begin jar reference-->
-  <PropertyGroup>
-    <AfterBuildDependsOn>
-      $(AfterBuildDependsOn);
-      CopyJarFiles;
-    </AfterBuildDependsOn>
-  </PropertyGroup>
-  <Target Name="AfterBuild" DependsOnTargets="$(AfterBuildDependsOn);" />
-  <!--end jar reference-->
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  -->
+  <Import Project="$(PackagesDir)\StyleCop.MSBuild.$(StyleCopVersion)\build\StyleCop.MSBuild.Targets" Condition="Exists('$(PackagesDir)\StyleCop.MSBuild.$(StyleCopVersion)\build\StyleCop.MSBuild.Targets')" />
 </Project>

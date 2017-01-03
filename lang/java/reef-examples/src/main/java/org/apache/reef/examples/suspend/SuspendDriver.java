@@ -23,7 +23,6 @@ import org.apache.reef.driver.context.ActiveContext;
 import org.apache.reef.driver.context.ContextConfiguration;
 import org.apache.reef.driver.evaluator.AllocatedEvaluator;
 import org.apache.reef.driver.evaluator.EvaluatorDescriptor;
-import org.apache.reef.driver.evaluator.EvaluatorRequest;
 import org.apache.reef.driver.evaluator.EvaluatorRequestor;
 import org.apache.reef.driver.task.*;
 import org.apache.reef.io.checkpoint.fs.FSCheckPointServiceConfiguration;
@@ -48,7 +47,7 @@ import java.util.logging.Logger;
 
 /**
  * Suspend/resume example job driver. Execute a simple task in all evaluators,
- * and sendEvaluatorControlMessage suspend/resume events properly.
+ * and send EvaluatorControlMessage suspend/resume events properly.
  */
 @Unit
 public class SuspendDriver {
@@ -249,6 +248,7 @@ public class SuspendDriver {
             .set(TaskConfiguration.IDENTIFIER, context.getId() + "_task")
             .set(TaskConfiguration.TASK, SuspendTestTask.class)
             .set(TaskConfiguration.ON_SUSPEND, SuspendTestTask.SuspendHandler.class)
+            .set(TaskConfiguration.ON_SEND_MESSAGE, SuspendTestTask.class)
             .build());
       } catch (final BindException ex) {
         LOG.log(Level.SEVERE, "Bad Task configuration for context: " + context.getId(), ex);
@@ -296,6 +296,9 @@ public class SuspendDriver {
             try {
               suspendedTask.getActiveContext().submitTask(TaskConfiguration.CONF
                     .set(TaskConfiguration.IDENTIFIER, taskId)
+                    .set(TaskConfiguration.TASK, SuspendTestTask.class)
+                    .set(TaskConfiguration.ON_SUSPEND, SuspendTestTask.SuspendHandler.class)
+                    .set(TaskConfiguration.ON_SEND_MESSAGE, SuspendTestTask.class)
                     .set(TaskConfiguration.MEMENTO,
                         DatatypeConverter.printBase64Binary(suspendedTask.get()))
                     .build());
@@ -322,8 +325,11 @@ public class SuspendDriver {
     @Override
     public void onNext(final StartTime time) {
       LOG.log(Level.INFO, "StartTime: {0}", time);
-      evaluatorRequestor.submit(EvaluatorRequest.newBuilder()
-          .setMemory(128).setNumberOfCores(1).setNumber(NUM_EVALUATORS).build());
+      evaluatorRequestor.newRequest()
+          .setMemory(128)
+          .setNumberOfCores(1)
+          .setNumber(NUM_EVALUATORS)
+          .submit();
     }
   }
 

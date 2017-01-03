@@ -53,6 +53,12 @@ public class ConstructorArgImpl implements ConstructorArg {
 
   @Override
   public boolean equals(final Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
     final ConstructorArgImpl arg = (ConstructorArgImpl) o;
     if (!type.equals(arg.type)) {
       return false;
@@ -60,10 +66,7 @@ public class ConstructorArgImpl implements ConstructorArg {
     if (name == null && arg.name == null) {
       return true;
     }
-    if (name == null && arg.name != null) {
-      return false;
-    }
-    if (name != null && arg.name == null) {
+    if (name == null || arg.name == null) {
       return false;
     }
     return name.equals(arg.name);

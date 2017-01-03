@@ -21,8 +21,10 @@ package org.apache.reef.runtime.common.driver;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.annotations.audience.Private;
 import org.apache.reef.driver.parameters.ResourceManagerPreserveEvaluators;
+import org.apache.reef.driver.restart.DriverRestartManager;
 import org.apache.reef.exception.DriverFatalRuntimeException;
 import org.apache.reef.runtime.common.driver.api.ResourceManagerStopHandler;
+import org.apache.reef.runtime.common.driver.evaluator.EvaluatorIdlenessThreadPool;
 import org.apache.reef.runtime.common.driver.evaluator.Evaluators;
 import org.apache.reef.runtime.common.utils.RemoteManager;
 import org.apache.reef.tang.annotations.Parameter;
@@ -41,50 +43,71 @@ import java.util.logging.Logger;
 @Private
 @DriverSide
 final class DriverRuntimeStopHandler implements EventHandler<RuntimeStop> {
+
   private static final Logger LOG = Logger.getLogger(DriverRuntimeStopHandler.class.getName());
 
+  private final DriverRestartManager driverRestartManager;
   private final DriverStatusManager driverStatusManager;
   private final ResourceManagerStopHandler resourceManagerStopHandler;
   private final RemoteManager remoteManager;
   private final Evaluators evaluators;
+  private final EvaluatorIdlenessThreadPool idlenessChecker;
   private final boolean preserveEvaluatorsAcrossRestarts;
 
   @Inject
-  DriverRuntimeStopHandler(final DriverStatusManager driverStatusManager,
-                           final ResourceManagerStopHandler resourceManagerStopHandler,
-                           final RemoteManager remoteManager,
-                           final Evaluators evaluators,
-                           @Parameter(ResourceManagerPreserveEvaluators.class)
-                           final boolean preserveEvaluatorsAcrossRestarts) {
+  private DriverRuntimeStopHandler(
+      @Parameter(ResourceManagerPreserveEvaluators.class) final boolean preserveEvaluatorsAcrossRestarts,
+      final DriverRestartManager driverRestartManager,
+      final DriverStatusManager driverStatusManager,
+      final ResourceManagerStopHandler resourceManagerStopHandler,
+      final RemoteManager remoteManager,
+      final Evaluators evaluators,
+      final EvaluatorIdlenessThreadPool idlenessChecker) {
+
+    this.driverRestartManager = driverRestartManager;
     this.driverStatusManager = driverStatusManager;
     this.resourceManagerStopHandler = resourceManagerStopHandler;
     this.remoteManager = remoteManager;
     this.evaluators = evaluators;
+    this.idlenessChecker = idlenessChecker;
     this.preserveEvaluatorsAcrossRestarts = preserveEvaluatorsAcrossRestarts;
   }
 
   @Override
   public synchronized void onNext(final RuntimeStop runtimeStop) {
-    LOG.log(Level.FINEST, "RuntimeStop: {0}", runtimeStop);
+
+    LOG.log(Level.FINE, "Driver shutdown: start {0}", runtimeStop);
+
+    final Throwable runtimeException = runtimeStop.getException();
 
     // Shut down evaluators if there are no exceptions, the driver is forcefully
     // shut down by a non-recoverable exception, or restart is not enabled.
-    if (runtimeStop.getException() == null ||
-        runtimeStop.getException() instanceof DriverFatalRuntimeException ||
+    if (runtimeException == null ||
+        runtimeException instanceof DriverFatalRuntimeException ||
         !this.preserveEvaluatorsAcrossRestarts) {
+      LOG.log(Level.FINER, "Driver shutdown: close the evaluators");
       this.evaluators.close();
     }
 
     this.resourceManagerStopHandler.onNext(runtimeStop);
-    // Inform the client of the shutdown.
-    final Optional<Throwable> exception = Optional.<Throwable>ofNullable(runtimeStop.getException());
-    this.driverStatusManager.sendJobEndingMessageToClient(exception);
-    // Close the remoteManager.
+
+    LOG.log(Level.FINER, "Driver shutdown: notify the client");
+    this.driverStatusManager.onRuntimeStop(Optional.ofNullable(runtimeException));
+
     try {
+      LOG.log(Level.FINER, "Driver shutdown: close the remote manager");
       this.remoteManager.close();
-      LOG.log(Level.INFO, "Driver shutdown complete");
     } catch (final Exception e) {
+      LOG.log(Level.WARNING, "Error when closing the RemoteManager", e);
       throw new RuntimeException("Unable to close the RemoteManager.", e);
     }
+
+    LOG.log(Level.FINER, "Driver shutdown: close the restart manager");
+    this.driverRestartManager.close();
+
+    LOG.log(Level.FINER, "Driver shutdown: close the idleness checker");
+    this.idlenessChecker.close();
+
+    LOG.log(Level.INFO, "Driver shutdown complete");
   }
 }

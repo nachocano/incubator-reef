@@ -36,15 +36,15 @@ public class RemoteEventCodec<T> implements Codec<RemoteEvent<T>> {
    * @param codec the codec for the event
    */
   public RemoteEventCodec(final Codec<T> codec) {
-    encoder = new RemoteEventEncoder<T>(codec);
-    decoder = new RemoteEventDecoder<T>(codec);
+    encoder = new RemoteEventEncoder<>(codec);
+    decoder = new RemoteEventDecoder<>(codec);
   }
 
   /**
    * Encodes the remote event object to bytes.
    *
    * @param obj the remote event object
-   * @returns bytes
+   * @return bytes
    */
   @Override
   public byte[] encode(final RemoteEvent<T> obj) {

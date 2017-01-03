@@ -1,28 +1,26 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.Apache.REEF.Tang.Annotations;
 using Org.Apache.REEF.Tang.Exceptions;
 using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Util;
+using Xunit;
 
 namespace Org.Apache.REEF.Tang.Tests.Tang
 {
@@ -46,41 +44,40 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
         void aMethod();
     }
 
-    [TestClass]
-    public class TestDefaultImplmentation
+    public class TestDefaultImplementation
     {
-        [TestMethod]
+        [Fact]
         public void TestDefaultConstructor()
         {
             ClassWithDefaultConstructor impl = (ClassWithDefaultConstructor)TangFactory.GetTang().NewInjector().GetInstance(typeof(ClassWithDefaultConstructor));
-            Assert.IsNotNull(impl);
+            Assert.NotNull(impl);
         }
 
-        [TestMethod]
-        public void TestDefaultImplementaion()
+        [Fact]
+        public void TestDefaultImpl()
         {
             ClassWithDefaultConstructor impl = (ClassWithDefaultConstructor)TangFactory.GetTang().NewInjector().GetInstance(typeof(ClassWithDefaultConstructor));
-            Assert.IsNotNull(impl);
+            Assert.NotNull(impl);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestDefaultImplOnInterface()
         {
             IAnInterface impl = (IAnInterface)TangFactory.GetTang().NewInjector().GetInstance(typeof(IAnInterface));
-            Assert.IsNotNull(impl);
+            Assert.NotNull(impl);
             impl.aMethod();
         }
 
-        [TestMethod]
+        [Fact]
         public void TestGetInstanceOfNamedParameter()
         {
             IConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
             IInjector i = TangFactory.GetTang().NewInjector(cb.Build());
             IfaceWithDefault iwd = i.GetNamedInstance<IfaceWithDefaultName, IfaceWithDefault>(GenericType<IfaceWithDefaultName>.Class);
-            Assert.IsNotNull(iwd);
+            Assert.NotNull(iwd);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestCantGetInstanceOfNamedParameter()
         {
             string msg = null;
@@ -95,37 +92,37 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
             {
                 System.Diagnostics.Debug.WriteLine(e);
             }
-            Assert.IsNull(msg);
+            Assert.Null(msg);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestCanGetDefaultedInterface()
         {
-            Assert.IsNotNull(TangFactory.GetTang().NewInjector().GetInstance<IHaveDefaultImpl>());
+            Assert.NotNull(TangFactory.GetTang().NewInjector().GetInstance<IHaveDefaultImpl>());
         }
 
-        [TestMethod]
+        [Fact]
         public void TestCanOverrideDefaultedInterface()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
             cb.BindImplementation(GenericType<IHaveDefaultImpl>.Class, GenericType<OverrideDefaultImpl>.Class);
             var o = TangFactory.GetTang().NewInjector(cb.Build()).GetInstance<IHaveDefaultImpl>();
-            Assert.IsTrue(o is OverrideDefaultImpl);
+            Assert.True(o is OverrideDefaultImpl);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestCanGetStringDefaultedInterface()
         {
-            Assert.IsNotNull(TangFactory.GetTang().NewInjector().GetInstance<IHaveDefaultStringImpl>());
+            Assert.NotNull(TangFactory.GetTang().NewInjector().GetInstance<IHaveDefaultStringImpl>());
         }
 
-        [TestMethod]
+        [Fact]
         public void TestCanOverrideStringDefaultedInterface()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
             cb.BindImplementation(GenericType<IHaveDefaultStringImpl>.Class, GenericType<OverrideDefaultStringImpl>.Class);
             var o = TangFactory.GetTang().NewInjector(cb.Build()).GetInstance<IHaveDefaultStringImpl>();
-            Assert.IsTrue(o is OverrideDefaultStringImpl);
+            Assert.True(o is OverrideDefaultStringImpl);
         }
     }
 

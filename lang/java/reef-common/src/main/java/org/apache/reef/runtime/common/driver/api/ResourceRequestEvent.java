@@ -26,7 +26,7 @@ import org.apache.reef.util.Optional;
 import java.util.List;
 
 /**
- * Event from Driver Process -> Driver Runtime.
+ * Event from Driver Process to Driver Runtime.
  * A request to the Driver Runtime to allocate resources with the given specification
  */
 @RuntimeAuthor
@@ -71,4 +71,9 @@ public interface ResourceRequestEvent {
    *   the preferred list. If false, strictly enforce the preferences.
    */
   Optional<Boolean> getRelaxLocality();
+
+  /**
+   * @return The runtime name
+   */
+  String getRuntimeName();
 }

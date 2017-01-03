@@ -21,11 +21,10 @@ package org.apache.reef.runtime.local.process;
 import org.apache.reef.runtime.common.evaluator.PIDStoreStartHandler;
 import org.apache.reef.util.OSUtils;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Condition;
@@ -33,7 +32,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A runnable class that encapsulates a process.
@@ -48,6 +48,7 @@ public final class RunnableProcess implements Runnable {
    * Name of the file used for STDERR redirection.
    */
   private final String standardErrorFileName;
+
   /**
    * Name of the file used for STDOUT redirection.
    */
@@ -57,100 +58,122 @@ public final class RunnableProcess implements Runnable {
    * Command to execute.
    */
   private final List<String> command;
+
   /**
    * User supplied ID of this process.
    */
   private final String id;
+
   /**
    * The working folder in which the process runs. It is also where STDERR and STDOUT files will be deposited.
    */
   private final File folder;
+
   /**
    * The coarse-grained lock for state transition.
    */
   private final Lock stateLock = new ReentrantLock();
+
   private final Condition doneCond = stateLock.newCondition();
+
   /**
    * This will be informed of process start and stop.
    */
   private final RunnableProcessObserver processObserver;
+
   /**
    * The process.
    */
   private Process process;
+
   /**
    * The state of the process.
    */
-  private State state = State.INIT;   // synchronized on stateLock
+  private RunnableProcessState state = RunnableProcessState.INIT;   // synchronized on stateLock
 
   /**
-   * @param command               the command to execute.
-   * @param id                    The ID of the process. This is used to name files and in the logs created
-   *                              by this process.
-   * @param folder                The folder in which this will store its stdout and stderr output
-   * @param processObserver       will be informed of process state changes.
-   * @param standardOutFileName   The name of the file used for redirecting STDOUT
+   * @param command the command to execute.
+   * @param id The ID of the process. This is used to name files and in the logs created by this process.
+   * @param folder The folder in which this will store its stdout and stderr output
+   * @param processObserver will be informed of process state changes.
+   * @param standardOutFileName The name of the file used for redirecting STDOUT
    * @param standardErrorFileName The name of the file used for redirecting STDERR
    */
-  public RunnableProcess(final List<String> command,
-                         final String id,
-                         final File folder,
-                         final RunnableProcessObserver processObserver,
-                         final String standardOutFileName,
-                         final String standardErrorFileName) {
+  public RunnableProcess(
+      final List<String> command,
+      final String id,
+      final File folder,
+      final RunnableProcessObserver processObserver,
+      final String standardOutFileName,
+      final String standardErrorFileName) {
+
     this.processObserver = processObserver;
-    this.command = new ArrayList<>(command);
+    this.command = Collections.unmodifiableList(expandEnvironmentVariables(command));
     this.id = id;
     this.folder = folder;
-    assert (this.folder.isDirectory());
-    this.folder.mkdirs();
+
+    assert this.folder.isDirectory();
+    if (!this.folder.exists() && !this.folder.mkdirs()) {
+      LOG.log(Level.WARNING, "Failed to create [{0}]", this.folder.getAbsolutePath());
+    }
+
     this.standardOutFileName = standardOutFileName;
     this.standardErrorFileName = standardErrorFileName;
+
     LOG.log(Level.FINEST, "RunnableProcess ready.");
   }
 
+  private static final Pattern ENV_REGEX = Pattern.compile("\\{\\{(\\w+)}}");
+
   /**
-   * Checks whether a transition from State 'from' to state 'to' is legal.
-   *
-   * @param from
-   * @param to
-   * @return true, if the state transition is legal. False otherwise.
+   * Replace {{ENV_VAR}} placeholders with the values of the corresponding environment variables.
+   * @param command An input string with {{ENV_VAR}} placeholders
+   * to be replaced with the values of the corresponding environment variables.
+   * Replace unknown/unset variables with an empty string.
+   * @return A new string with all the placeholders expanded.
    */
-  private static boolean isLegal(final State from, final State to) {
-    switch (from) {
-    case INIT:
-      switch (to) {
-      case INIT:
-      case RUNNING:
-      case ENDED:
-        return true;
-      default:
-        return false;
-      }
-    case RUNNING:
-      switch (to) {
-      case ENDED:
-        return true;
-      default:
-        return false;
-      }
-    case ENDED:
-      return false;
-    default:
-      return false;
+  public static String expandEnvironmentVariables(final String command) {
+
+    final Matcher match = ENV_REGEX.matcher(command);
+    final StringBuilder res = new StringBuilder(command.length());
+
+    int i = 0;
+    while (match.find()) {
+      final String var = System.getenv(match.group(1));
+      res.append(command.substring(i, match.start())).append(var == null ? "" : var);
+      i = match.end();
     }
+
+    return res.append(command.substring(i, command.length())).toString();
+  }
+
+  /**
+   * Replace {{ENV_VAR}} placeholders with the values of the corresponding environment variables.
+   * @param command An input list of strings with {{ENV_VAR}} placeholders
+   * to be replaced with the values of the corresponding environment variables.
+   * Replace unknown/unset variables with an empty string.
+   * @return A new list of strings with all the placeholders expanded.
+   */
+  public static List<String> expandEnvironmentVariables(final List<String> command) {
+    final ArrayList<String> res = new ArrayList<>(command.size());
+    for (final String cmd : command) {
+      res.add(expandEnvironmentVariables(cmd));
+    }
+    return res;
   }
 
   /**
    * Runs the configured process.
-   *
-   * @throws java.lang.IllegalStateException if the process is already running or has been running before.
+   * @throws IllegalStateException if the process is already running or has been running before.
    */
   @Override
   public void run() {
+
     this.stateLock.lock();
+
     try {
-      if (this.getState() != State.INIT) {
+
+      if (this.state != RunnableProcessState.INIT) {
         throw new IllegalStateException("The RunnableProcess can't be reused");
       }
 
@@ -160,70 +183,86 @@ public final class RunnableProcess implements Runnable {
 
       // Launch the process
       try {
-        LOG.log(Level.FINEST, "Launching process \"{0}\"\nSTDERR can be found in {1}\nSTDOUT can be found in {2}",
-            new Object[]{this.id, errFile.getAbsolutePath(), outFile.getAbsolutePath()});
+
+        LOG.log(Level.FINEST,
+            "Launching process \"{0}\"\nSTDERR can be found in {1}\nSTDOUT can be found in {2}",
+            new Object[] {this.id, errFile.getAbsolutePath(), outFile.getAbsolutePath()});
+
         this.process = new ProcessBuilder()
             .command(this.command)
             .directory(this.folder)
             .redirectError(errFile)
             .redirectOutput(outFile)
             .start();
-        this.setState(State.RUNNING);
+
+        this.setState(RunnableProcessState.RUNNING);
         this.processObserver.onProcessStarted(this.id);
+
       } catch (final IOException ex) {
-        LOG.log(Level.SEVERE, "Unable to spawn process \"{0}\" wth command {1}\n Exception:{2}",
-            new Object[]{this.id, this.command, ex});
+        LOG.log(Level.SEVERE, "Unable to spawn process " + this.id + " with command " + this.command, ex);
       }
+
     } finally {
       this.stateLock.unlock();
     }
 
     try {
+
       // Wait for its completion
-      final int returnValue = process.waitFor();
+      LOG.log(Level.FINER, "Wait for process completion: {0}", this.id);
+      final int returnValue = this.process.waitFor();
       this.processObserver.onProcessExit(this.id, returnValue);
+
       this.stateLock.lock();
       try {
-        this.setState(State.ENDED);
+        this.setState(RunnableProcessState.ENDED);
         this.doneCond.signalAll();
       } finally {
         this.stateLock.unlock();
       }
-      LOG.log(Level.FINEST, "Process \"{0}\" returned {1}", new Object[]{this.id, returnValue});
+
+      LOG.log(Level.FINER, "Process \"{0}\" returned {1}", new Object[] {this.id, returnValue});
+
     } catch (final InterruptedException ex) {
-      LOG.log(Level.SEVERE, "Interrupted while waiting for the process \"{0}\" to complete. Exception: {2}",
-          new Object[]{this.id, ex});
+      LOG.log(Level.SEVERE,
+          "Interrupted while waiting for the process \"{0}\" to complete. Exception: {1}",
+          new Object[] {this.id, ex});
     }
   }
-
 
   /**
    * Cancels the running process if it is running.
    */
   public void cancel() {
+
     this.stateLock.lock();
+
     try {
-      if (this.processIsRunning()) {
+
+      if (this.state == RunnableProcessState.RUNNING) {
         this.process.destroy();
-        this.doneCond.await(DESTROY_WAIT_TIME, TimeUnit.MILLISECONDS);
+        if (!this.doneCond.await(DESTROY_WAIT_TIME, TimeUnit.MILLISECONDS)) {
+          LOG.log(Level.FINE, "{0} milliseconds elapsed", DESTROY_WAIT_TIME);
+        }
       }
 
-      if (this.processIsRunning()) {
+      if (this.state == RunnableProcessState.RUNNING) {
         LOG.log(Level.WARNING, "The child process survived Process.destroy()");
-        if (OSUtils.isLinux()) {
+        if (OSUtils.isUnix() || OSUtils.isWindows()) {
           LOG.log(Level.WARNING, "Attempting to kill the process via the kill command line");
           try {
             final long pid = readPID();
             OSUtils.kill(pid);
-          } catch (final IOException | InterruptedException e) {
+          } catch (final IOException | InterruptedException | NumberFormatException e) {
             LOG.log(Level.SEVERE, "Unable to kill the process.", e);
           }
         }
       }
 
     } catch (final InterruptedException ex) {
-      LOG.log(Level.SEVERE, "Interrupted while waiting for the process \"{0}\" to complete. Exception: {2}",
-          new Object[]{this.id, ex});
+      LOG.log(Level.SEVERE,
+          "Interrupted while waiting for the process \"{0}\" to complete. Exception: {1}",
+          new Object[] {this.id, ex});
     } finally {
       this.stateLock.unlock();
     }
@@ -235,44 +274,35 @@ public final class RunnableProcess implements Runnable {
    */
   private long readPID() throws IOException {
     final String pidFileName = this.folder.getAbsolutePath() + "/" + PIDStoreStartHandler.PID_FILE_NAME;
-    try (final BufferedReader r = new BufferedReader(new FileReader(pidFileName))) {
-      return Long.valueOf(r.readLine());
+    try (final BufferedReader r = new BufferedReader(
+        new InputStreamReader(new FileInputStream(pidFileName), StandardCharsets.UTF_8))) {
+      return Long.parseLong(r.readLine());
     }
   }
 
-  private boolean processIsRunning() {
-    return this.getState() == State.RUNNING;
+  /**
+   * @return the ID of the process.
+   */
+  public String getId() {
+    return this.id;
   }
 
   /**
-   * @return the current State of the process.
+   * @return the command given to the process.
    */
-  private State getState() {
-    return this.state;
+  public List<String> getCommand() {
+    return this.command;
   }
 
   /**
    * Sets a new state for the process.
-   *
-   * @param newState
-   * @throws java.lang.IllegalStateException if the new state is illegal.
+   * @param newState a new process state to transition to.
+   * @throws IllegalStateException if the new state is illegal.
    */
-  private void setState(final State newState) {
-    if (!isLegal(this.state, newState)) {
+  private void setState(final RunnableProcessState newState) {
+    if (!this.state.isLegal(newState)) {
       throw new IllegalStateException("Transition from " + this.state + " to " + newState + " is illegal");
     }
     this.state = newState;
-  }
-
-  /**
-   * The possible states of a process: INIT, RUNNING, ENDED.
-   */
-  private enum State {
-    // After initialization
-    INIT,
-    // The process is running
-    RUNNING,
-    // The process ended
-    ENDED
   }
 }

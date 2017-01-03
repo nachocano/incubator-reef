@@ -19,10 +19,11 @@
 package org.apache.reef.vortex.api;
 
 import org.apache.reef.annotations.Unstable;
+import org.apache.reef.util.Optional;
 import org.apache.reef.vortex.driver.VortexMaster;
 
 import javax.inject.Inject;
-import java.io.Serializable;
+import java.util.List;
 
 /**
  * Distributed thread pool.
@@ -43,8 +44,60 @@ public final class VortexThreadPool {
    * @param <TOutput> output type
    * @return VortexFuture for tracking execution progress
    */
-  public <TInput extends Serializable, TOutput extends Serializable> VortexFuture<TOutput>
+  public <TInput, TOutput> VortexFuture<TOutput>
       submit(final VortexFunction<TInput, TOutput> function, final TInput input) {
-    return vortexMaster.enqueueTasklet(function, input);
+    return vortexMaster.enqueueTasklet(function, input, Optional.<FutureCallback<TOutput>>empty());
+  }
+
+  /**
+   * @param function to run on Vortex
+   * @param input of the function
+   * @param callback of the function
+   * @param <TInput> input type
+   * @param <TOutput> output type
+   * @return VortexFuture for tracking execution progress
+   */
+  public <TInput, TOutput> VortexFuture<TOutput>
+      submit(final VortexFunction<TInput, TOutput> function, final TInput input,
+             final FutureCallback<TOutput> callback) {
+    return vortexMaster.enqueueTasklet(function, input, Optional.of(callback));
+  }
+
+  /**
+   * @param aggregateFunction to run on VortexFunction outputs
+   * @param function to run on Vortex
+   * @param policy on aggregation
+   * @param inputs of the function
+   * @param <TInput> input type
+   * @param <TOutput> output type
+   * @return VortexAggregationFuture for tracking execution progress of aggregate-able functions
+   */
+  public <TInput, TOutput> VortexAggregateFuture<TInput, TOutput>
+      submit(final VortexAggregateFunction<TOutput> aggregateFunction,
+             final VortexFunction<TInput, TOutput> function,
+             final VortexAggregatePolicy policy,
+             final List<TInput> inputs) {
+    return vortexMaster.enqueueTasklets(
+        aggregateFunction, function, policy, inputs,
+        Optional.<FutureCallback<AggregateResult<TInput, TOutput>>>empty());
+  }
+
+  /**
+   * @param aggregateFunction to run on VortexFunction outputs
+   * @param function to run on Vortex
+   * @param policy on aggregation
+   * @param inputs of the function
+   * @param callback of the aggregation
+   * @param <TInput> input type
+   * @param <TOutput> output type
+   * @return VortexAggregationFuture for tracking execution progress of aggregate-able functions
+   */
+  public <TInput, TOutput> VortexAggregateFuture<TInput, TOutput>
+      submit(final VortexAggregateFunction<TOutput> aggregateFunction,
+             final VortexFunction<TInput, TOutput> function,
+             final VortexAggregatePolicy policy,
+             final List<TInput> inputs,
+             final FutureCallback<AggregateResult<TInput, TOutput>> callback) {
+    return vortexMaster.enqueueTasklets(aggregateFunction, function, policy, inputs, Optional.of(callback));
   }
 }

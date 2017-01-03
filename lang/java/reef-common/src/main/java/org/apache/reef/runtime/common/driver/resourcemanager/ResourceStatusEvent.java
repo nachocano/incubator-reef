@@ -20,12 +20,12 @@ package org.apache.reef.runtime.common.driver.resourcemanager;
 
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.annotations.audience.RuntimeAuthor;
-import org.apache.reef.proto.ReefServiceProtos;
+import org.apache.reef.runtime.common.driver.evaluator.pojos.State;
 import org.apache.reef.tang.annotations.DefaultImplementation;
 import org.apache.reef.util.Optional;
 
 /**
- * Event from Driver Runtime -> Driver Process.
+ * Event from Driver Runtime to Driver Process.
  * Status of a resource in the cluster
  */
 @RuntimeAuthor
@@ -38,9 +38,14 @@ public interface ResourceStatusEvent {
   String getIdentifier();
 
   /**
+   * @return Runtime name
+   */
+  String getRuntimeName();
+
+  /**
    * @return State of the resource
    */
-  ReefServiceProtos.State getState();
+  State getState();
 
   /**
    * @return Diagnostics from the resource

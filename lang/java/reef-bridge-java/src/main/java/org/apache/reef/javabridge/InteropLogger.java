@@ -18,16 +18,24 @@
  */
 package org.apache.reef.javabridge;
 
+import org.apache.reef.annotations.audience.Interop;
+import org.apache.reef.annotations.audience.Private;
+
 import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class InteropLogger {
+/**
+ * Logger called from CLR code.
+ */
+@Private
+@Interop(CppFiles = { "JavaClrBridge.cpp", "InteropLogger.h", "InteropLogger.cpp" })
+public final class InteropLogger {
   private static final Logger LOG = Logger.getLogger("InteropLogger");
   private HashMap<Integer, Level> levelHashMap;
 
   {
-    levelHashMap = new HashMap<Integer, Level>();
+    levelHashMap = new HashMap<>();
     levelHashMap.put(Level.OFF.intValue(), Level.OFF);
     levelHashMap.put(Level.SEVERE.intValue(), Level.SEVERE);
     levelHashMap.put(Level.WARNING.intValue(), Level.WARNING);

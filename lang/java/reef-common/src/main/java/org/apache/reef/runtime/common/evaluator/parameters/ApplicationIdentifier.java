@@ -23,7 +23,9 @@ import org.apache.reef.tang.annotations.NamedParameter;
 
 /**
  * The RM application/job identifier.
- * <p/>
+ * An alias has been defined for this named parameter in .Net REEF as
+ * Org.Apache.REEF.Common.Runtime.Evaluator.Utils.ApplicationIdentifier
+ * <p>
  * In YARN, this is the applicationID assigned by the resource manager.
  */
 @NamedParameter(doc = "The RM application/job identifier.")

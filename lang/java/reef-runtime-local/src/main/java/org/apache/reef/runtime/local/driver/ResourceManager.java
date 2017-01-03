@@ -21,11 +21,11 @@ package org.apache.reef.runtime.local.driver;
 import org.apache.reef.annotations.audience.DriverSide;
 import org.apache.reef.annotations.audience.Private;
 import org.apache.reef.driver.evaluator.EvaluatorProcess;
-import org.apache.reef.proto.ReefServiceProtos;
 import org.apache.reef.runtime.common.driver.api.ResourceLaunchEvent;
 import org.apache.reef.runtime.common.driver.api.ResourceReleaseEvent;
 import org.apache.reef.runtime.common.driver.api.ResourceRequestEvent;
 import org.apache.reef.runtime.common.driver.api.RuntimeParameters;
+import org.apache.reef.runtime.common.driver.evaluator.pojos.State;
 import org.apache.reef.runtime.common.driver.resourcemanager.ResourceAllocationEvent;
 import org.apache.reef.runtime.common.driver.resourcemanager.ResourceEventImpl;
 import org.apache.reef.runtime.common.driver.resourcemanager.RuntimeStatusEvent;
@@ -112,7 +112,7 @@ public final class ResourceManager {
 
   /**
    * Receives a resource request.
-   * <p/>
+   * <p>
    * If the request can be met, it will also be satisfied immediately.
    *
    * @param resourceRequest the resource request to be handled.
@@ -220,7 +220,7 @@ public final class ResourceManager {
         final ResourceAllocationEvent alloc = ResourceEventImpl.newAllocationBuilder()
             .setIdentifier(container.getContainerID()).setNodeId(container.getNodeID())
             .setResourceMemory(container.getMemory()).setVirtualCores(container.getNumberOfCores())
-            .setRackName(container.getRackName()).build();
+            .setRackName(container.getRackName()).setRuntimeName(RuntimeIdentifier.RUNTIME_NAME).build();
 
         LOG.log(Level.FINEST, "Allocating container: {0}", container);
         this.allocationHandler.onNext(alloc);
@@ -244,7 +244,7 @@ public final class ResourceManager {
     final RuntimeStatusEventImpl.Builder builder =
         RuntimeStatusEventImpl.newBuilder()
             .setName("LOCAL")
-            .setState(ReefServiceProtos.State.RUNNING)
+            .setState(State.RUNNING)
             .setOutstandingContainerRequests(this.requestQueue.getNumberOfOutstandingRequests());
     for (final String containerAllocation : this.theContainers.getAllocatedContainerIDs()) {
       builder.addContainerAllocation(containerAllocation);

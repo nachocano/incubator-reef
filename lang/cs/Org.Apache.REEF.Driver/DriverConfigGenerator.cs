@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System.Collections.Generic;
 using System.Globalization;
@@ -26,11 +24,13 @@ using Org.Apache.REEF.Tang.Formats.AvroConfigurationDataContract;
 using Org.Apache.REEF.Tang.Implementations.Configuration;
 using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Protobuf;
+using Org.Apache.REEF.Utilities.Attributes;
 using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Driver
 {
-    public class DriverConfigGenerator
+    [ClientSide]
+    public static class DriverConfigGenerator
     {
         public const string DriverConfigFile = "driver.config";
         public const string JobDriverConfigFile = "jobDriver.config";
@@ -38,6 +38,11 @@ namespace Org.Apache.REEF.Driver
         public const string HttpServerConfigFile = "httpServer.config";
         public const string NameServerConfigFile = "nameServer.config";
         public const string UserSuppliedGlobalLibraries = "userSuppliedGlobalLibraries.txt";
+
+        /// <summary>
+        /// The bridge JAR name.
+        /// </summary>
+        public const string JavaBridgeJarFileName = "reef-bridge-java-0.16.0-SNAPSHOT-shaded.jar";
 
         private static readonly Logger Log = Logger.GetLogger(typeof(DriverConfigGenerator));
 
@@ -71,16 +76,16 @@ namespace Org.Apache.REEF.Driver
 
             AvroConfigurationSerializer serializer = new AvroConfigurationSerializer();
 
-            IClassHierarchy drvierClassHierarchy = ProtocolBufferClassHierarchy.DeSerialize(DriverChFile);
+            IClassHierarchy driverClassHierarchy = ProtocolBufferClassHierarchy.DeSerialize(DriverChFile);
 
-            AvroConfiguration jobDriverAvroconfiguration = serializer.AvroDeseriaizeFromFile(JobDriverConfigFile);
-            IConfiguration jobDriverConfiguration = serializer.FromAvro(jobDriverAvroconfiguration, drvierClassHierarchy);
+            AvroConfiguration jobDriverAvroconfiguration = serializer.AvroDeserializeFromFile(JobDriverConfigFile);
+            IConfiguration jobDriverConfiguration = serializer.FromAvro(jobDriverAvroconfiguration, driverClassHierarchy);
 
-            AvroConfiguration httpAvroconfiguration = serializer.AvroDeseriaizeFromFile(HttpServerConfigFile);
-            IConfiguration httpConfiguration = serializer.FromAvro(httpAvroconfiguration, drvierClassHierarchy);
+            AvroConfiguration httpAvroconfiguration = serializer.AvroDeserializeFromFile(HttpServerConfigFile);
+            IConfiguration httpConfiguration = serializer.FromAvro(httpAvroconfiguration, driverClassHierarchy);
 
-            AvroConfiguration nameAvroconfiguration = serializer.AvroDeseriaizeFromFile(NameServerConfigFile);
-            IConfiguration nameConfiguration = serializer.FromAvro(nameAvroconfiguration, drvierClassHierarchy);
+            AvroConfiguration nameAvroconfiguration = serializer.AvroDeserializeFromFile(NameServerConfigFile);
+            IConfiguration nameConfiguration = serializer.FromAvro(nameAvroconfiguration, driverClassHierarchy);
 
             IConfiguration merged;
 
@@ -107,7 +112,7 @@ namespace Org.Apache.REEF.Driver
             b.Bind("org.apache.reef.driver.parameters.DriverMemory", driverConfigurationSettings.DriverMemory.ToString(CultureInfo.CurrentCulture));
             b.Bind("org.apache.reef.driver.parameters.DriverJobSubmissionDirectory", driverConfigurationSettings.SubmissionDirectory);
 
-            //add for all the globallibaries
+            // add for all the globallibaries
             if (File.Exists(UserSuppliedGlobalLibraries))
             {
                 var globalLibString = File.ReadAllText(UserSuppliedGlobalLibraries);
@@ -131,7 +136,7 @@ namespace Org.Apache.REEF.Driver
 
             Log.Log(Level.Info, string.Format(CultureInfo.CurrentCulture, "driver.config is written to: {0} {1}.", Directory.GetCurrentDirectory(), DriverConfigFile));
 
-            //additional file for easy to read
+            // additional file for easy to read
             using (StreamWriter outfile = new StreamWriter(DriverConfigFile + ".txt"))
             {
                 outfile.Write(serializer.ToString(c));
@@ -140,7 +145,7 @@ namespace Org.Apache.REEF.Driver
 
         private static void ExtractConfigFromJar(string jarfileFolder)
         {
-            string jarfile = jarfileFolder + Constants.JavaBridgeJarFileName;
+            string jarfile = jarfileFolder + JavaBridgeJarFileName;
             List<string> files = new List<string>();
             files.Add(DriverConfigGenerator.HttpServerConfigFile);
             files.Add(DriverConfigGenerator.JobDriverConfigFile);

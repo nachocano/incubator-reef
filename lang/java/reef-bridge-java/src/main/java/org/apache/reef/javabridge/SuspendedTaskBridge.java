@@ -18,10 +18,19 @@
  */
 package org.apache.reef.javabridge;
 
+import org.apache.reef.annotations.audience.Interop;
+import org.apache.reef.annotations.audience.Private;
 import org.apache.reef.driver.task.SuspendedTask;
 import org.apache.reef.io.Message;
 import org.apache.reef.io.naming.Identifiable;
 
+/**
+ * The Java-CLR bridge object for {@link org.apache.reef.driver.task.SuspendedTask}.
+ */
+@Private
+@Interop(
+    CppFiles = { "Clr2JavaImpl.h", "SuspendedTaskClr2Java.cpp" },
+    CsFiles = { "ISuspendedTaskClr2Java.cs", "SuspendedTask.cs" })
 public final class SuspendedTaskBridge extends NativeBridge implements Identifiable, Message {
 
   private final SuspendedTask jsuspendedTask;

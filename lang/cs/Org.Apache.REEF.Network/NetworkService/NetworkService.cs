@@ -1,35 +1,31 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Threading;
 using Org.Apache.REEF.Common.Io;
-using Org.Apache.REEF.Network.Naming;
 using Org.Apache.REEF.Network.NetworkService.Codec;
 using Org.Apache.REEF.Tang.Annotations;
 using Org.Apache.REEF.Tang.Exceptions;
 using Org.Apache.REEF.Utilities.Logging;
 using Org.Apache.REEF.Wake;
 using Org.Apache.REEF.Wake.Remote;
-using Org.Apache.REEF.Wake.Remote.Impl;
-using Org.Apache.REEF.Wake.Util;
 
 namespace Org.Apache.REEF.Network.NetworkService
 {
@@ -39,26 +35,30 @@ namespace Org.Apache.REEF.Network.NetworkService
     /// <typeparam name="T">The message type</typeparam>
     public class NetworkService<T> : INetworkService<T>
     {
-        private readonly Logger LOGGER = Logger.GetLogger(typeof(NetworkService<>));
+        private static readonly Logger LOGGER = Logger.GetLogger(typeof(NetworkService<>));
 
         private readonly IRemoteManager<NsMessage<T>> _remoteManager;
         private readonly IObserver<NsMessage<T>> _messageHandler; 
         private readonly ICodec<NsMessage<T>> _codec; 
         private IIdentifier _localIdentifier;
         private IDisposable _messageHandlerDisposable;
-        private readonly Dictionary<IIdentifier, IConnection<T>> _connectionMap;  
+        private readonly Dictionary<IIdentifier, IConnection<T>> _connectionMap;
+
+        /// <summary>
+        /// Shows if the object has been disposed.
+        /// </summary>
+        private int _disposed;
 
         /// <summary>
         /// Create a new NetworkService.
         /// </summary>
         /// <param name="nsPort">The port that the NetworkService will listen on</param>
-        /// <param name="nameServerAddr">The address of the NameServer</param>
-        /// <param name="nameServerPort">The port of the NameServer</param>
         /// <param name="messageHandler">The observer to handle incoming messages</param>
         /// <param name="idFactory">The factory used to create IIdentifiers</param>
         /// <param name="codec">The codec used for serialization</param>
+        /// <param name="nameClient"></param>
+        /// <param name="localAddressProvider">The local address provider</param>
         /// <param name="remoteManagerFactory">Used to instantiate remote manager instances.</param>
-        /// <param name="tcpPortProvider">Provides ports for tcp listeners.</param>
         [Inject]
         public NetworkService(
             [Parameter(typeof(NetworkServiceOptions.NetworkServicePort))] int nsPort,
@@ -66,24 +66,33 @@ namespace Org.Apache.REEF.Network.NetworkService
             IIdentifierFactory idFactory,
             ICodec<T> codec,
             INameClient nameClient,
+            ILocalAddressProvider localAddressProvider,
             IRemoteManagerFactory remoteManagerFactory)
         {
             _codec = new NsMessageCodec<T>(codec, idFactory);
 
-            IPAddress localAddress = NetworkUtils.LocalIPAddress;
+            IPAddress localAddress = localAddressProvider.LocalAddress;
             _remoteManager = remoteManagerFactory.GetInstance(localAddress, nsPort, _codec);
             _messageHandler = messageHandler;
 
             NamingClient = nameClient;
             _connectionMap = new Dictionary<IIdentifier, IConnection<T>>();
 
-            LOGGER.Log(Level.Info, "Started network service");
+            LOGGER.Log(Level.Verbose, "Started network service");
         }
 
         /// <summary>
         /// Name client for registering ids
         /// </summary>
         public INameClient NamingClient { get; private set; }
+
+        /// <summary>
+        /// The remote manager of the network service.
+        /// </summary>
+        public IRemoteManager<NsMessage<T>> RemoteManager
+        {
+            get { return _remoteManager; }
+        }
 
         /// <summary>
         /// Open a new connection to the remote host registered to
@@ -117,7 +126,7 @@ namespace Org.Apache.REEF.Network.NetworkService
         /// <param name="id">The identifier to register</param>
         public void Register(IIdentifier id)
         {
-            LOGGER.Log(Level.Info, "Registering id {0} with network service.", id);
+            LOGGER.Log(Level.Verbose, "Registering id {0} with network service.", id);
 
             _localIdentifier = id;
             NamingClient.Register(id.ToString(), _remoteManager.LocalEndpoint);
@@ -126,7 +135,7 @@ namespace Org.Apache.REEF.Network.NetworkService
             var anyEndpoint = new IPEndPoint(IPAddress.Any, 0);
             _messageHandlerDisposable = _remoteManager.RegisterObserver(anyEndpoint, _messageHandler);
 
-            LOGGER.Log(Level.Info, "End of Registering id {0} with network service.", id);
+            LOGGER.Log(Level.Verbose, "End of Registering id {0} with network service.", id);
         }
 
         /// <summary>
@@ -149,10 +158,13 @@ namespace Org.Apache.REEF.Network.NetworkService
         /// </summary>
         public void Dispose()
         {
-            NamingClient.Dispose();
-            _remoteManager.Dispose();
+            if (Interlocked.Exchange(ref _disposed, 1) == 0)
+            {
+                NamingClient.Dispose();
+                _remoteManager.Dispose();
 
-            LOGGER.Log(Level.Info, "Disposed of network service");
+                LOGGER.Log(Level.Verbose, "Disposed of network service");
+            }
         }
     }
 }

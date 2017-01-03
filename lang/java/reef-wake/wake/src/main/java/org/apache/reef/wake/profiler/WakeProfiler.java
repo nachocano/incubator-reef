@@ -35,6 +35,9 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 
+/**
+ * A graphical profiler class that instruments Tang-based Wake applications.
+ */
 public class WakeProfiler implements Aspect {
   private static final Logger LOG = Logger.getLogger(WakeProfiler.class.toString());
   private final Map<Object, Vertex<?>> vertexObject = new MonotonicHashMap<>();
@@ -69,9 +72,9 @@ public class WakeProfiler implements Aspect {
   @SuppressWarnings("unchecked")
   private <T> Vertex<?> newSetVertex(final Set<T> s) {
     if (vertexObject.containsKey(s)) {
-      return (Vertex<Set<T>>) vertexObject.get(s);
+      return vertexObject.get(s);
     }
-    if (s.size() > -1) {
+    if (s.size() > 1) {
       LOG.fine("new set of size " + s.size());
       final Vertex<?>[] sArgs = new Vertex[s.size()];
       int k = 0;
@@ -82,7 +85,6 @@ public class WakeProfiler implements Aspect {
       final Vertex<Set<T>> sv = new Vertex<>(s, null, sArgs);
       vertexObject.put(s, sv);
       return sv;
-//    } else if(s.size() == 1) {
     } else {
       final Object p = s.iterator().next();
       final Vertex<?> w = getVertex(p);
@@ -90,16 +92,12 @@ public class WakeProfiler implements Aspect {
       vertexObject.put(s, w);
       return w;
     }
-//    } else {
-//    // ignore the empty set.
-//  } */
   }
 
   @SuppressWarnings("unchecked")
   @Override
   public <T> T inject(final ConstructorDef<T> constructorDef, final Constructor<T> constructor, final Object[] args)
       throws InvocationTargetException, IllegalAccessException, IllegalArgumentException, InstantiationException {
-//    LOG.info("inject" + constructor + "->" + args.length);
     final Vertex<?>[] vArgs = new Vertex[args.length];
     for (int i = 0; i < args.length; i++) {
       final Object o = args[i];
@@ -134,7 +132,6 @@ public class WakeProfiler implements Aspect {
 
             if (method.getName().equals("onNext")) {
               final long start = System.nanoTime();
-//              LOG.info(object + "." + method.getName() + " called");
               final Object o = methodProxy.invokeSuper(object, args);
               final long stop = System.nanoTime();
 
@@ -157,7 +154,7 @@ public class WakeProfiler implements Aspect {
     } else {
       ret = constructor.newInstance(args);
     }
-    final Vertex<T> v = new Vertex<T>(ret, constructorDef, vArgs);
+    final Vertex<T> v = new Vertex<>(ret, constructorDef, vArgs);
     vertexObject.put(ret, v);
     return ret;
   }
@@ -205,7 +202,7 @@ public class WakeProfiler implements Aspect {
 
     final StringBuffer sb = new StringBuffer("{\"nodes\":[\n");
 
-    final List<String> nodes = new ArrayList<String>();
+    final List<String> nodes = new ArrayList<>();
     final LinkedList<Vertex<?>> workQueue = new LinkedList<>();
     for (final Object o : vertexObject.keySet()) {
       if (whitelist(o)) {
@@ -213,7 +210,7 @@ public class WakeProfiler implements Aspect {
       }
     }
     for (final Object o : futures.values()) {
-      if ((!vertexObject.containsKey(o)) && whitelist(o)) {
+      if (!vertexObject.containsKey(o) && whitelist(o)) {
         workQueue.add(getVertex(o));
       }
     }
@@ -237,8 +234,6 @@ public class WakeProfiler implements Aspect {
         LOG.warning("Set of size " + ((Set<?>) o).size() + " with " + v.getOutEdges().length + " out edges");
         s = "{...}";
         tooltip = null;
-////      } else if(false && (o instanceof EventHandler || o instanceof Stage)) {
-////        s = jsonEscape(v.getObject().toString());
       } else {
         final Stats stat = stats.get(o);
         if (stat != null) {

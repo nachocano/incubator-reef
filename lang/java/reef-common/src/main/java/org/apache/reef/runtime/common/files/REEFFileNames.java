@@ -49,6 +49,10 @@ public final class REEFFileNames {
   private static final String EVALUATOR_STDOUT = "evaluator.stdout";
   private static final String DRIVER_HTTP_ENDPOINT_FILE_NAME = "DriverHttpEndpoint.txt";
   private static final String BRIDGE_EXE_NAME = "Org.Apache.REEF.Bridge.exe";
+  private static final String SECURITY_TOKEN_IDENTIFIER_FILE = "SecurityTokenId";
+  private static final String SECURITY_TOKEN_PASSWORD_FILE = "SecurityTokenPwd";
+  private static final String YARN_BOOTSTRAP_APP_PARAM_FILE = "yarn-app-parameters.json";
+  private static final String YARN_BOOTSTRAP_JOB_PARAM_FILE = "yarn-job-parameters.json";
 
   @Inject
   public REEFFileNames() {
@@ -167,7 +171,7 @@ public final class REEFFileNames {
 
   /**
    * The prefix used whenever REEF is asked to create a job folder, on (H)DFS or locally.
-   * <p/>
+   * <p>
    * This prefix is also used with JAR files created to represent a job.
    */
   public String getJobFolderPrefix() {
@@ -216,4 +220,47 @@ public final class REEFFileNames {
     return DRIVER_HTTP_ENDPOINT_FILE_NAME;
   }
 
+  /**
+   * @return File name that contains the security token identifier
+   */
+  public String getSecurityTokenIdentifierFile() {
+    return SECURITY_TOKEN_IDENTIFIER_FILE;
+  }
+
+  /**
+   * @return File name that contains the security token password
+   */
+  public String getSecurityTokenPasswordFile() {
+    return SECURITY_TOKEN_PASSWORD_FILE;
+  }
+
+  /**
+   * @return File name the contains the bootstrap application parameters for YARN job submission
+   * without Java dependency.
+   */
+  public String getYarnBootstrapAppParamFile() {
+    return YARN_BOOTSTRAP_APP_PARAM_FILE;
+  }
+
+  /**
+   * @return File name the contains the bootstrap job parameters for YARN job submission
+   * without Java dependency.
+   */
+  public String getYarnBootstrapJobParamFile() {
+    return YARN_BOOTSTRAP_JOB_PARAM_FILE;
+  }
+
+  /**
+   * @return Path to the bootstrap application parameters file for YARN job submission without Java dependency.
+   */
+  public String getYarnBootstrapAppParamFilePath() {
+    return LOCAL_FOLDER_PATH + '/' + getYarnBootstrapAppParamFile();
+  }
+
+  /**
+   * @return Path to the bootstrap job parameters file for YARN job submission without Java dependency.
+   */
+  public String getYarnBootstrapJobParamFilePath() {
+    return getYarnBootstrapJobParamFile();
+  }
 }

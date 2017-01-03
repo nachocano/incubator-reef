@@ -65,7 +65,7 @@ public class ConfigurationBuilderImpl implements ConfigurationBuilder {
       throws BindException {
     this.namespace = Tang.Factory.getTang().getDefaultClassHierarchy(jars, parsers);
     for (final Configuration tc : confs) {
-      addConfiguration(((ConfigurationImpl) tc));
+      addConfiguration((ConfigurationImpl) tc);
     }
   }
 
@@ -98,8 +98,8 @@ public class ConfigurationBuilderImpl implements ConfigurationBuilder {
   private <T> void addConfiguration(final ClassHierarchy ns, final ConfigurationBuilderImpl builder)
       throws BindException {
     namespace = namespace.merge(ns);
-    if ((namespace instanceof ClassHierarchyImpl || builder.namespace instanceof ClassHierarchyImpl)) {
-      if ((namespace instanceof ClassHierarchyImpl && builder.namespace instanceof ClassHierarchyImpl)) {
+    if (namespace instanceof ClassHierarchyImpl || builder.namespace instanceof ClassHierarchyImpl) {
+      if (namespace instanceof ClassHierarchyImpl && builder.namespace instanceof ClassHierarchyImpl) {
         ((ClassHierarchyImpl) namespace).getParameterParser()
             .mergeIn(((ClassHierarchyImpl) builder.namespace).getParameterParser());
       } else {
@@ -130,7 +130,8 @@ public class ConfigurationBuilderImpl implements ConfigurationBuilder {
       } else if (e.getValue() instanceof String) {
         bindSetEntry(name, (String) e.getValue());
       } else {
-        throw new IllegalStateException();
+        throw new IllegalStateException("The value of the named parameter node in boundSetEntries"
+                + " is neither String nor Node. The actual type is  " + e.getValue().getClass());
       }
     }
     // The boundLists set contains bound lists with their target NamedParameters
@@ -248,7 +249,7 @@ public class ConfigurationBuilderImpl implements ConfigurationBuilder {
       try {
         javanamespace.parse(iface, impl);
       } catch (final ParseException e) {
-        throw new IllegalStateException("Could not parse " + impl + " which was passed to " + iface);
+        throw new IllegalStateException("Could not parse " + impl + " which was passed to " + iface, e);
       }
     }
     boundSetEntries.put((NamedParameterNode<Set<?>>) (NamedParameterNode<?>) iface, impl);
@@ -272,7 +273,7 @@ public class ConfigurationBuilderImpl implements ConfigurationBuilder {
           // Just for parsability checking.
           javanamespace.parse(iface, (String) item);
         } catch (final ParseException e) {
-          throw new IllegalStateException("Could not parse " + item + " which was passed to " + iface);
+          throw new IllegalStateException("Could not parse " + item + " which was passed to " + iface, e);
         }
       }
     }
@@ -291,7 +292,7 @@ public class ConfigurationBuilderImpl implements ConfigurationBuilder {
           // Just for parsability checking.
           javanamespace.parse(ifaceNode, (String) item);
         } catch (final ParseException e) {
-          throw new IllegalStateException("Could not parse " + item + " which was passed to " + iface);
+          throw new IllegalStateException("Could not parse " + item + " which was passed to " + iface, e);
         }
       }
     }

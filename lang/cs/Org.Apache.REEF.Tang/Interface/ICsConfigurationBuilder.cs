@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -31,7 +29,7 @@ namespace Org.Apache.REEF.Tang.Interface
         /// </summary>
         /// <param name="name">The name.</param>
         /// <param name="value">The value.</param>
-        ICsConfigurationBuilder BindNamedParameter(Type name, string value);  //name must extend from Name<T>
+        ICsConfigurationBuilder BindNamedParameter(Type name, string value);  // name must extend from Name<T>
 
         /// <summary>
         /// Binds the class impl as the implementation of the interface iface
@@ -79,15 +77,15 @@ namespace Org.Apache.REEF.Tang.Interface
         ICsConfigurationBuilder BindImplementation<U, T>(GenericType<U> iface, GenericType<T> impl)
             where T : U;
 
-        //public <T> void bindConstructor(Class<T> c, Class<? extends ExternalConstructor<? extends T>> v) throws BindException;
+        // public <T> void bindConstructor(Class<T> c, Class<? extends ExternalConstructor<? extends T>> v) throws BindException;
         ICsConfigurationBuilder BindConstructor<T, U>(GenericType<T> c, GenericType<U> v)
             where U : IExternalConstructor<T>;
   
-        //public <T> void bindSetEntry(Class<? extends Name<Set<T>>> iface, String value) throws BindException;
+        // public <T> void bindSetEntry(Class<? extends Name<Set<T>>> iface, String value) throws BindException;
         ICsConfigurationBuilder BindSetEntry<U, T>(GenericType<U> iface, string value)
             where U : Name<ISet<T>>;
 
-         //public <T> void bindSetEntry(Class<? extends Name<Set<T>>> iface, Class<? extends T> impl) throws BindException;
+         // public <T> void bindSetEntry(Class<? extends Name<Set<T>>> iface, Class<? extends T> impl) throws BindException;
         ICsConfigurationBuilder BindSetEntry<U, V, T>(GenericType<U> iface, GenericType<V> impl)
             where U : Name<ISet<T>>
             where V : T;

@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -24,7 +22,7 @@ using System.Globalization;
 
 namespace Org.Apache.REEF.Utilities.Logging
 {
-    public class Logger
+    public sealed class Logger
     {
         private static readonly string[] LogLevel = new string[]
             {
@@ -49,7 +47,9 @@ namespace Org.Apache.REEF.Utilities.Logging
                         { Level.Verbose, TraceEventType.Verbose },
                     };
 
-        private static Level _customLevel = Level.Verbose;
+        private static Level _customLevel = Level.Info;
+
+        private Level _instanceLevel = Level.Unset;
 
         private static List<TraceListener> _traceListeners;
 
@@ -61,11 +61,10 @@ namespace Org.Apache.REEF.Utilities.Logging
         {
             _name = name;
             _traceSource = new TraceSource(_name, SourceLevels.All);
-            CustomLevel = _customLevel;
             if (TraceListeners.Count == 0)
             {
                 // before customized listener is added, we would need to log to console
-                _traceSource.Listeners.Add(new ConsoleTraceListener());
+                _traceSource.Listeners.Add(new TextWriterTraceListener(Console.Out));
             }
             else
             {
@@ -90,6 +89,19 @@ namespace Org.Apache.REEF.Utilities.Logging
             }
         }
 
+        public Level InstanceLevel
+        {
+            get
+            {
+                return _instanceLevel;
+            }
+
+            set
+            {
+                _instanceLevel = value;
+            }
+        }
+
         public static List<TraceListener> TraceListeners
         {
             get
@@ -107,7 +119,7 @@ namespace Org.Apache.REEF.Utilities.Logging
             _customLevel = customLevel;
         }
 
-        public static void AddTraceListner(TraceListener listener)
+        public static void AddTraceListener(TraceListener listener)
         {
             TraceListeners.Add(listener);
         }
@@ -127,7 +139,7 @@ namespace Org.Apache.REEF.Utilities.Logging
         /// </summary>
         public bool IsLoggable(Level level)
         {
-            return CustomLevel >= level;
+            return (InstanceLevel != Level.Unset ? InstanceLevel : CustomLevel) >= level;
         }
 
         /// <summary>
@@ -142,7 +154,7 @@ namespace Org.Apache.REEF.Utilities.Logging
         /// <param name="args"></param>
         public void Log(Level level, string formatStr, params object[] args)
         {
-            if (CustomLevel >= level)
+            if (IsLoggable(level))
             {
                 string msg = FormatMessage(formatStr, args);
                 string logMessage = 
@@ -161,23 +173,24 @@ namespace Org.Apache.REEF.Utilities.Logging
 
         public void Log(Level level, string msg, Exception exception)
         {
-            string exceptionLog;
+            if (IsLoggable(level))
+            {
+                string exceptionLog;
 
-            if (CustomLevel >= level && exception != null)
-            {
-                exceptionLog = string.Format(
-                    CultureInfo.InvariantCulture,
-                    "encountered error [{0}] with mesage [{1}] and stack trace [{2}]",
-                    exception,
-                    exception.Message,
-                    exception.StackTrace);
+                if (exception != null)
+                {
+                    exceptionLog = string.Format(
+                        CultureInfo.InvariantCulture,
+                        "\r\nEncountered error [{0}]",
+                        exception);
+                }
+                else
+                {
+                    exceptionLog = string.Empty;
+                }
+
+                Log(level, msg + exceptionLog);
             }
-            else
-            {
-                exceptionLog = string.Empty;
-            }
-            
-            Log(level, msg + exceptionLog);
         }
 
         public IDisposable LogFunction(string function, params object[] args)

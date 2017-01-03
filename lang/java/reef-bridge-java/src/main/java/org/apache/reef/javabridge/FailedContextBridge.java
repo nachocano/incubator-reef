@@ -18,6 +18,8 @@
  */
 package org.apache.reef.javabridge;
 
+import org.apache.reef.annotations.audience.Interop;
+import org.apache.reef.annotations.audience.Private;
 import org.apache.reef.driver.context.ActiveContext;
 import org.apache.reef.driver.context.ContextBase;
 import org.apache.reef.driver.context.FailedContext;
@@ -27,6 +29,13 @@ import org.apache.reef.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+/**
+ * The Java-CLR bridge object for {@link org.apache.reef.driver.context.FailedContext}.
+ */
+@Private
+@Interop(
+    CppFiles = { "Clr2JavaImpl.h", "FailedContextClr2Java.cpp" },
+    CsFiles = { "IFailedContextClr2Java.cs", "FailedContext.cs" })
 public final class FailedContextBridge extends NativeBridge implements ContextBase {
 
   private static final Logger LOG = Logger.getLogger(FailedContextBridge.class.getName());
@@ -78,7 +87,21 @@ public final class FailedContextBridge extends NativeBridge implements ContextBa
     return evaluatorDescriptor;
   }
 
-  public String getEvaluatorDescriptorSring() {
+  /**
+   * Used by InterOp code.
+   */
+  public String getParentIdString() {
+    return this.parentContextId;
+  }
+
+  /**
+   * @return the parent {@link ActiveContextBridge}.
+   */
+  public ActiveContextBridge getParentContext() {
+    return parentContext;
+  }
+
+  public String getEvaluatorDescriptorString() {
     final String descriptorString = Utilities.getEvaluatorDescriptorString(evaluatorDescriptor);
     LOG.log(Level.INFO, "Failed Context - serialized evaluator descriptor: " + descriptorString);
     return descriptorString;

@@ -18,19 +18,36 @@
  */
 package org.apache.reef.javabridge;
 
+import org.apache.reef.annotations.audience.Interop;
+import org.apache.reef.annotations.audience.Private;
 import org.apache.reef.driver.task.TaskMessage;
+import org.apache.reef.io.naming.Identifiable;
 
-public class TaskMessageBridge extends NativeBridge {
+/**
+ * The Java-CLR bridge object for {@link org.apache.reef.driver.task.TaskMessage}.
+ */
+@Private
+@Interop(
+    CppFiles = { "Clr2JavaImpl.h", "TaskMessageClr2Java.cpp" },
+    CsFiles = { "ITaskMessageClr2Java.cs", "TaskMessage.cs" })
+public final class TaskMessageBridge extends NativeBridge implements Identifiable {
   private TaskMessage jtaskMessage;
-  private String taskId;
 
   // we don't really need to pass this around, just have this as place holder for future.
   public TaskMessageBridge(final TaskMessage taskMessage) {
     jtaskMessage = taskMessage;
-    taskId = taskMessage.getId();
   }
 
   @Override
   public void close() {
+  }
+
+  @Override
+  public String getId() {
+    return jtaskMessage.getId();
+  }
+
+  public String getMessageSourceId() {
+    return jtaskMessage.getMessageSourceID();
   }
 }

@@ -18,15 +18,25 @@
  */
 package org.apache.reef.javabridge;
 
+import org.apache.reef.annotations.audience.Interop;
+import org.apache.reef.annotations.audience.Private;
 import org.apache.reef.driver.task.CompletedTask;
+import org.apache.reef.io.Message;
 
-public class CompletedTaskBridge extends NativeBridge {
+/**
+ * The Java-CLR bridge object for {@link org.apache.reef.driver.task.CompletedTask}.
+ */
+@Private
+@Interop(
+    CppFiles = { "Clr2JavaImpl.h", "CompletedTaskClr2Java.cpp" },
+    CsFiles = { "ICompletedTaskClr2Java.cs", "CompletedTask.cs" })
+public final class CompletedTaskBridge extends NativeBridge implements Message {
 
+  /**
+   *  These fields are used by the C++ code. Please do not remove without testing.
+   */
   private final CompletedTask jcompletedTask;
-
   private final String taskId;
-
-  // used by the C++ code
   private final ActiveContextBridge jactiveContext;
 
   public CompletedTaskBridge(final CompletedTask completedTask, final ActiveContextBridgeFactory factory) {
@@ -35,7 +45,20 @@ public class CompletedTaskBridge extends NativeBridge {
     jactiveContext = factory.getActiveContextBridge(completedTask.getActiveContext());
   }
 
+  public String getTaskId() {
+    return taskId;
+  }
+
+  public ActiveContextBridge getActiveContext() {
+    return jactiveContext;
+  }
+
   @Override
   public void close() {
+  }
+
+  @Override
+  public byte[] get() {
+    return jcompletedTask.get();
   }
 }

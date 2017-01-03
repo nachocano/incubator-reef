@@ -41,9 +41,11 @@ import java.util.logging.Logger;
 /**
  * Central dispatcher for all Evaluator related events. This exists once per Evaluator.
  */
-public final class EvaluatorMessageDispatcher {
+public final class EvaluatorMessageDispatcher implements AutoCloseable {
 
   private static final Logger LOG = Logger.getLogger(EvaluatorMessageDispatcher.class.getName());
+
+  private final String evaluatorIdentifier;
 
   /**
    * Dispatcher used for application provided event handlers.
@@ -54,7 +56,6 @@ public final class EvaluatorMessageDispatcher {
    * Dispatcher used for service provided event handlers.
    */
   private final DispatchingEStage serviceDispatcher;
-
 
   /**
    * Dispatcher used for application provided driver-restart specific event handlers.
@@ -67,7 +68,7 @@ public final class EvaluatorMessageDispatcher {
   private final DispatchingEStage driverRestartServiceDispatcher;
 
   @Inject
-  EvaluatorMessageDispatcher(
+  private EvaluatorMessageDispatcher(
       // Application-provided Context event handlers
       @Parameter(ContextActiveHandlers.class) final Set<EventHandler<ActiveContext>> contextActiveHandlers,
       @Parameter(ContextClosedHandlers.class) final Set<EventHandler<ClosedContext>> contextClosedHandlers,
@@ -129,10 +130,14 @@ public final class EvaluatorMessageDispatcher {
       @Parameter(EvaluatorDispatcherThreads.class) final int numberOfThreads,
       @Parameter(EvaluatorManager.EvaluatorIdentifier.class) final String evaluatorIdentifier,
       final DriverExceptionHandler driverExceptionHandler,
-      final IdlenessCallbackEventHandlerFactory idlenessCallbackEventHandlerFactory
-  ) {
+      final IdlenessCallbackEventHandlerFactory idlenessCallbackEventHandlerFactory) {
 
-    this.serviceDispatcher = new DispatchingEStage(driverExceptionHandler, numberOfThreads, evaluatorIdentifier);
+    LOG.log(Level.FINER, "Creating message dispatcher for {0}", evaluatorIdentifier);
+
+    this.evaluatorIdentifier = evaluatorIdentifier;
+    this.serviceDispatcher = new DispatchingEStage(
+        driverExceptionHandler, numberOfThreads, "EvaluatorMessageDispatcher:" + evaluatorIdentifier);
+
     this.applicationDispatcher = new DispatchingEStage(this.serviceDispatcher);
     this.driverRestartApplicationDispatcher = new DispatchingEStage(this.serviceDispatcher);
     this.driverRestartServiceDispatcher = new DispatchingEStage(this.serviceDispatcher);
@@ -278,5 +283,12 @@ public final class EvaluatorMessageDispatcher {
   private <T, U extends T> void dispatchForRestartedDriver(final Class<T> type, final U message) {
     this.driverRestartServiceDispatcher.onNext(type, message);
     this.driverRestartApplicationDispatcher.onNext(type, message);
+  }
+
+  @Override
+  public void close() {
+    LOG.log(Level.FINER, "Closing message dispatcher for {0}", this.evaluatorIdentifier);
+    // This effectively closes all dispatchers as they share the same stage.
+    this.serviceDispatcher.close();
   }
 }

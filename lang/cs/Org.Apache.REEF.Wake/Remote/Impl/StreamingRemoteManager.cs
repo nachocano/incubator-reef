@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -34,6 +32,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         private readonly StreamingTransportServer<IRemoteEvent<T>> _server;
         private readonly Dictionary<IPEndPoint, ProxyObserver> _cachedClients;
         private readonly IStreamingCodec<IRemoteEvent<T>> _remoteEventCodec;
+        private readonly ITcpClientConnectionFactory _tcpClientFactory;
 
         /// <summary>
         /// Constructs a DefaultRemoteManager listening on the specified address and
@@ -42,22 +41,30 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         /// <param name="localAddress">The address to listen on</param>
         /// <param name="tcpPortProvider">Tcp port provider</param>
         /// <param name="streamingCodec">Streaming codec</param>
-        internal StreamingRemoteManager(IPAddress localAddress, ITcpPortProvider tcpPortProvider, IStreamingCodec<T> streamingCodec)
+       /// <param name="tcpClientFactory">provides TcpClient for given endpoint</param>
+        internal StreamingRemoteManager(IPAddress localAddress,
+            ITcpPortProvider tcpPortProvider,
+            IStreamingCodec<T> streamingCodec,
+            ITcpClientConnectionFactory tcpClientFactory)
         {
             if (localAddress == null)
             {
                 throw new ArgumentNullException("localAddress");
             }
 
+            _tcpClientFactory = tcpClientFactory;
             _observerContainer = new ObserverContainer<T>();
             _cachedClients = new Dictionary<IPEndPoint, ProxyObserver>();
             _remoteEventCodec = new RemoteEventStreamingCodec<T>(streamingCodec);
 
             // Begin to listen for incoming messages
-            _server = new StreamingTransportServer<IRemoteEvent<T>>(localAddress, _observerContainer, tcpPortProvider, _remoteEventCodec);
+            _server = new StreamingTransportServer<IRemoteEvent<T>>(localAddress,
+                _observerContainer,
+                tcpPortProvider,
+                _remoteEventCodec);
             _server.Run();
 
-            LocalEndpoint = _server.LocalEndpoint;  
+            LocalEndpoint = _server.LocalEndpoint;
             Identifier = new SocketRemoteIdentifier(LocalEndpoint);
         }
 
@@ -109,13 +116,61 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
             ProxyObserver remoteObserver;
             if (!_cachedClients.TryGetValue(remoteEndpoint, out remoteObserver))
             {
-                StreamingTransportClient<IRemoteEvent<T>> client =
-                    new StreamingTransportClient<IRemoteEvent<T>>(remoteEndpoint, _observerContainer, _remoteEventCodec);
-
-                remoteObserver = new ProxyObserver(client);
+                remoteObserver = CreateRemoteObserver(remoteEndpoint);
                 _cachedClients[remoteEndpoint] = remoteObserver;
             }
 
+            return remoteObserver;
+        }
+
+        /// <summary>
+        /// Returns an IRemoteObserver used to send messages to the remote host at
+        /// the specified IPEndpoint.
+        /// </summary>
+        /// <param name="remoteEndpoint">The IPEndpoint of the remote host</param>
+        /// <returns>An IRemoteObserver used to send messages to the remote host</returns>
+        public IRemoteObserver<T> GetUnmanagedRemoteObserver(RemoteEventEndPoint<T> remoteEndpoint)
+        {
+            if (remoteEndpoint == null)
+            {
+                throw new ArgumentNullException("remoteEndpoint");
+            }
+
+            SocketRemoteIdentifier id = remoteEndpoint.Id as SocketRemoteIdentifier;
+            if (id == null)
+            {
+                throw new ArgumentException("ID not supported");
+            }
+
+            return GetUnmanagedObserver(id.Addr);
+        }
+
+        /// <summary>
+        /// Returns an IRemoteObserver used to send messages to the remote host at
+        /// the specified IPEndpoint.
+        /// </summary>
+        /// <param name="remoteEndpoint">The IPEndpoint of the remote host</param>
+        /// <returns>An IRemoteObserver used to send messages to the remote host</returns>
+        public IRemoteObserver<T> GetUnmanagedObserver(IPEndPoint remoteEndpoint)
+        {
+            if (remoteEndpoint == null)
+            {
+                throw new ArgumentNullException("remoteEndpoint");
+            }
+
+            ProxyObserver remoteObserver = CreateRemoteObserver(remoteEndpoint);
+            return remoteObserver;
+        }
+
+        private ProxyObserver CreateRemoteObserver(IPEndPoint remoteEndpoint)
+        {
+            StreamingTransportClient<IRemoteEvent<T>> client =
+                new StreamingTransportClient<IRemoteEvent<T>>(remoteEndpoint,
+                    _observerContainer,
+                    _remoteEventCodec,
+                    _tcpClientFactory);
+
+            ProxyObserver remoteObserver = new ProxyObserver(client);
             return remoteObserver;
         }
 
@@ -206,7 +261,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         /// <summary>
         /// Observer to send messages to connected remote host
         /// </summary>
-        private class ProxyObserver : IObserver<T>, IDisposable
+        private class ProxyObserver : IRemoteObserver<T>
         {
             private readonly StreamingTransportClient<IRemoteEvent<T>> _client;
 

@@ -1,28 +1,29 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using Org.Apache.REEF.Tang.Annotations;
+using Org.Apache.REEF.Tang.Exceptions;
 using Org.Apache.REEF.Tang.Implementations.InjectionPlan;
+using Org.Apache.REEF.Utilities;
+using Org.Apache.REEF.Utilities.Collections;
 using Org.Apache.REEF.Utilities.Diagnostics;
 using Org.Apache.REEF.Utilities.Logging;
 using Org.Apache.REEF.Wake.RX.Impl;
@@ -31,22 +32,23 @@ using Org.Apache.REEF.Wake.Time.Runtime.Event;
 
 namespace Org.Apache.REEF.Wake.Time.Runtime
 {
-    public class RuntimeClock : IClock
+    public sealed class RuntimeClock : IClock
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(RuntimeClock));
 
+        private static int numberOfInstantiations = 0;
         private readonly ITimer _timer;
         private readonly PubSubSubject<Time> _handlers;
-        private readonly ISet<Time> _schedule;
+        private readonly PriorityQueue<Time> _schedule;
 
         private readonly IInjectionFuture<ISet<IObserver<StartTime>>> _startHandler;
         private readonly IInjectionFuture<ISet<IObserver<StopTime>>> _stopHandler;
-        private IInjectionFuture<ISet<IObserver<RuntimeStart>>> _runtimeStartHandler;
-        private IInjectionFuture<ISet<IObserver<RuntimeStop>>> _runtimeStopHandler;
+        private readonly IInjectionFuture<ISet<IObserver<RuntimeStart>>> _runtimeStartHandler;
+        private readonly IInjectionFuture<ISet<IObserver<RuntimeStop>>> _runtimeStopHandler;
         private readonly IInjectionFuture<ISet<IObserver<IdleClock>>> _idleHandler;
 
         private bool _disposed;
-            
+
         /// <summary>
         /// Create a new RuntimeClock with injectable IObservers
         /// </summary>
@@ -57,16 +59,16 @@ namespace Org.Apache.REEF.Wake.Time.Runtime
         /// <param name="runtimeStopHandler">The runtime stop handler</param>
         /// <param name="idleHandler">The idle handler</param>
         [Inject]
-        internal RuntimeClock(
+        private RuntimeClock(
             ITimer timer,
-            [Parameter(typeof(StartHandler))] IInjectionFuture<ISet<IObserver<StartTime>>> startHandler, 
-            [Parameter(typeof(StopHandler))] IInjectionFuture<ISet<IObserver<StopTime>>> stopHandler,
-            [Parameter(typeof(RuntimeStartHandler))] IInjectionFuture<ISet<IObserver<RuntimeStart>>> runtimeStartHandler,
-            [Parameter(typeof(RuntimeStopHandler))] IInjectionFuture<ISet<IObserver<RuntimeStop>>> runtimeStopHandler,
-            [Parameter(typeof(IdleHandler))] IInjectionFuture<ISet<IObserver<IdleClock>>> idleHandler)
+            [Parameter(typeof(Parameters.StartHandler))] IInjectionFuture<ISet<IObserver<StartTime>>> startHandler,
+            [Parameter(typeof(Parameters.StopHandler))] IInjectionFuture<ISet<IObserver<StopTime>>> stopHandler,
+            [Parameter(typeof(Parameters.RuntimeStartHandler))] IInjectionFuture<ISet<IObserver<RuntimeStart>>> runtimeStartHandler,
+            [Parameter(typeof(Parameters.RuntimeStopHandler))] IInjectionFuture<ISet<IObserver<RuntimeStop>>> runtimeStopHandler,
+            [Parameter(typeof(Parameters.IdleHandler))] IInjectionFuture<ISet<IObserver<IdleClock>>> idleHandler)
         {
             _timer = timer;
-            _schedule = new SortedSet<Time>();
+            _schedule = new PriorityQueue<Time>();
             _handlers = new PubSubSubject<Time>();
 
             _startHandler = startHandler;
@@ -74,26 +76,20 @@ namespace Org.Apache.REEF.Wake.Time.Runtime
             _runtimeStartHandler = runtimeStartHandler;
             _runtimeStopHandler = runtimeStopHandler;
             _idleHandler = idleHandler;
-        }
 
-        public IInjectionFuture<ISet<IObserver<RuntimeStart>>> InjectedRuntimeStartHandler
-        {
-            get { return _runtimeStartHandler; }
-            set { _runtimeStartHandler = value; }
-        }
-
-        public IInjectionFuture<ISet<IObserver<RuntimeStop>>> InjectedRuntimeStopHandler
-        {
-            get { return _runtimeStopHandler; }
-            set { _runtimeStopHandler = value; }
+            ++numberOfInstantiations;
+            if (numberOfInstantiations > 1)
+            {
+                LOGGER.Log(Level.Warning, "Instantiated `RuntimeClock` instance number " + numberOfInstantiations);
+            }
         }
 
         /// <summary>
         /// Schedule a TimerEvent at the given future offset
         /// </summary>
-        /// <param name="offset">The offset in the future to schedule the alarm</param>
+        /// <param name="offset">The offset in the future to schedule the alarm, in msec</param>
         /// <param name="handler">The IObserver to to be called</param>
-        public override void ScheduleAlarm(long offset, IObserver<Alarm> handler)
+        public void ScheduleAlarm(long offset, IObserver<Alarm> handler)
         {
             if (_disposed)
             {
@@ -115,7 +111,7 @@ namespace Org.Apache.REEF.Wake.Time.Runtime
         /// Clock is idle if it has no future alarms set
         /// </summary>
         /// <returns>True if no future alarms are set, otherwise false</returns>
-        public override bool IsIdle()
+        public bool IsIdle()
         {
             lock (_schedule)
             {
@@ -126,7 +122,7 @@ namespace Org.Apache.REEF.Wake.Time.Runtime
         /// <summary>
         /// Dispose of the clock and all scheduled alarms
         /// </summary>
-        public override void Dispose()
+        public void Dispose()
         {
             lock (_schedule)
             {
@@ -138,49 +134,49 @@ namespace Org.Apache.REEF.Wake.Time.Runtime
         }
 
         /// <summary>
-        /// Register the IObserver for the particular Time event.
-        /// </summary>
-        /// <param name="observer">The handler to register</param>
-        public void RegisterObserver<U>(IObserver<U> observer) where U : Time
-        {
-            if (_disposed)
-            {
-                return;
-            }
-
-            _handlers.Subscribe(observer);
-        }
-
-        /// <summary>
         /// Start the RuntimeClock.
         /// Clock will continue to run and handle events until it has been disposed.
         /// </summary>
         public void Run()
         {
             SubscribeHandlers();
-            _handlers.OnNext(new RuntimeStart(_timer.CurrentTime));
-            _handlers.OnNext(new StartTime(_timer.CurrentTime));
 
-            while (true)
+            var runtimeException = Optional<Exception>.Empty();
+            try
             {
-                lock (_schedule)
-                {
-                    if (IsIdle())
-                    {
-                        _handlers.OnNext(new IdleClock(_timer.CurrentTime));
-                    }
-                    
-                    // Blocks and releases lock until it receives the next event
-                    Time alarm = GetNextEvent();
-                    ProcessEvent(alarm);
+                _handlers.OnNext(new RuntimeStart(_timer.CurrentTime));
+                _handlers.OnNext(new StartTime(_timer.CurrentTime));
 
-                    if (alarm is StopTime)
+                while (true)
+                {
+                    lock (_schedule)
                     {
-                        break;
+                        if (IsIdle())
+                        {
+                            _handlers.OnNext(new IdleClock(_timer.CurrentTime));
+                        }
+
+                        // Blocks and releases lock until it receives the next event
+                        Time alarm = GetNextEvent();
+                        ProcessEvent(alarm);
+
+                        if (alarm is StopTime)
+                        {
+                            break;
+                        }
                     }
                 }
             }
-            _handlers.OnNext(new RuntimeStop(_timer.CurrentTime));
+            catch (Exception e)
+            {
+                runtimeException = Optional<Exception>.Of(new ReefRuntimeException("Caught Exception in clock, failing the Evaluator.", e));
+            }
+
+            var runtimeStop = runtimeException.IsPresent()
+                ? new RuntimeStop(_timer.CurrentTime, runtimeException.Value)
+                : new RuntimeStop(_timer.CurrentTime);
+
+            _handlers.OnNext(runtimeStop);
         }
 
         /// <summary>
@@ -229,9 +225,7 @@ namespace Org.Apache.REEF.Wake.Time.Runtime
                 Monitor.Wait(_schedule, TimeSpan.FromMilliseconds(duration));
             }
 
-            Time time = _schedule.First();
-            _schedule.Remove(time);
-            return time;
+            return _schedule.Dequeue();
         }
 
         /// <summary>
@@ -242,7 +236,7 @@ namespace Org.Apache.REEF.Wake.Time.Runtime
         {
             if (time is Alarm)
             {
-                Alarm alarm = (Alarm) time;
+                Alarm alarm = (Alarm)time;
                 alarm.Handle();
             }
             else

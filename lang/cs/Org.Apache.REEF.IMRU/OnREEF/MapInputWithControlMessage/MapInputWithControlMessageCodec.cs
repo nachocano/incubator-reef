@@ -18,7 +18,6 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Org.Apache.REEF.Network.Group.Driver.Impl;
 using Org.Apache.REEF.Tang.Annotations;
 using Org.Apache.REEF.Utilities.Diagnostics;
 using Org.Apache.REEF.Utilities.Logging;
@@ -31,9 +30,9 @@ namespace Org.Apache.REEF.IMRU.OnREEF.MapInputWithControlMessage
     /// Streaming codec for MapInputWithControlMessage
     /// </summary>
     /// <typeparam name="TMapInput"></typeparam>
-    internal class MapInputWithControlMessageCodec<TMapInput> : IStreamingCodec<MapInputWithControlMessage<TMapInput>>
+    internal sealed class MapInputWithControlMessageCodec<TMapInput> : IStreamingCodec<MapInputWithControlMessage<TMapInput>>
     {
-        private static Logger Logger = Logger.GetLogger(typeof(MapInputWithControlMessage<>));
+        private static readonly Logger Logger = Logger.GetLogger(typeof(MapInputWithControlMessage<>));
         private readonly IStreamingCodec<TMapInput> _baseCodec;
 
         [Inject]
@@ -80,11 +79,11 @@ namespace Org.Apache.REEF.IMRU.OnREEF.MapInputWithControlMessage
             switch (obj.ControlMessage)
             {
                 case MapControlMessage.AnotherRound:
-                    writer.Write(new byte[] {0}, 0, 1);
+                    writer.Write(new byte[] { 0 }, 0, 1);
                     _baseCodec.Write(obj.Message, writer);
                     break;
                 case MapControlMessage.Stop:
-                    writer.Write(new byte[] {1}, 0, 1);
+                    writer.Write(new byte[] { 1 }, 0, 1);
                     break;
             }
         }
@@ -95,8 +94,8 @@ namespace Org.Apache.REEF.IMRU.OnREEF.MapInputWithControlMessage
         /// <param name="reader">reader from which to read the message</param>
         /// <param name="token">Cancellation token</param>
         /// <returns>Read message</returns>
-        async Task<MapInputWithControlMessage<TMapInput>> IStreamingCodec<MapInputWithControlMessage<TMapInput>>.
-            ReadAsync(IDataReader reader, CancellationToken token)
+        async Task<MapInputWithControlMessage<TMapInput>> IStreamingCodec<MapInputWithControlMessage<TMapInput>>.ReadAsync(
+            IDataReader reader, CancellationToken token)
         {
             byte[] messageType = new byte[1];
             await reader.ReadAsync(messageType, 0, 1, token);

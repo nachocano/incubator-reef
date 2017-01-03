@@ -1,91 +1,72 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Reflection;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.Apache.REEF.Tang.Annotations;
 using Org.Apache.REEF.Tang.Examples;
 using Org.Apache.REEF.Tang.Exceptions;
+using Org.Apache.REEF.Tang.Formats;
 using Org.Apache.REEF.Tang.Implementations.InjectionPlan;
 using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Types;
 using Org.Apache.REEF.Tang.Util;
+using Xunit;
 
 namespace Org.Apache.REEF.Tang.Tests.Tang
 {
-    [TestClass]
     public class TestTang
     {
         private static ITang tang;
 
         private static Assembly asm = null;
 
-        [ClassInitialize]
-        public static void ClassSetup(TestContext context)
+        public TestTang()
         {
             asm = Assembly.Load(FileNames.Examples);
-        }
-
-        [ClassCleanup]
-        public static void ClassCleanup()
-        {
-        }
-
-        [TestInitialize()]
-        public void TestSetup()
-        {
             MustBeSingleton.alreadyInstantiated = false;
             tang = TangFactory.GetTang();
         }
 
-        [TestCleanup()]
-        public void TestCleanup()
-        {
-        }
-
-        [TestMethod]
+        [Fact]
         public void TestSingleton()
         {
             IInjector injector = tang.NewInjector();
-            Assert.IsNotNull(injector.GetInstance(typeof (TwoSingletons)));
-            Assert.IsNotNull(injector.GetInstance(typeof (TwoSingletons)));
+            Assert.NotNull(injector.GetInstance(typeof(TwoSingletons)));
+            Assert.NotNull(injector.GetInstance(typeof(TwoSingletons)));
         }
 
-        [TestMethod]
+        [Fact]
         public void TestNotSingleton()
         {
             TwoSingletons obj = null;
-            Assert.IsNotNull(tang.NewInjector().GetInstance(typeof (TwoSingletons)));
+            Assert.NotNull(tang.NewInjector().GetInstance(typeof(TwoSingletons)));
             try
             {
-                obj = (TwoSingletons) tang.NewInjector().GetInstance(typeof (TwoSingletons));
+                obj = (TwoSingletons)tang.NewInjector().GetInstance(typeof(TwoSingletons));
             }
             catch (InjectionException)
             {
-
             }
-            Assert.IsNull(obj);
+            Assert.Null(obj);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestRepeatedAmbiguousArgs()
         {
             INode node = null;
@@ -94,27 +75,27 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
                 ICsConfigurationBuilder t = tang.NewConfigurationBuilder();
                 node =
                     t.GetClassHierarchy()
-                     .GetNode(ReflectionUtilities.GetAssemblyQualifiedName(typeof (RepeatedAmbiguousArgs)));
+                     .GetNode(ReflectionUtilities.GetAssemblyQualifiedName(typeof(RepeatedAmbiguousArgs)));
             }
             catch (ClassHierarchyException)
             {
             }
-            Assert.IsNull(node);
+            Assert.Null(node);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestRepeatedOKArgs()
         {
             ICsConfigurationBuilder cb = tang.NewConfigurationBuilder();
-            cb.BindNamedParameter<RepeatedNamedArgs.A, Int32>(GenericType<RepeatedNamedArgs.A>.Class, "1");
-            cb.BindNamedParameter<RepeatedNamedArgs.B, Int32>(GenericType<RepeatedNamedArgs.B>.Class, "2");
+            cb.BindNamedParameter<RepeatedNamedArgs.A, int>(GenericType<RepeatedNamedArgs.A>.Class, "1");
+            cb.BindNamedParameter<RepeatedNamedArgs.B, int>(GenericType<RepeatedNamedArgs.B>.Class, "2");
 
             IInjector injector = tang.NewInjector(cb.Build());
-            injector.GetInstance(typeof (RepeatedNamedArgs));
+            injector.GetInstance(typeof(RepeatedNamedArgs));
         }
 
         // NamedParameter A has no default_value, so this should throw.
-        [TestMethod]
+        [Fact]
         public void TestOneNamedFailArgs()
         {
             string msg = null;
@@ -127,49 +108,48 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
             catch (Exception)
             {
             }
-            Assert.IsNull(msg);
+            Assert.Null(msg);
         }
 
         // NamedParameter A get's bound to a volatile, so this should succeed.
-        [TestMethod]
+        [Fact]
         public void TestOneNamedSingletonOKArgs()
         {
             IInjector i = tang.NewInjector();
             i.BindVolatileParameter(GenericType<OneNamedSingletonArgs.A>.Class, i.GetInstance<MustBeSingleton>());
             OneNamedSingletonArgs o = i.GetInstance<OneNamedSingletonArgs>();
-            Assert.IsNotNull(o);
+            Assert.NotNull(o);
         }
 
-
-        [TestMethod]
+        [Fact]
         public void TestRepeatedNamedArgs()
         {
             IInjector i = tang.NewInjector();
             i.BindVolatileParameter(GenericType<RepeatedNamedSingletonArgs.A>.Class,
-                                    (MustBeSingleton) i.GetInstance(typeof (MustBeSingleton)));
+                                    (MustBeSingleton)i.GetInstance(typeof(MustBeSingleton)));
             i.BindVolatileParameter(GenericType<RepeatedNamedSingletonArgs.B>.Class,
-                                    (MustBeSingleton) i.GetInstance(typeof (MustBeSingleton)));
-            i.GetInstance(typeof (RepeatedNamedSingletonArgs));
+                                    (MustBeSingleton)i.GetInstance(typeof(MustBeSingleton)));
+            i.GetInstance(typeof(RepeatedNamedSingletonArgs));
         }
 
-        [TestMethod]
+        [Fact]
         public void testStraightforwardBuild()
         {
             ICsConfigurationBuilder cb = tang.NewConfigurationBuilder();
             cb.BindImplementation(GenericType<Interf>.Class, GenericType<Impl>.Class);
-            tang.NewInjector(cb.Build()).GetInstance(typeof (Interf));
+            tang.NewInjector(cb.Build()).GetInstance(typeof(Interf));
         }
 
-        [TestMethod]
+        [Fact]
         public void TestOneNamedStringArgCantRebind()
         {
             ICsConfigurationBuilder cb = tang.NewConfigurationBuilder();
             OneNamedStringArg a =
-                (OneNamedStringArg) tang.NewInjector(cb.Build()).GetInstance(typeof (OneNamedStringArg));
-            Assert.AreEqual("default", a.s);
+                (OneNamedStringArg)tang.NewInjector(cb.Build()).GetInstance(typeof(OneNamedStringArg));
+            Assert.Equal("default", a.s);
             cb.BindNamedParameter<OneNamedStringArg.A, string>(GenericType<OneNamedStringArg.A>.Class, "not default");
             IInjector i = tang.NewInjector(cb.Build());
-            Assert.AreEqual("not default", ((OneNamedStringArg) i.GetInstance(typeof (OneNamedStringArg))).s);
+            Assert.Equal("not default", ((OneNamedStringArg)i.GetInstance(typeof(OneNamedStringArg))).s);
             string msg = null;
             try
             {
@@ -180,69 +160,69 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
             catch (Exception)
             {
             }
-            Assert.IsNull(msg);
+            Assert.Null(msg);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestOneNamedStringArgBind()
         {
             ICsConfigurationBuilder cb = tang.NewConfigurationBuilder();
             OneNamedStringArg a = tang.NewInjector(cb.Build()).GetInstance<OneNamedStringArg>();
-            Assert.AreEqual("default", a.s);
+            Assert.Equal("default", a.s);
             cb.BindNamedParameter<OneNamedStringArg.A, string>(GenericType<OneNamedStringArg.A>.Class, "not default");
             IInjector i = tang.NewInjector(cb.Build());
-            Assert.AreEqual("not default", i.GetInstance<OneNamedStringArg>().s);
+            Assert.Equal("not default", i.GetInstance<OneNamedStringArg>().s);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestOneNamedStringArgVolatile()
         {
             OneNamedStringArg a = tang.NewInjector().GetInstance<OneNamedStringArg>();
-            Assert.AreEqual("default", a.s);
+            Assert.Equal("default", a.s);
             IInjector i = tang.NewInjector();
             i.BindVolatileParameter(GenericType<OneNamedStringArg.A>.Class, "volatile");
-            Assert.AreEqual("volatile", i.GetInstance<OneNamedStringArg>().s);
+            Assert.Equal("volatile", i.GetInstance<OneNamedStringArg>().s);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestTwoNamedStringArgsBind()
         {
             ICsConfigurationBuilder cb = tang.NewConfigurationBuilder();
             TwoNamedStringArgs a = tang.NewInjector(cb.Build()).GetInstance<TwoNamedStringArgs>();
-            Assert.AreEqual("defaultA", a.a);
-            Assert.AreEqual("defaultB", a.b);
+            Assert.Equal("defaultA", a.a);
+            Assert.Equal("defaultB", a.b);
             cb.BindNamedParameter<TwoNamedStringArgs.A, string>(GenericType<TwoNamedStringArgs.A>.Class, "not defaultA");
             cb.BindNamedParameter<TwoNamedStringArgs.B, string>(GenericType<TwoNamedStringArgs.B>.Class, "not defaultB");
             IInjector i = tang.NewInjector(cb.Build());
-            Assert.AreEqual("not defaultA",
+            Assert.Equal("not defaultA",
                             i.GetInstance<TwoNamedStringArgs>().a);
-            Assert.AreEqual("not defaultB",
+            Assert.Equal("not defaultB",
                             i.GetInstance<TwoNamedStringArgs>().b);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestTwoNamedStringArgsBindVolatile()
         {
             ICsConfigurationBuilder cb = tang.NewConfigurationBuilder();
             TwoNamedStringArgs a = tang.NewInjector(cb.Build()).GetInstance<TwoNamedStringArgs>();
-            Assert.AreEqual("defaultA", a.a);
-            Assert.AreEqual("defaultB", a.b);
+            Assert.Equal("defaultA", a.a);
+            Assert.Equal("defaultB", a.b);
             IInjector i = tang.NewInjector(cb.Build());
             i.BindVolatileParameter(GenericType<TwoNamedStringArgs.A>.Class, "not defaultA");
             i.BindVolatileParameter(GenericType<TwoNamedStringArgs.B>.Class, "not defaultB");
-            Assert.AreEqual("not defaultA",
+            Assert.Equal("not defaultA",
                             i.GetInstance<TwoNamedStringArgs>().a);
-            Assert.AreEqual("not defaultB",
+            Assert.Equal("not defaultB",
                             i.GetInstance<TwoNamedStringArgs>().b);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestTwoNamedStringArgsReBindVolatileFail()
         {
             ICsConfigurationBuilder cb = tang.NewConfigurationBuilder();
             TwoNamedStringArgs a = tang.NewInjector(cb.Build()).GetInstance<TwoNamedStringArgs>();
-            Assert.AreEqual("defaultA", a.a);
-            Assert.AreEqual("defaultB", a.b);
+            Assert.Equal("defaultA", a.a);
+            Assert.Equal("defaultB", a.b);
             cb.BindNamedParameter<TwoNamedStringArgs.A, string>(GenericType<TwoNamedStringArgs.A>.Class, "not defaultA");
             cb.BindNamedParameter<TwoNamedStringArgs.B, string>(GenericType<TwoNamedStringArgs.B>.Class, "not defaultB");
             IInjector i = tang.NewInjector(cb.Build());
@@ -257,19 +237,19 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
             catch (Exception)
             {
             }
-            Assert.IsNull(msg);
+            Assert.Null(msg);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestBextendsAinjectA()
         {
             ICsConfigurationBuilder cb = tang.NewConfigurationBuilder();
             cb.BindImplementation(GenericType<BextendsAinjectA.A>.Class, GenericType<BextendsAinjectA.A>.Class);
             BextendsAinjectA.A a = tang.NewInjector(cb.Build()).GetInstance<BextendsAinjectA.A>();
-            Assert.IsNotNull(a);
+            Assert.NotNull(a);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestNamedImpl()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder(new string[] { FileNames.Examples });
@@ -277,45 +257,45 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
             cb.BindNamedParameter<BImplName, Bimpl, INamedImplA>(GenericType<BImplName>.Class, GenericType<Bimpl>.Class);
 
             IInjector i = TangFactory.GetTang().NewInjector(cb.Build());
-            Aimpl a1 = (Aimpl) i.GetNamedInstance<AImplName, INamedImplA>(GenericType<AImplName>.Class);
-            Aimpl a2 = (Aimpl) i.GetNamedInstance<AImplName, INamedImplA>(GenericType<AImplName>.Class);
-            Bimpl b1 = (Bimpl) i.GetNamedInstance<BImplName, INamedImplA>(GenericType<BImplName>.Class);
-            Bimpl b2 = (Bimpl) i.GetNamedInstance<BImplName, INamedImplA>(GenericType<BImplName>.Class);
-            Assert.AreSame(a1, a2);
-            Assert.AreSame(b1, b2);
+            Aimpl a1 = (Aimpl)i.GetNamedInstance<AImplName, INamedImplA>(GenericType<AImplName>.Class);
+            Aimpl a2 = (Aimpl)i.GetNamedInstance<AImplName, INamedImplA>(GenericType<AImplName>.Class);
+            Bimpl b1 = (Bimpl)i.GetNamedInstance<BImplName, INamedImplA>(GenericType<BImplName>.Class);
+            Bimpl b2 = (Bimpl)i.GetNamedInstance<BImplName, INamedImplA>(GenericType<BImplName>.Class);
+            Assert.Same(a1, a2);
+            Assert.Same(b1, b2);
         }
 
-        [TestMethod]
+        [Fact]
         public void testThreeConstructors() 
         {
             ICsConfigurationBuilder cb = tang.NewConfigurationBuilder();
-            cb.BindNamedParameter<ThreeConstructors.TCInt, Int32>(GenericType<ThreeConstructors.TCInt>.Class, "1");
+            cb.BindNamedParameter<ThreeConstructors.TCInt, int>(GenericType<ThreeConstructors.TCInt>.Class, "1");
             cb.BindNamedParameter<ThreeConstructors.TCString, string>(GenericType<ThreeConstructors.TCString>.Class, "s");
             ThreeConstructors tc = tang.NewInjector(cb.Build()).GetInstance<ThreeConstructors>();
-            Assert.AreEqual(1, tc.i);
-            Assert.AreEqual("s", tc.s);
+            Assert.Equal(1, tc.i);
+            Assert.Equal("s", tc.s);
     
             cb = tang.NewConfigurationBuilder();
-            cb.BindNamedParameter<ThreeConstructors.TCInt, Int32>(GenericType<ThreeConstructors.TCInt>.Class, "1");
+            cb.BindNamedParameter<ThreeConstructors.TCInt, int>(GenericType<ThreeConstructors.TCInt>.Class, "1");
             tc = tang.NewInjector(cb.Build()).GetInstance<ThreeConstructors>();
-            Assert.AreEqual(1, tc.i);
-            Assert.AreEqual("default", tc.s);
+            Assert.Equal(1, tc.i);
+            Assert.Equal("default", tc.s);
 
             cb = tang.NewConfigurationBuilder();
             cb.BindNamedParameter<ThreeConstructors.TCString, string>(GenericType<ThreeConstructors.TCString>.Class, "s");
             tc = tang.NewInjector(cb.Build()).GetInstance<ThreeConstructors>();
-            Assert.AreEqual(-1, tc.i);
-            Assert.AreEqual("s", tc.s);
+            Assert.Equal(-1, tc.i);
+            Assert.Equal("s", tc.s);
 
             cb = tang.NewConfigurationBuilder();
             cb.BindNamedParameter<ThreeConstructors.TCFloat, float>(GenericType<ThreeConstructors.TCFloat>.Class, "2");
             tc = tang.NewInjector(cb.Build()).GetInstance<ThreeConstructors>();
-            Assert.AreEqual(-1, tc.i);
-            Assert.AreEqual("default", tc.s);
-            Assert.AreEqual(2.0f, tc.f, 1e-9);
+            Assert.Equal(-1, tc.i);
+            Assert.Equal("default", tc.s);
+            Assert.Equal(2.0f, tc.f, 9);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestThreeConstructorsAmbiguous()
         {
             string msg = null;
@@ -338,20 +318,20 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
             {
                 System.Diagnostics.Debug.WriteLine(e);
             }
-            Assert.IsNull(msg);
+            Assert.Null(msg);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestTwoConstructorsAmbiguous()
         {
             string msg = null;
             try
             {
                 ICsConfigurationBuilder cb = tang.NewConfigurationBuilder();
-                cb.BindNamedParameter<TwoConstructors.TCInt, Int32>(GenericType<TwoConstructors.TCInt>.Class, "1");
+                cb.BindNamedParameter<TwoConstructors.TCInt, int>(GenericType<TwoConstructors.TCInt>.Class, "1");
                 cb.BindNamedParameter<ThreeConstructors.TCString, string>(GenericType<ThreeConstructors.TCString>.Class, "s");
                 tang.NewInjector(cb.Build()).GetInstance<TwoConstructors>();
-                msg = @"Cannot inject Org.Apache.REEF.Tang.Tests.Tang.TwoConstructors, Org.Apache.REEF.Tang.Test, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null "+
+                msg = @"Cannot inject Org.Apache.REEF.Tang.Tests.Tang.TwoConstructors, Org.Apache.REEF.Tang.Test, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null " +
                 "Ambiguous subplan Org.Apache.REEF.Tang.Tests.Tang.TwoConstructors, Org.Apache.REEF.Tang.Test, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" +
                 "new Org.Apache.REEF.Tang.Tests.Tang.TwoConstructors(System.Int32 Org.Apache.REEF.Tang.Tests.Tang.TwoConstructors+TCInt = 1, System.String Org.Apache.REEF.Tang.Tests.Tang.TwoConstructors+TCString = s)" +
                 "new Org.Apache.REEF.Tang.Tests.Tang.TwoConstructors(System.String Org.Apache.REEF.Tang.Tests.Tang.TwoConstructors+TCString = s, System.Int32 Org.Apache.REEF.Tang.Tests.Tang.TwoConstructors+TCInt = 1)";
@@ -360,10 +340,10 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
             {
                 System.Diagnostics.Debug.WriteLine(e); 
             }
-            Assert.IsNull(msg);
+            Assert.Null(msg);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSingletonWithMultipleConstructors() 
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -371,10 +351,10 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
             cb.BindNamedParameter<SingletonMultiConst.A, string>(GenericType<SingletonMultiConst.A>.Class, "foo");
             IInjector i = TangFactory.GetTang().NewInjector(cb.Build());
             var o = i.GetInstance<SMC>();
-            Assert.IsNotNull(o);
+            Assert.NotNull(o);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestSingletonWithMoreSpecificConstructors()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -383,19 +363,19 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
             cb.BindNamedParameter<SingletonMultiConst.B, string>(GenericType<SingletonMultiConst.B>.Class, "bar");
             IInjector i = TangFactory.GetTang().NewInjector(cb.Build());
             var o = i.GetInstance<SMC>();
-            Assert.IsNotNull(o);
+            Assert.NotNull(o);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestInjectInjector()
         {
             IInjector i = TangFactory.GetTang().NewInjector();
-            var ii = (InjectInjector) i.GetInstance(typeof(InjectInjector));
-            //Assert.IsTrue(ii.i is IInjector);
-            Assert.AreNotSame(i, ii.i);
+            var ii = (InjectInjector)i.GetInstance(typeof(InjectInjector));
+            //// Assert.True(ii.i is IInjector);
+            Assert.NotSame(i, ii.i);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestGenericEventHandlers()
         {
             ICsConfigurationBuilder cba = TangFactory.GetTang().NewConfigurationBuilder();
@@ -407,23 +387,23 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
             TangFactory.GetTang().NewInjector(cbb.Build()).GetNamedInstance(typeof(ABCName.XName));
         }
 
-        [TestMethod]
+        [Fact]
         public void TestGenericEventHandlerDefaults() 
         {
             ICsConfigurationBuilder cba = TangFactory.GetTang().NewConfigurationBuilder();
             var xbb = TangFactory.GetTang().NewInjector(cba.Build()).GetNamedInstance(typeof(ABCName.XNameDB));
-            Assert.IsTrue(xbb is ABCName.XBB);
+            Assert.True(xbb is ABCName.XBB);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestGenericEventHandlerDefaultsGoodTreeIndirection() 
         {
             ICsConfigurationBuilder cba = TangFactory.GetTang().NewConfigurationBuilder();
             var o = TangFactory.GetTang().NewInjector(cba.Build()).GetNamedInstance(typeof(ABCName.XNameDDAA));
-            Assert.IsTrue(o is ABCName.XXBB);
+            Assert.True(o is ABCName.XXBB);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestGenericUnrelatedGenericTypeParameters() 
         {
             string msg = null;
@@ -438,26 +418,26 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
             {
                 System.Diagnostics.Debug.WriteLine(e);
             }    
-            Assert.IsNull(msg);        
+            Assert.Null(msg);        
         }
 
-        [TestMethod]
+        [Fact]
         public void TestGenericInterfaceUnboundTypeParametersName()
         {
             ICsConfigurationBuilder cba = TangFactory.GetTang().NewConfigurationBuilder();
             var o = TangFactory.GetTang().NewInjector(cba.Build()).GetNamedInstance(typeof(FooEventHandler));
-            Assert.IsTrue(o is MyEventHandler<Foo>);
+            Assert.True(o is MyEventHandler<Foo>);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestGenericInterfaceUnboundTypeParametersNameIface()
         {
             ICsConfigurationBuilder cba = TangFactory.GetTang().NewConfigurationBuilder();
             var o = TangFactory.GetTang().NewInjector(cba.Build()).GetNamedInstance(typeof(IfaceEventHandler));
-            Assert.IsTrue(o is IEventHandler<SomeIface>);
+            Assert.True(o is IEventHandler<SomeIface>);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestGenericInterfaceUnboundTypeParametersIface()
         {
             string msg = null;
@@ -472,29 +452,29 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
             {
                 System.Diagnostics.Debug.WriteLine(e);
             }    
-            Assert.IsNull(msg);    
+            Assert.Null(msg);    
         }
 
-        [TestMethod]
+        [Fact]
         public void TestWantSomeHandlers() 
         {
             var o = TangFactory.GetTang().NewInjector().GetInstance<WantSomeHandlers>();
-            Assert.IsNotNull(o);
+            Assert.NotNull(o);
         }
         
-        [TestMethod]
+        [Fact]
         public void TestWantSomeHandlersBadOrder() 
         {
             IInjector i = TangFactory.GetTang().NewInjector();
             var o1 = i.GetInstance<IAHandler>();
             var o2 = i.GetInstance<IBHandler>();
             var o3 = i.GetInstance<WantSomeFutureHandlers>();
-            Assert.IsTrue(o1 is AHandlerImpl);            
-            Assert.IsTrue(o2 is BHandlerImpl);
-            Assert.IsNotNull(o3);
+            Assert.True(o1 is AHandlerImpl);            
+            Assert.True(o2 is BHandlerImpl);
+            Assert.NotNull(o3);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestWantSomeFutureHandlersAlreadyBoundVolatile() 
         {
             IInjector i = TangFactory.GetTang().NewInjector();
@@ -503,48 +483,57 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
             i.GetInstance<WantSomeFutureHandlers>();
         }
 
-        [TestMethod]
+        [Fact]
         public void TestWantSomeFutureHandlers() 
         {
             TangFactory.GetTang().NewInjector().GetInstance<WantSomeFutureHandlers>();
         }
 
-        [TestMethod]
+        [Fact]
         public void TestWantSomeFutureHandlersName() 
         {
             TangFactory.GetTang().NewInjector().GetInstance<WantSomeFutureHandlersName>();
         }
 
-        [TestMethod]
+        [Fact]
         public void TestReuseFailedInjector() 
         {
             IInjector i = TangFactory.GetTang().NewInjector();
             try 
             {
                 i.GetInstance<Fail>();
-                Assert.Fail("Injecting Fail should not have worked!");
-            } catch (InjectionException) 
+                Assert.True(false, "Injecting Fail should not have worked!");
+            } 
+            catch (InjectionException) 
             {
                  i.GetInstance<Pass>();
             }
         }
 
-        [TestMethod]
+        [Fact]
         public void TestMultipleLayersFromAbstractClass()
         {
             ICsConfigurationBuilder cb = tang.NewConfigurationBuilder();
             cb.BindImplementation(GenericType<MultiLayer>.Class, GenericType<LowerLayer>.Class);
             MultiLayer o = tang.NewInjector(cb.Build()).GetInstance<MultiLayer>();
-            Assert.IsNotNull(o);
+            Assert.NotNull(o);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestMultipleLayersFromInterface()
         {
             ICsConfigurationBuilder cb = tang.NewConfigurationBuilder();
             cb.BindImplementation(GenericType<IMultiLayer>.Class, GenericType<LowerLayerImpl>.Class);
             IMultiLayer o = tang.NewInjector(cb.Build()).GetInstance<IMultiLayer>();
-            Assert.IsNotNull(o);
+            Assert.NotNull(o);
+        }
+
+        [Fact]
+        public void TestEmptyStringAsDefaultValue()
+        {
+            ICsConfigurationBuilder cb = tang.NewConfigurationBuilder(EmptyStringAsDefaultParamConf.ConfigurationModule.Build());
+            var value = tang.NewInjector(cb.Build()).GetNamedInstance<EmptyStringAsDefaultParam, string>();
+            Assert.NotNull(value.Equals(string.Empty));
         }
     }
 
@@ -602,60 +591,60 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
     public class RepeatedNamedArgs
     {
         [NamedParameter]
-        public class A : Name<Int32>
+        public class A : Name<int>
         {
         }
 
-        [NamedParameter()]
-        public class B : Name<Int32>
+        [NamedParameter]
+        public class B : Name<int>
         {
         }
 
         [Inject]
-        public RepeatedNamedArgs([Parameter(typeof (A))] int x, [Parameter(Value = typeof (B))] int y)
+        public RepeatedNamedArgs([Parameter(typeof(A))] int x, [Parameter(Value = typeof(B))] int y)
         {
         }
     }
 
     internal class RepeatedNamedSingletonArgs
     {
-        [NamedParameter()]
+        [NamedParameter]
         public class A : Name<MustBeSingleton>
         {
         }
 
-        [NamedParameter()]
+        [NamedParameter]
         public class B : Name<MustBeSingleton>
         {
         }
 
         [Inject]
-        public RepeatedNamedSingletonArgs([Parameter(typeof (A))] MustBeSingleton a,
-                                          [Parameter(typeof (B))] MustBeSingleton b)
+        public RepeatedNamedSingletonArgs([Parameter(typeof(A))] MustBeSingleton a,
+                                          [Parameter(typeof(B))] MustBeSingleton b)
         {
         }
     }
 
     internal class OneNamedSingletonArgs
     {
-        [NamedParameter()]
+        [NamedParameter]
         public class A : Name<MustBeSingleton>
         {
         }
 
-        [NamedParameter()]
+        [NamedParameter]
         public class B : Name<MustBeSingleton>
         {
         }
 
         [Inject]
-        public OneNamedSingletonArgs([Parameter(typeof (A))] MustBeSingleton a)
+        public OneNamedSingletonArgs([Parameter(typeof(A))] MustBeSingleton a)
         {
         }
     }
 
     [NamedParameter(Documentation = "woo", ShortName = "woo", DefaultValue = "42")]
-    internal class Param : Name<Int32>
+    internal class Param : Name<int>
     {
     }
 
@@ -666,7 +655,7 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
     internal class Impl : Interf
     {
         [Inject]
-        private Impl([Parameter(Value = typeof (Param))] int p)
+        private Impl([Parameter(Value = typeof(Param))] int p)
         {
         }
     }
@@ -681,7 +670,7 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
         public string s;
 
         [Inject]
-        private OneNamedStringArg([Parameter(typeof (A))] string s)
+        private OneNamedStringArg([Parameter(typeof(A))] string s)
         {
             this.s = s;
         }
@@ -703,7 +692,7 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
         public string b;
 
         [Inject]
-        private TwoNamedStringArgs([Parameter(typeof (A))] string a, [Parameter(typeof (B))] String b)
+        private TwoNamedStringArgs([Parameter(typeof(A))] string a, [Parameter(typeof(B))] string b)
         {
             this.a = a;
             this.b = b;
@@ -824,28 +813,62 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
         public class ABtaker
         {
             [Inject]
-            private ABtaker([Parameter(typeof (AImplName))] INamedImplA a, [Parameter(typeof (BImplName))] INamedImplA b)
+            private ABtaker([Parameter(typeof(AImplName))] INamedImplA a, [Parameter(typeof(BImplName))] INamedImplA b)
             {
-                //Assert.IsTrue(a is Aimpl, "AImplName must be instance of Aimpl");
-                //Assert.IsTrue(b is Bimpl, "BImplName must be instance of Bimpl");
+                // Assert.True(a is Aimpl, "AImplName must be instance of Aimpl");
+                // Assert.True(b is Bimpl, "BImplName must be instance of Bimpl");
             }
         }
     }
-    
-    class ThreeConstructors 
+
+    [NamedParameter(DefaultValue = "")]
+    public class EmptyStringAsDefaultParam : Name<string>
+    {
+    }
+
+    public class EmptyStringAsDefaultParamConf : ConfigurationModuleBuilder
+    {
+        public static readonly OptionalParameter<string> OptionalString = new OptionalParameter<string>();
+
+        public static ConfigurationModule ConfigurationModule = new EmptyStringAsDefaultParamConf()
+            .BindNamedParameter(GenericType<EmptyStringAsDefaultParam>.Class, OptionalString)
+            .Build();
+    }
+
+    [NamedParameter]
+    public class StringWithoutDefaultParam : Name<string>
+    {
+    }
+
+    public class StringWithoutDefaultParamConf : ConfigurationModuleBuilder
+    {
+        public static readonly OptionalParameter<string> OptionalString = new OptionalParameter<string>();
+
+        public static ConfigurationModule ConfigurationModule = new StringWithoutDefaultParamConf()
+            .BindNamedParameter(GenericType<StringWithoutDefaultParam>.Class, OptionalString)
+            .Build();
+    }
+
+    class ThreeConstructors
     {
         public int i;
         public string s;
         public float f;
 
         [NamedParameter]
-        public class TCInt : Name<Int32> {}
+        public class TCInt : Name<int> 
+        { 
+        }
 
         [NamedParameter]
-        public class TCString : Name<string> { }
+        public class TCString : Name<string> 
+        { 
+        }
 
         [NamedParameter]
-        public class TCFloat : Name<float> {}
+        public class TCFloat : Name<float> 
+        { 
+        }
 
         [Inject]
         public ThreeConstructors([Parameter(typeof(TCInt))] int i, [Parameter(typeof(TCString))] string s) 
@@ -880,11 +903,14 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
         public string s;
 
         [NamedParameter]
-        public class TCInt : Name<Int32> { }
+        public class TCInt : Name<int> 
+        { 
+        }
 
         [NamedParameter]
-        public class TCString : Name<string> { }
-
+        public class TCString : Name<string> 
+        { 
+        }
 
         [Inject]
         public TwoConstructors([Parameter(typeof(TCInt))] int i, [Parameter(typeof(TCString))] string s)
@@ -901,21 +927,31 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
         }
     }
 
-    interface SMC { }
+    interface SMC 
+    { 
+    }
 
     class SingletonMultiConst : SMC 
     {
         [NamedParameter]
-        public class A : Name<string> { }
+        public class A : Name<string> 
+        { 
+        }
   
         [NamedParameter]
-        public class B : Name<string> { }
+        public class B : Name<string> 
+        { 
+        }
   
         [Inject]
-        public SingletonMultiConst([Parameter(typeof(A))] String a) { }
+        public SingletonMultiConst([Parameter(typeof(A))] string a) 
+        { 
+        }
         
         [Inject]
-        public SingletonMultiConst([Parameter(typeof(A))] string a, [Parameter(typeof(B))] string b) { }
+        public SingletonMultiConst([Parameter(typeof(A))] string a, [Parameter(typeof(B))] string b) 
+        { 
+        }
     }
 
     internal class ABCName
@@ -929,25 +965,25 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
         {
         }
 
-        //[NamedParameter(DefaultClass = typeof(XAA))]
-        //public class XNameDA : Name<X<BB>>
-        //{
-        //}
+        //// [NamedParameter(DefaultClass = typeof(XAA))]
+        //// public class XNameDA : Name<X<BB>>
+        //// {
+        //// }
 
         [NamedParameter(DefaultClass = typeof(XBB))]
         public class XNameDB : Name<X<BB>>
         {
         }
 
-        //[NamedParameter(DefaultClass = typeof(XCC))]
-        //public class XNameDC : Name<X<BB>>
-        //{
-        //}
+        //// [NamedParameter(DefaultClass = typeof(XCC))]
+        //// public class XNameDC : Name<X<BB>>
+        //// {
+        //// }
 
-        //[NamedParameter(DefaultClass = typeof(XCC))]
-        //public class XNameDAA : Name<XBB>
-        //{
-        //}
+        //// [NamedParameter(DefaultClass = typeof(XCC))]
+        //// public class XNameDAA : Name<XBB>
+        //// {
+        //// }
 
         [NamedParameter(DefaultClass = typeof(XXBB))]
         public class XNameDDAA : Name<XBB>
@@ -1016,8 +1052,8 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
         }
     }
 
-    interface Bottle<Y> {
-  
+    interface Bottle<Y> 
+    {  
     }
     class WaterBottle : Bottle<Water> 
     {  
@@ -1025,84 +1061,123 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
     class GasCan : Bottle<Gas> 
     {  
     }
-    class Water {}
-    class Gas {}
+    class Water 
+    { 
+    }
+    class Gas 
+    { 
+    }
 
-    [NamedParameter(DefaultClass=typeof(GasCan))]
-    class WaterBottleName : Name<Bottle<Water>> { }
+    [NamedParameter(DefaultClass = typeof(GasCan))]
+    class WaterBottleName : Name<Bottle<Water>> 
+    { 
+    }
 
-    interface IEventHandler <T> { }
+    interface IEventHandler<T> 
+    { 
+    }
     class MyEventHandler<T> : IEventHandler<T> 
     { 
         [Inject]
-        MyEventHandler () { }
+        MyEventHandler() 
+        { 
+        }
     }
 
     [DefaultImplementation(typeof(MyEventHandler<Foo>))]
-    interface MyEventHandlerIface : IEventHandler<Foo> { }
+    interface MyEventHandlerIface : IEventHandler<Foo> 
+    { 
+    }
 
     [NamedParameter(DefaultClass = typeof(MyEventHandler<Foo>))]
-    class FooEventHandler : Name<IEventHandler<Foo>> { }
+    class FooEventHandler : Name<IEventHandler<Foo>> 
+    { 
+    }
 
-    internal class Foo : Name<String>
+    internal class Foo : Name<string>
     {
     }
 
-    interface SomeIface { }
+    interface SomeIface 
+    { 
+    }
+
     [NamedParameter(DefaultClass = typeof(MyEventHandler<SomeIface>))]
-    class IfaceEventHandler : Name<IEventHandler<SomeIface>> { }
+    class IfaceEventHandler : Name<IEventHandler<SomeIface>> 
+    { 
+    }
 
     class AH
     {
         [Inject]
-        AH() {}
+        AH() 
+        { 
+        }
     }
     class BH
     {
         [Inject]
-        BH() {}
+        BH() 
+        { 
+        }
     }
 
     [DefaultImplementation(typeof(AHandlerImpl))]
-    interface IAHandler : IEventHandler<AH> { }
+    interface IAHandler : IEventHandler<AH> 
+    { 
+    }
 
     [DefaultImplementation(typeof(BHandlerImpl))]
-    interface IBHandler : IEventHandler<BH> { }
+    interface IBHandler : IEventHandler<BH> 
+    { 
+    }
 
     class AHandlerImpl : IAHandler
     {
         [Inject]
-        public AHandlerImpl() { }
+        public AHandlerImpl() 
+        { 
+        }
     }
     class BHandlerImpl : IBHandler 
     {
         [Inject]
-        public BHandlerImpl() { }
+        public BHandlerImpl() 
+        { 
+        }
     }
 
     class WantSomeHandlers 
     {
         [Inject]
-        WantSomeHandlers(IAHandler a, IBHandler b) { }
+        WantSomeHandlers(IAHandler a, IBHandler b) 
+        { 
+        }
     }
     class WantSomeFutureHandlers 
     {
         [Inject]
-        WantSomeFutureHandlers(IInjectionFuture<IAHandler> a, IInjectionFuture<IBHandler> b) { }
+        WantSomeFutureHandlers(IInjectionFuture<IAHandler> a, IInjectionFuture<IBHandler> b) 
+        { 
+        }
     }
 
     [NamedParameter(DefaultClass = typeof(AHandlerImpl))]
-    class AHandlerName : Name<IEventHandler<AH>> { }
+    class AHandlerName : Name<IEventHandler<AH>> 
+    { 
+    }
     
     [NamedParameter(DefaultClass = typeof(BHandlerImpl))]
-    class BHandlerName : Name<IEventHandler<BH>> { }
+    class BHandlerName : Name<IEventHandler<BH>> 
+    { 
+    }
 
     class WantSomeFutureHandlersName 
     {
         [Inject]
         WantSomeFutureHandlersName(
-            [Parameter(typeof (AHandlerName))] IInjectionFuture<IEventHandler<AH>> a,
-            [Parameter(typeof (BHandlerName))] IInjectionFuture<IEventHandler<BH>> b)
+            [Parameter(typeof(AHandlerName))] IInjectionFuture<IEventHandler<AH>> a,
+            [Parameter(typeof(BHandlerName))] IInjectionFuture<IEventHandler<BH>> b)
         {            
         }
     }
@@ -1126,35 +1201,41 @@ namespace Org.Apache.REEF.Tang.Tests.Tang
 
     abstract class MultiLayer
     {
-         
     }
 
     class MiddleLayer : MultiLayer
     {
-       [Inject]
-        public MiddleLayer() { }
+        [Inject]
+        public MiddleLayer() 
+        { 
+        }
     }
 
     class LowerLayer : MiddleLayer 
     {
-       [Inject]
-        public LowerLayer() { }
+        [Inject]
+        public LowerLayer() 
+        { 
+        }
     }
 
     interface IMultiLayer
     {
-
     }
 
     class MiddleLayerImpl : IMultiLayer
     {
         [Inject]
-        public MiddleLayerImpl() { }
+        public MiddleLayerImpl() 
+        { 
+        }
     }
 
     class LowerLayerImpl : MiddleLayerImpl
     {
         [Inject]
-        public LowerLayerImpl() { }
+        public LowerLayerImpl() 
+        { 
+        }
     }
 }

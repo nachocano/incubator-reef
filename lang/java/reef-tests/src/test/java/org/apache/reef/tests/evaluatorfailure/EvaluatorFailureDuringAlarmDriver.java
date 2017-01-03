@@ -18,6 +18,7 @@
  */
 package org.apache.reef.tests.evaluatorfailure;
 
+import org.apache.reef.driver.context.ActiveContext;
 import org.apache.reef.driver.context.ContextConfiguration;
 import org.apache.reef.driver.context.FailedContext;
 import org.apache.reef.driver.evaluator.AllocatedEvaluator;
@@ -70,6 +71,12 @@ final class EvaluatorFailureDuringAlarmDriver {
     }
   }
 
+  final class ActiveContextHandler implements EventHandler<ActiveContext> {
+    @Override
+    public void onNext(final ActiveContext context) throws DriverSideFailure {
+    }
+  }
+
   final class ContextFailureHandler implements EventHandler<FailedContext> {
     @Override
     public void onNext(final FailedContext failedContext) {
@@ -84,7 +91,6 @@ final class EvaluatorFailureDuringAlarmDriver {
     public void onNext(final FailedTask failedTask) {
       LOG.log(Level.SEVERE, "Received FailedTask: {0}", failedTask);
       otherFailuresReceived.set(true);
-
     }
   }
 

@@ -1,30 +1,28 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Org.Apache.REEF.Utilities.AsyncUtils;
 using Org.Apache.REEF.Utilities.Diagnostics;
 using Org.Apache.REEF.Utilities.Logging;
-using Org.Apache.REEF.Wake.Util;
 
 namespace Org.Apache.REEF.Wake.Remote.Impl
 {
@@ -45,14 +43,14 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
 
         /// <summary>
         /// Constructs a TransportServer to listen for remote events.  
-        /// Listens on the specified remote endpoint.  When it recieves a remote
-        /// event, it will envoke the specified remote handler.
+        /// Listens on the specified remote endpoint.  When it receives a remote
+        /// event, it will invoke the specified remote handler.
         /// </summary>
         /// <param name="localEndpoint">Endpoint to listen on</param>
         /// <param name="remoteHandler">The handler to invoke when receiving incoming
         /// remote messages</param>
-        /// <param name="codec">The codec to encode/decode"</param>
-         /// <param name="tcpPortProvider">provides port numbers to listen</param>
+        /// <param name="codec">The codec to encode/decode</param>
+        /// <param name="tcpPortProvider">provides port numbers to listen</param>
         public TransportServer(IPEndPoint localEndpoint, 
                                IObserver<TransportEvent<T>> remoteHandler, 
                                ICodec<T> codec,
@@ -97,8 +95,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
             var foundAPort = false;
             var exception = new SocketException((int)SocketError.AddressAlreadyInUse);
             for (var enumerator = _tcpPortProvider.GetEnumerator();
-                !foundAPort && enumerator.MoveNext();
-                )
+                !foundAPort && enumerator.MoveNext();)
             {
                 _listener = new TcpListener(LocalEndpoint.Address, enumerator.Current);
                 try
@@ -116,7 +113,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
                 Exceptions.Throw(exception, "Could not find a port to listen on", LOGGER);
             }
             LOGGER.Log(Level.Info,
-                String.Format("Listening on {0}", _listener.LocalEndpoint.ToString()));
+                string.Format("Listening on {0}", _listener.LocalEndpoint.ToString()));
         }
 
         /// <summary>
@@ -178,7 +175,8 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
                 while (!_cancellationSource.Token.IsCancellationRequested)
                 {
                     TcpClient client = await _listener.AcceptTcpClientAsync().ConfigureAwait(false);
-                    ProcessClient(client).Forget();
+                    ProcessClient(client).LogAndIgnoreExceptionIfAny(
+                        LOGGER, "Task Exception observed processing client in TransportServer.", Level.Warning);
                 }
             }
             catch (InvalidOperationException)
@@ -192,7 +190,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         }
 
         /// <summary>
-        /// Recieves event from connected TcpClient and invokes handler on the event.
+        /// Receives event from connected TcpClient and invokes handler on the event.
         /// </summary>
         /// <param name="client">The connected client</param>
         private async Task ProcessClient(TcpClient client)

@@ -1,38 +1,40 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Diagnostics;
 using Org.Apache.REEF.Common.Context;
-using Org.Apache.REEF.Common.Evaluator;
+using Org.Apache.REEF.Common.Evaluator.DriverConnectionConfigurationProviders;
+using Org.Apache.REEF.Common.Evaluator.Parameters;
 using Org.Apache.REEF.Driver.Bridge;
 using Org.Apache.REEF.Driver.Context;
 using Org.Apache.REEF.Driver.Evaluator;
 using Org.Apache.REEF.Driver.Task;
 using Org.Apache.REEF.Tang.Formats;
+using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Util;
+using Org.Apache.REEF.Utilities.Attributes;
 
 namespace Org.Apache.REEF.Driver
 {
     /// <summary>
     /// Fill this out to configure a Driver.
     /// </summary>
+    [ClientSide]
     public sealed class DriverConfiguration : ConfigurationModuleBuilder
     {
         /// <summary>
@@ -153,36 +155,36 @@ namespace Org.Apache.REEF.Driver
             new OptionalImpl<IObserver<IFailedEvaluator>>();
 
         /// <summary>
-        /// Additional set of string arguments that can be pssed to handlers through client
+        /// Additional set of string arguments that can be passed to handlers through client
         /// </summary>
         public static readonly OptionalParameter<string> CommandLineArguments = new OptionalParameter<string>();
 
         /// <summary>
-        /// The trace level of the TraceListner
+        /// The trace level of the TraceListener
         /// </summary>
         public static readonly OptionalParameter<string> CustomTraceLevel = new OptionalParameter<string>();
 
         /// <summary>
-        /// Additional set of trace listners provided by client
+        /// Additional set of trace listeners provided by client
         /// </summary>
         public static readonly OptionalParameter<TraceListener> CustomTraceListeners =
             new OptionalParameter<TraceListener>();
 
         /// <summary>
-        /// The number of times the application should be submitted in case of failures
+        /// The configuration provider for driver reconnection.
         /// </summary>
-        public static readonly OptionalParameter<int> MaxApplicationSubmissions =
-            new OptionalParameter<int>();
-
-        /// <summary>
-        /// The implemenation for (attempting to) re-establish connection to driver
-        /// </summary>
-        public static readonly OptionalImpl<IDriverConnection> OnDriverReconnect = new OptionalImpl<IDriverConnection>();
+        public static readonly OptionalImpl<IDriverReconnConfigProvider> DriverReconnectionConfigurationProvider =
+            new OptionalImpl<IDriverReconnConfigProvider>(); 
 
         /// <summary>
         /// Evaluator recovery timeout for driver restart in seconds. If value is greater than 0, restart is enabled. The default value is -1.
         /// </summary>
         public static readonly OptionalParameter<int> DriverRestartEvaluatorRecoverySeconds = new OptionalParameter<int>();
+
+        /// <summary>
+        /// The progress provider that will be injected at the Driver.
+        /// </summary>
+        public static readonly OptionalImpl<IProgressProvider> ProgressProvider = new OptionalImpl<IProgressProvider>();
 
         public static ConfigurationModule ConfigurationModule
         {
@@ -193,7 +195,6 @@ namespace Org.Apache.REEF.Driver
                         OnDriverStarted)
                     .BindSetEntry(GenericType<DriverBridgeConfigurationOptions.DriverRestartedHandlers>.Class,
                         OnDriverRestarted)
-                    .BindImplementation(GenericType<IDriverConnection>.Class, OnDriverReconnect)
                     .BindSetEntry(GenericType<DriverBridgeConfigurationOptions.AllocatedEvaluatorHandlers>.Class,
                         OnEvaluatorAllocated)
                     .BindSetEntry(GenericType<DriverBridgeConfigurationOptions.ActiveContextHandlers>.Class,
@@ -229,14 +230,13 @@ namespace Org.Apache.REEF.Driver
                     .BindSetEntry(GenericType<DriverBridgeConfigurationOptions.DriverRestartFailedEvaluatorHandlers>.Class,
                         OnDriverRestartEvaluatorFailed)
                     .BindNamedParameter(GenericType<DriverBridgeConfigurationOptions.TraceLevel>.Class, CustomTraceLevel)
-                    .BindNamedParameter(GenericType<DriverBridgeConfigurationOptions.MaxApplicationSubmissions>.Class,
-                        MaxApplicationSubmissions)
                     .BindNamedParameter(GenericType<DriverBridgeConfigurationOptions.DriverRestartEvaluatorRecoverySeconds>.Class,
                         DriverRestartEvaluatorRecoverySeconds)
-                    .Build()
-                    // TODO: Move this up
-                    .Set(OnDriverStarted, GenericType<ClassHierarchyGeneratingDriverStartObserver>.Class)
-                    .Set(OnDriverRestarted, GenericType<ClassHierarchyGeneratingDriverStartObserver>.Class);
+                    .BindSetEntry<EvaluatorConfigurationProviders, EvaluatorLogLevelProvider, IConfigurationProvider>(
+                        GenericType<EvaluatorConfigurationProviders>.Class, GenericType<EvaluatorLogLevelProvider>.Class)
+                    .BindImplementation(GenericType<IDriverReconnConfigProvider>.Class, DriverReconnectionConfigurationProvider)
+                    .BindImplementation(GenericType<IProgressProvider>.Class, ProgressProvider)
+                    .Build();
             }
         }
     }

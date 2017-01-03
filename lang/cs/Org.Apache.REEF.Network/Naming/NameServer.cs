@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -32,7 +30,6 @@ using Org.Apache.REEF.Wake.Remote;
 using Org.Apache.REEF.Wake.Remote.Impl;
 using Org.Apache.REEF.Wake.RX;
 using Org.Apache.REEF.Wake.RX.Impl;
-using Org.Apache.REEF.Wake.Util;
 
 namespace Org.Apache.REEF.Network.Naming
 {
@@ -40,9 +37,9 @@ namespace Org.Apache.REEF.Network.Naming
     /// Service that manages names and IPEndpoints for well known hosts.
     /// Can register, unregister, and look up IPAddresses using a string identifier.
     /// </summary>
-    public class NameServer : INameServer
+    public sealed class NameServer : INameServer
     {
-        private static readonly Logger _logger = Logger.GetLogger(typeof(NameServer));
+        private static readonly Logger Logger = Logger.GetLogger(typeof(NameServer));
 
         private readonly TransportServer<NamingEvent> _server;
         private readonly Dictionary<string, IPEndPoint> _idToAddrMap;
@@ -51,12 +48,14 @@ namespace Org.Apache.REEF.Network.Naming
         /// Create a new NameServer to run on the specified port.
         /// </summary>
         /// <param name="port">The port to listen for incoming connections on.</param>
+        /// <param name="addressProvider">The address provider.</param>
         /// <param name="tcpPortProvider">If port is 0, this interface provides 
         /// a port range to try.
         /// </param>
         [Inject]
         private NameServer(
             [Parameter(typeof(NamingConfigurationOptions.NameServerPort))] int port,
+            ILocalAddressProvider addressProvider,
             ITcpPortProvider tcpPortProvider)
         {
             IObserver<TransportEvent<NamingEvent>> handler = CreateServerHandler();
@@ -64,9 +63,9 @@ namespace Org.Apache.REEF.Network.Naming
             ICodec<NamingEvent> codec = CreateServerCodec();
 
             // Start transport server, get listening IP endpoint
-            _logger.Log(Level.Info, "Starting naming server");
+            Logger.Log(Level.Info, "Starting naming server");
             _server = new TransportServer<NamingEvent>(
-                new IPEndPoint(NetworkUtils.LocalIPAddress, port), handler, 
+                new IPEndPoint(addressProvider.LocalAddress, port), handler, 
                 codec, tcpPortProvider);
             _server.Run();
             LocalEndpoint = _server.LocalEndpoint;
@@ -84,7 +83,7 @@ namespace Org.Apache.REEF.Network.Naming
         {
             if (ids == null)
             {
-                Exceptions.Throw(new ArgumentNullException("ids"), _logger);
+                Exceptions.Throw(new ArgumentNullException("ids"), Logger);
             }
 
             return ids.Where(id => _idToAddrMap.ContainsKey(id))
@@ -111,14 +110,14 @@ namespace Org.Apache.REEF.Network.Naming
         {
             if (id == null)
             {
-                Exceptions.Throw(new ArgumentNullException("id"), _logger);
+                Exceptions.Throw(new ArgumentNullException("id"), Logger);
             }
             if (endpoint == null)
             {
-                Exceptions.Throw(new ArgumentNullException("endpoint"), _logger);
+                Exceptions.Throw(new ArgumentNullException("endpoint"), Logger);
             }
 
-            _logger.Log(Level.Info, "Registering id: " + id + ", and endpoint: " + endpoint);
+            Logger.Log(Level.Info, "Registering id: " + id + ", and endpoint: " + endpoint);
             _idToAddrMap[id] = endpoint;
         }
 
@@ -130,10 +129,10 @@ namespace Org.Apache.REEF.Network.Naming
         {
             if (id == null)
             {
-                Exceptions.Throw(new ArgumentNullException("id"), _logger);
+                Exceptions.Throw(new ArgumentNullException("id"), Logger);
             }
 
-            _logger.Log(Level.Info, "Unregistering id: " + id);
+            Logger.Log(Level.Info, "Unregistering id: " + id);
             _idToAddrMap.Remove(id);
         }
 
@@ -195,9 +194,16 @@ namespace Org.Apache.REEF.Network.Naming
 
             public override void OnNext(TransportEvent<NamingEvent> value)
             {
-                NamingEvent message = value.Data;
-                message.Link = value.Link;
-                _handler.OnNext(message);
+                if (value != null && value.Data != null)
+                { 
+                    NamingEvent message = value.Data;
+                    message.Link = value.Link;
+                    _handler.OnNext(message);
+                }
+                else
+                {
+                    Logger.Log(Level.Warning, "NameServer.OnNext(TransportEvent<NamingEvent> value), message received is null");
+                }
             }
         }
     }

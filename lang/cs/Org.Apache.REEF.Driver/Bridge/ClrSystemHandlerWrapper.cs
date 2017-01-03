@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Globalization;
@@ -26,19 +24,21 @@ using Org.Apache.REEF.Driver.Bridge.Events;
 using Org.Apache.REEF.Driver.Context;
 using Org.Apache.REEF.Driver.Evaluator;
 using Org.Apache.REEF.Driver.Task;
+using Org.Apache.REEF.Utilities.Attributes;
 using Org.Apache.REEF.Utilities.Diagnostics;
 using Org.Apache.REEF.Utilities.Logging;
 using ContextMessage = Org.Apache.REEF.Driver.Bridge.Events.ContextMessage;
 
 namespace Org.Apache.REEF.Driver.Bridge
 {
-    public class ClrSystemHandlerWrapper
+    [Private]
+    public static class ClrSystemHandlerWrapper
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(ClrSystemHandlerWrapper));
 
         private static DriverBridge _driverBridge;
 
-        public static void Call_ClrSystemAllocatedEvaluatorHandler_OnNext(ulong handle, IAllocatedEvaluaotrClr2Java clr2Java)
+        public static void Call_ClrSystemAllocatedEvaluatorHandler_OnNext(ulong handle, IAllocatedEvaluatorClr2Java clr2Java)
         {
             using (LOGGER.LogFunction("ClrSystemHandlerWrapper::Call_ClrSystemAllocatedEvaluatorHandler_OnNext"))
             {
@@ -164,22 +164,27 @@ namespace Org.Apache.REEF.Driver.Bridge
             {
                 try
                 {
-                    GCHandle gc = GCHandle.FromIntPtr((IntPtr) handle);
+                    GCHandle gc = GCHandle.FromIntPtr((IntPtr)handle);
                     if (!gc.IsAllocated)
                     {
                         LOGGER.Log(Level.Warning, "gc is not allocated.");
                     } 
-                    ClrSystemHandler<IHttpMessage> obj = (ClrSystemHandler<IHttpMessage>) gc.Target;
+                    ClrSystemHandler<IHttpMessage> obj = (ClrSystemHandler<IHttpMessage>)gc.Target;
                     obj.OnNext(new HttpMessage(clr2Java));
                 }
                 catch (Exception ex)
                 {
-                  
-                    LOGGER.Log(Level.Info, "Caught exception: " + ex.Message + ex.StackTrace );
+                    LOGGER.Log(Level.Info, "Caught exception: " + ex.Message + ex.StackTrace);
                     Exceptions.CaughtAndThrow(ex, Level.Warning,  LOGGER);
-                }}
+                }
+            }
         }
 
+        /// <summary>
+        /// Invokes event handlers registered to the closed context event.
+        /// </summary>
+        /// <param name="handle">Pointer to the event handler object</param>
+        /// <param name="clr2Java">Proxy object to the Java closed context.</param>
         public static void Call_ClrSystemClosedContext_OnNext(ulong handle, IClosedContextClr2Java clr2Java)
         {
             using (LOGGER.LogFunction("ClrSystemHandlerWrapper::Call_ClrSystemClosedContext_OnNext"))
@@ -230,54 +235,61 @@ namespace Org.Apache.REEF.Driver.Bridge
             }
         }
 
-        //Deprecate, remove after both Java and C# code gets checked in
-        public static ulong[] Call_ClrSystemStartHandler_OnStart(
-            DateTime startTime,
-            IEvaluatorRequestorClr2Java  evaluatorRequestorClr2Java)
+        public static float Call_ProgressProvider_GetProgress(ulong handle)
         {
-            IEvaluatorRequestor evaluatorRequestor = new EvaluatorRequestor(evaluatorRequestorClr2Java);
-            using (LOGGER.LogFunction("ClrSystemHandlerWrapper::Call_ClrSystemStartHandler_OnStart"))
+            using (LOGGER.LogFunction("ClrSystemHandlerWrapper::Call_ProgressProvider_GetProgress"))
             {
-                LOGGER.Log(Level.Info, "*** Start time is " + startTime);
-                return GetHandlers(null, evaluatorRequestor);
+                GCHandle gc = GCHandle.FromIntPtr((IntPtr)handle);
+                IProgressProvider obj = (IProgressProvider)gc.Target;
+                return obj.Progress;
             }
         }
 
-        public static ulong[] Call_ClrSystemStartHandler_OnStart(
-            DateTime startTime, 
+        /// <summary>
+        /// Invokes event handlers registered to the driver start event.
+        /// </summary>
+        /// <param name="startTime"><see cref="DateTime"/> object that represents when this method was called.</param>
+        public static void Call_ClrSystemStartHandler_OnStart(DateTime startTime)
+        {
+            using (LOGGER.LogFunction("ClrSystemHandlerWrapper::Call_ClrSystemStartHandler_OnStart"))
+            {
+                LOGGER.Log(Level.Info, "*** Start time is " + startTime);
+                _driverBridge.StartHandlersOnNext(startTime);
+            }
+        }
+
+        /// <summary>
+        /// Invokes event handlers registered to the driver restart event.
+        /// </summary>
+        /// <param name="driverRestartedClr2Java">Proxy object to the Java driver restart event object.</param>
+        public static void Call_ClrSystemRestartHandler_OnRestart(IDriverRestartedClr2Java driverRestartedClr2Java)
+        {
+            using (LOGGER.LogFunction("ClrSystemHandlerWrapper::Call_ClrSystemRestartHandler_OnRestart"))
+            {
+                LOGGER.Log(Level.Info, "*** Restart time is " + driverRestartedClr2Java.GetStartTime());
+                _driverBridge.RestartHandlerOnNext(driverRestartedClr2Java);
+            }
+        }
+
+        /// <summary>
+        /// Configure and return a manager object holding all subscriptions given to REEF events on the .NET side.
+        /// </summary>
+        /// <param name="httpServerPort">String representation of the http port of the Java-side driver.</param>
+        /// <param name="evaluatorRequestorClr2Java">Proxy object to the Java evaluator requestor object.</param>
+        /// <returns><see cref="BridgeHandlerManager"/> object that contains .NET handles for each REEF event.</returns>
+        public static BridgeHandlerManager Call_ClrSystem_SetupBridgeHandlerManager(
             string httpServerPort,
             IEvaluatorRequestorClr2Java evaluatorRequestorClr2Java)
         {
             IEvaluatorRequestor evaluatorRequestor = new EvaluatorRequestor(evaluatorRequestorClr2Java);
-            using (LOGGER.LogFunction("ClrSystemHandlerWrapper::Call_ClrSystemStartHandler_OnStart"))
+            using (LOGGER.LogFunction("ClrSystemHandlerWrapper::Call_ClrSystem_SetupBridgeHandlerManager"))
             {
-                LOGGER.Log(Level.Info, "*** Start time is " + startTime);
                 LOGGER.Log(Level.Info, "*** httpServerPort: " + httpServerPort);
-                var handlers = GetHandlers(httpServerPort, evaluatorRequestor);
-                _driverBridge.StartHandlersOnNext(startTime);
-
-                return handlers;
-            }   
-        }
-
-        public static ulong[] Call_ClrSystemRestartHandler_OnRestart(
-            string httpServerPort,
-            IEvaluatorRequestorClr2Java evaluatorRequestorClr2Java,
-            IDriverRestartedClr2Java driverRestartedClr2Java)
-        {
-            IEvaluatorRequestor evaluatorRequestor = new EvaluatorRequestor(evaluatorRequestorClr2Java);
-            using (LOGGER.LogFunction("ClrSystemHandlerWrapper::Call_ClrSystemRestartHandler_OnRestart"))
-            {
-                LOGGER.Log(Level.Info, "*** Restart time is " + driverRestartedClr2Java.GetStartTime());
-                LOGGER.Log(Level.Info, "*** httpServerPort: " + httpServerPort);
-                var handlers = GetHandlers(httpServerPort, evaluatorRequestor);
-                _driverBridge.RestartHandlerOnNext(driverRestartedClr2Java);
-
-                return handlers;
+                return GetHandlers(httpServerPort, evaluatorRequestor);
             }
         }
 
-        private static ulong[] GetHandlers(string httpServerPortNumber, IEvaluatorRequestor evaluatorRequestor)
+        private static BridgeHandlerManager GetHandlers(string httpServerPortNumber, IEvaluatorRequestor evaluatorRequestor)
         {
             var injector = BridgeConfigurationProvider.GetBridgeInjector(evaluatorRequestor);
 

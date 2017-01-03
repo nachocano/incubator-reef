@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -38,7 +36,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
     /// <summary>
     /// AvroClassHierarchySerializer is to serialize and deserialize ClassHierarchy
     /// </summary>
-    public class AvroClassHierarchySerializer : IClassHierarchySerializer
+    internal sealed class AvroClassHierarchySerializer : IClassHierarchySerializer
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(AvroClassHierarchySerializer));
 
@@ -67,20 +65,20 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
         /// <param name="fileName"></param>
         public void ToFile(IClassHierarchy c, string fileName)
         {
-            var avronNodeData = ToAvroNode(c);
+            var avroNodeData = ToAvroNode(c);
             using (var buffer = new MemoryStream())
             {
                 using (var w = AvroContainer.CreateWriter<AvroNode>(buffer, Codec.Null))
                 {
                     using (var writer = new SequentialWriter<AvroNode>(w, 24))
                     {
-                        writer.Write(avronNodeData);
+                        writer.Write(avroNodeData);
                     }
                 }
 
                 if (!WriteFile(buffer, fileName))
                 {
-                    var e = new ApplicationException("Error during file operation. Quitting method: " + fileName);
+                    var e = new TangApplicationException("Error during file operation. Quitting method: " + fileName);
                     Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
                 }
             }
@@ -93,13 +91,16 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
         /// <param name="fileName"></param>
         public void ToTextFile(IClassHierarchy c, string fileName)
         {
-            var fp = new StreamWriter(fileName);
-            fp.WriteLine(ToString(c));
-            fp.Close();
+            using (FileStream fs = File.Open(fileName, FileMode.Create))
+            {
+                var fp = new StreamWriter(fs);
+                fp.WriteLine(ToString(c));
+                fp.Dispose();
+            }
         }
 
         /// <summary>
-        /// erialize a ClassHierarchy into a byte array
+        /// Serialize a ClassHierarchy into a byte array
         /// </summary>
         /// <param name="c"></param>
         /// <returns></returns>
@@ -122,7 +123,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
         }
 
         /// <summary>
-        /// Deserailize a ClassHierarchy from a file
+        /// Deserialize a ClassHierarchy from a file
         /// </summary>
         /// <param name="fileName"></param>
         /// <returns></returns>
@@ -133,7 +134,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
         }
 
         /// <summary>
-        /// Get Json string from the text file, the deserailize it into ClassHierarchy
+        /// Get Json string from the text file, the deserialize it into ClassHierarchy
         /// </summary>
         /// <param name="fileName"></param>
         /// <returns></returns>
@@ -141,19 +142,18 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
         {
             string line;
             StringBuilder b = new StringBuilder();
-
-            StreamReader file = new StreamReader(fileName);
-            while ((line = file.ReadLine()) != null)
+            using (StreamReader sr = File.OpenText(fileName))
             {
-                b.Append(line);
+                while ((line = sr.ReadLine()) != null)
+                {
+                    b.Append(line);
+                }
             }
-            file.Close();
-
             return FromString(b.ToString());
         }
 
         /// <summary>
-        /// Deserailize a ClassHierarchy from a byte array
+        /// Deserialize a ClassHierarchy from a byte array
         /// </summary>
         /// <param name="bytes"></param>
         /// <returns></returns>
@@ -164,7 +164,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
         }
 
         /// <summary>
-        /// Deserailize a ClassHierarchy from a Json string
+        /// Deserialize a ClassHierarchy from a Json string
         /// </summary>
         /// <param name="jsonString"></param>
         /// <returns></returns>
@@ -185,7 +185,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
         }
 
         /// <summary>
-        /// Deserailize ClassHierarchy from an AvroNode into AvroClassHierarchy object
+        /// Deserialize ClassHierarchy from an AvroNode into AvroClassHierarchy object
         /// </summary>
         /// <param name="n"></param>
         /// <returns></returns>
@@ -205,7 +205,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
 
             if (n is IClassNode)
             {
-                IClassNode cn = (IClassNode) n;
+                IClassNode cn = (IClassNode)n;
                 IList<IConstructorDef> injectable = cn.GetInjectableConstructors();
                 IList<IConstructorDef> all = cn.GetAllConstructors();
                 IList<IConstructorDef> others = new List<IConstructorDef>(all);
@@ -230,7 +230,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
                 List<string> implFullNames = new List<string>();
                 foreach (IClassNode impl in cn.GetKnownImplementations())
                 {
-                    implFullNames.Add(impl.GetFullName()); //we use class fully qualifed name 
+                    implFullNames.Add(impl.GetFullName()); // we use class fully qualified name 
                 }
 
                 return NewClassNode(cn.GetName(), cn.GetFullName(),
@@ -240,7 +240,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
 
             if (n is INamedParameterNode)
             {
-                INamedParameterNode np = (INamedParameterNode) n;
+                INamedParameterNode np = (INamedParameterNode)n;
                 return NewNamedParameterNode(np.GetName(), np.GetFullName(),
                     np.GetSimpleArgName(), np.GetFullArgName(), np.IsSet(), np.IsList(), np.GetDocumentation(),
                     np.GetShortName(), np.GetDefaultInstanceAsStrings(), children);
@@ -256,13 +256,13 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             return null;
         }
 
-        private AvroNode NewClassNode(String name,
-            String fullName,
+        private AvroNode NewClassNode(string name,
+            string fullName,
             bool isInjectionCandidate,
             bool isExternalConstructor, bool isUnit,
             IList<AvroConstructorDef> injectableConstructors,
             IList<AvroConstructorDef> otherConstructors,
-            IList<String> implFullNames, IList<AvroNode> children)
+            IList<string> implFullNames, IList<AvroNode> children)
         {
             AvroClassNode classNode = new AvroClassNode();
 
@@ -400,7 +400,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
                     if (!ReadFile(buffer, fileName))
                     {
                         var e =
-                            new ApplicationException("Error during file operation. Quitting method : " + fileName);
+                            new TangApplicationException("Error during file operation. Quitting method : " + fileName);
                         Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
                     }
 
@@ -421,7 +421,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             catch (SerializationException ex)
             {
                 Utilities.Diagnostics.Exceptions.Caught(ex, Level.Error, LOGGER);
-                var e = new ApplicationException("Cannot deserialize the file: " + fileName, ex);
+                var e = new TangApplicationException("Cannot deserialize the file: " + fileName, ex);
                 Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
             }
 
@@ -466,7 +466,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
             using (MemoryStream stream = new MemoryStream())
             {
                 serializer.Serialize(stream, obj);
-                return stream.GetBuffer();
+                return stream.ToArray();
             }
         }
 

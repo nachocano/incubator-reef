@@ -18,7 +18,9 @@
  */
 package org.apache.reef.wake.examples.join;
 
-
+/**
+ * A tuple event consisting key and value pair.
+ */
 public class TupleEvent implements Comparable<TupleEvent> {
   private final int key;
   private final String val;
@@ -26,6 +28,31 @@ public class TupleEvent implements Comparable<TupleEvent> {
   public TupleEvent(final int key, final String val) {
     this.key = key;
     this.val = val;
+  }
+
+  @Override
+  public boolean equals(final Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    TupleEvent that = (TupleEvent) o;
+
+    if (key != that.key) {
+      return false;
+    }
+    return val != null ? val.equals(that.val) : that.val == null;
+
+  }
+
+  @Override
+  public int hashCode() {
+    int result = key;
+    result = 31 * result + (val != null ? val.hashCode() : 0);
+    return result;
   }
 
   @Override

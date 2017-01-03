@@ -19,6 +19,7 @@
 package org.apache.reef.runtime.common.driver.resourcemanager;
 
 import org.apache.reef.proto.ReefServiceProtos;
+import org.apache.reef.runtime.common.driver.evaluator.pojos.State;
 import org.apache.reef.util.BuilderUtils;
 import org.apache.reef.util.Optional;
 
@@ -30,8 +31,9 @@ import java.util.List;
  * Use newBuilder to construct an instance.
  */
 public final class RuntimeStatusEventImpl implements RuntimeStatusEvent {
+
   private final String name;
-  private final ReefServiceProtos.State state;
+  private final State state;
   private final List<String> containerAllocationList;
   private final Optional<ReefServiceProtos.RuntimeErrorProto> error;
   private final Optional<Integer> outstandingContainerRequests;
@@ -45,12 +47,30 @@ public final class RuntimeStatusEventImpl implements RuntimeStatusEvent {
   }
 
   @Override
+  public String toString() {
+
+    // Replace with String.join() after migration to Java 1.8
+    final StringBuilder allocatedContainers = new StringBuilder();
+    for (String container : this.containerAllocationList) {
+      if (allocatedContainers.length() > 0) {
+        allocatedContainers.append(',');
+      }
+      allocatedContainers.append(container);
+    }
+
+    return String.format(
+        "RuntimeStatusEventImpl:{name:%s, state:%s, allocated:[%s], outstanding:%d, error:%s}",
+        this.name, this.state, allocatedContainers, this.outstandingContainerRequests.orElse(0),
+        this.error.isPresent());
+  }
+
+  @Override
   public String getName() {
     return name;
   }
 
   @Override
-  public ReefServiceProtos.State getState() {
+  public State getState() {
     return state;
   }
 
@@ -78,7 +98,7 @@ public final class RuntimeStatusEventImpl implements RuntimeStatusEvent {
    */
   public static final class Builder implements org.apache.reef.util.Builder<RuntimeStatusEvent> {
     private String name;
-    private ReefServiceProtos.State state;
+    private State state;
     private List<String> containerAllocationList = new ArrayList<>();
     private ReefServiceProtos.RuntimeErrorProto error;
     private Integer outstandingContainerRequests;
@@ -94,7 +114,7 @@ public final class RuntimeStatusEventImpl implements RuntimeStatusEvent {
     /**
      * @see RuntimeStatusEvent#getState()
      */
-    public Builder setState(final ReefServiceProtos.State state) {
+    public Builder setState(final State state) {
       this.state = state;
       return this;
     }

@@ -1,34 +1,31 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System.Collections.Generic;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.Apache.REEF.Common.Avro;
 using Org.Apache.REEF.Utilities;
 using Org.Apache.REEF.Utilities.Logging;
+using Xunit;
 
 namespace Org.Apache.REEF.Common.Tests
 {
     /// <summary>
     /// Class TestHttpSerialization. This class contains unit tests for HttpRequest serailization and deserialization.
     /// </summary>
-    [TestClass]
     public class TestHttpSerialization
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(TestHttpSerialization));
@@ -36,43 +33,43 @@ namespace Org.Apache.REEF.Common.Tests
         /// <summary>
         /// Tests the HTTP request serialization jason round trip.
         /// </summary>
-        [TestMethod]
+        [Fact]
         public void TestHttpRequestSerializationJasonRoundTrip()
         {
-            AvroHttpRequest r = CreatAvorHttpRequest();
+            AvroHttpRequest r = CreateAvroHttpRequest();
 
             string str = AvroHttpSerializer.ToJson(r);
             byte[] bytes = ByteUtilities.StringToByteArrays(str);
-            var r1 = AvroHttpSerializer.FromBytesWithJoson(bytes);
+            var r1 = AvroHttpSerializer.FromBytesWithJson(bytes);
 
-            var ri = ByteUtilities.ByteArrarysToString(r.InputStream);
-            var ri1 = ByteUtilities.ByteArrarysToString(r1.InputStream);
-            Assert.AreEqual(ri, ri1);
-            Assert.AreEqual(r.QueryString, r1.QueryString);
+            var ri = ByteUtilities.ByteArraysToString(r.InputStream);
+            var ri1 = ByteUtilities.ByteArraysToString(r1.InputStream);
+            Assert.Equal(ri, ri1);
+            Assert.Equal(r.QueryString, r1.QueryString);
         }
 
         /// <summary>
         /// Tests the HTTP request serialization round trip.
         /// </summary>
-        [TestMethod]
+        [Fact]
         public void TestHttpRequestSerializationBytesRoundTrip()
         {
-            AvroHttpRequest r = CreatAvorHttpRequest();
+            AvroHttpRequest r = CreateAvroHttpRequest();
 
             var b = AvroHttpSerializer.ToBytes(r);
             var r1 = AvroHttpSerializer.FromBytes(b);
 
-            var ri = ByteUtilities.ByteArrarysToString(r.InputStream);
-            var ri1 = ByteUtilities.ByteArrarysToString(r1.InputStream);
-            Assert.AreEqual(ri, ri1);
-            Assert.AreEqual(r.QueryString, r1.QueryString);
+            var ri = ByteUtilities.ByteArraysToString(r.InputStream);
+            var ri1 = ByteUtilities.ByteArraysToString(r1.InputStream);
+            Assert.Equal(ri, ri1);
+            Assert.Equal(r.QueryString, r1.QueryString);
         }
 
         /// <summary>
-        /// Creats an Avor HTTP request for unit tests.
+        /// Creates an Avro HTTP request for unit tests.
         /// </summary>
         /// <returns>AvroHttpRequest.</returns>
-        private AvroHttpRequest CreatAvorHttpRequest()
+        private AvroHttpRequest CreateAvroHttpRequest()
         {
             AvroHttpRequest r = new AvroHttpRequest();
             r.Header = new List<HeaderEntry>();

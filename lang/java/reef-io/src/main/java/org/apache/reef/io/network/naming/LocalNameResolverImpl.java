@@ -98,13 +98,13 @@ public final class LocalNameResolverImpl implements NameResolver {
           try {
             final InetSocketAddress addr = nameServer.lookup(id);
             if (addr == null) {
-              throw new NullPointerException();
+              throw new NullPointerException("The lookup of the address in the nameServer returned null for id " + id);
             } else {
               return addr;
             }
           } catch (final NullPointerException e) {
             if (retriesLeft <= 0) {
-              throw new NamingException("Cannot find " + id + " from the name server");
+              throw new NamingException("Cannot find " + id + " from the name server", e);
             } else {
               final int retTimeout = LocalNameResolverImpl.this.retryTimeout
                   * (origRetryCount - retriesLeft + 1);
@@ -112,7 +112,7 @@ public final class LocalNameResolverImpl implements NameResolver {
                   "Caught Naming Exception while looking up " + id
                       + " with Name Server. Will retry " + retriesLeft
                       + " time(s) after waiting for " + retTimeout + " msec.");
-              Thread.sleep(retTimeout * retriesLeft);
+              Thread.sleep(retTimeout);
               --retriesLeft;
             }
           }

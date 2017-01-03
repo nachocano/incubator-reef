@@ -1,92 +1,62 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using Org.Apache.REEF.Common.Io;
+using System.Threading;
 using Org.Apache.REEF.Common.Protobuf.ReefProtocol;
 using Org.Apache.REEF.Common.Tasks;
 using Org.Apache.REEF.Common.Tasks.Events;
-using Org.Apache.REEF.Tang.Exceptions;
-using Org.Apache.REEF.Tang.Interface;
+using Org.Apache.REEF.Tang.Annotations;
+using Org.Apache.REEF.Tang.Implementations.InjectionPlan;
 using Org.Apache.REEF.Utilities;
+using Org.Apache.REEF.Utilities.Attributes;
 using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Common.Runtime.Evaluator.Task
 {
-    public class TaskRuntime : IObserver<ICloseEvent>, IObserver<ISuspendEvent>, IObserver<IDriverMessage>
+    internal sealed class TaskRuntime : IObserver<ICloseEvent>, IObserver<ISuspendEvent>, IObserver<IDriverMessage>
     {
-        private static readonly Logger LOGGER = Logger.GetLogger(typeof(TaskRuntime));
-        
-        private readonly ITask _task;
-
-        private readonly IInjector _injector;
-
-        // The memento given by the task configuration
-        private readonly Optional<byte[]> _memento;
-
-        private readonly HeartBeatManager _heartBeatManager;
+        private static readonly Logger Logger = Logger.GetLogger(typeof(TaskRuntime));
 
         private readonly TaskStatus _currentStatus;
+        private readonly Optional<IDriverConnectionMessageHandler> _driverConnectionMessageHandler;
+        private readonly Optional<IDriverMessageHandler> _driverMessageHandler;
+        private readonly ITask _userTask;
+        private readonly IInjectionFuture<IObserver<ISuspendEvent>> _suspendHandlerFuture;
+        private readonly IInjectionFuture<IObserver<ICloseEvent>> _closeHandlerFuture;
+        private int _taskRan = 0;
+        private int _taskClosed = 0;
 
-        private readonly INameClient _nameClient;
-
-        public TaskRuntime(IInjector taskInjector, string contextId, string taskId, HeartBeatManager heartBeatManager, string memento = null)
+        [Inject]
+        private TaskRuntime(
+            ITask userTask,
+            IDriverMessageHandler driverMessageHandler, 
+            IDriverConnectionMessageHandler driverConnectionMessageHandler,
+            TaskStatus taskStatus,
+            [Parameter(typeof(TaskConfigurationOptions.SuspendHandler))] IInjectionFuture<IObserver<ISuspendEvent>> suspendHandlerFuture,
+            [Parameter(typeof(TaskConfigurationOptions.CloseHandler))] IInjectionFuture<IObserver<ICloseEvent>> closedHandlerFuture)
         {
-            _injector = taskInjector;
-            _heartBeatManager = heartBeatManager;
-
-            Optional<ISet<ITaskMessageSource>> messageSources = Optional<ISet<ITaskMessageSource>>.Empty();
-            try
-            {
-                _task = _injector.GetInstance<ITask>();
-            }
-            catch (Exception e)
-            {
-                Org.Apache.REEF.Utilities.Diagnostics.Exceptions.CaughtAndThrow(new InvalidOperationException("Unable to inject task.", e), Level.Error, "Unable to inject task.", LOGGER);
-            }
-            try
-            {
-                ITaskMessageSource taskMessageSource = _injector.GetInstance<ITaskMessageSource>();
-                messageSources = Optional<ISet<ITaskMessageSource>>.Of(new HashSet<ITaskMessageSource>() { taskMessageSource });
-            }
-            catch (Exception e)
-            {
-                Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Caught(e, Level.Warning, "Cannot inject task message source with error: " + e.StackTrace, LOGGER);
-                // do not rethrow since this is benign
-            }
-            try
-            {
-                _nameClient = _injector.GetInstance<INameClient>();
-                _heartBeatManager.EvaluatorSettings.NameClient = _nameClient;
-            }
-            catch (InjectionException)
-            {
-                LOGGER.Log(Level.Warning, "Cannot inject name client from task configuration.");
-                // do not rethrow since user is not required to provide name client
-            }
-
-            LOGGER.Log(Level.Info, "task message source injected");
-            _currentStatus = new TaskStatus(_heartBeatManager, contextId, taskId, messageSources);
-            _memento = memento == null ?
-                Optional<byte[]>.Empty() : Optional<byte[]>.Of(ByteUtilities.StringToByteArrays(memento));
+            _currentStatus = taskStatus;
+            _driverMessageHandler = Optional<IDriverMessageHandler>.Of(driverMessageHandler);
+            _driverConnectionMessageHandler = Optional<IDriverConnectionMessageHandler>.Of(driverConnectionMessageHandler);
+            _userTask = userTask;
+            _suspendHandlerFuture = suspendHandlerFuture;
+            _closeHandlerFuture = closedHandlerFuture;
         }
 
         public string TaskId
@@ -99,58 +69,82 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Task
             get { return _currentStatus.ContextId; }
         }
 
-        public void Initialize()
-        {
-            _currentStatus.SetRunning();
+        /// <summary>
+        /// For testing only!
+        /// </summary>
+        [Testing]
+        internal ITask Task 
+        { 
+            get { return _userTask; }
         }
 
         /// <summary>
-        /// Run the task
+        /// Runs the task asynchronously.
         /// </summary>
-        public void Start()
+        public Thread StartTaskOnNewThread()
         {
-            try
+            if (Interlocked.Exchange(ref _taskRan, 1) != 0)
             {
-                LOGGER.Log(Level.Info, "Call Task");
-                if (_currentStatus.IsNotRunning())
-                {
-                    var e = new InvalidOperationException("TaskRuntime not in Running state, instead it is in state " + _currentStatus.State);
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
-                }
-                byte[] result;
-                byte[] taskMemento = _memento.IsPresent() ? _memento.Value : null;
-                System.Threading.Tasks.Task<byte[]> runTask = new System.Threading.Tasks.Task<byte[]>(() => RunTask(taskMemento));
+                // Return if we have already called StartTaskOnNewThread
+                throw new InvalidOperationException("TaskRun has already been called on TaskRuntime.");
+            }
+
+            _currentStatus.SetInit();
+
+            var taskThread = new Thread(() =>
+            {
                 try
                 {
-                    runTask.Start();
-                    runTask.Wait();
+                    Logger.Log(Level.Verbose, "Set running status for task");
+                    _currentStatus.SetRunning();
+                    Logger.Log(Level.Verbose, "Calling into user's task.");
+                    var result = _userTask.Call(null);
+                    Logger.Log(Level.Info, "Task Call Finished");
+                    _currentStatus.SetResult(result);
+
+                    const Level resultLogLevel = Level.Verbose;
+
+                    if (Logger.IsLoggable(resultLogLevel) && result != null && result.Length > 0)
+                    {
+                        Logger.Log(resultLogLevel,
+                            "Task running result:\r\n" + System.Text.Encoding.Default.GetString(result));
+                    }
+                }
+                catch (TaskStartHandlerException e)
+                {
+                    Logger.Log(Level.Info, "TaskRuntime::TaskStartHandlerException");
+                    _currentStatus.SetException(e.InnerException);
+                }
+                catch (TaskStopHandlerException e)
+                {
+                    Logger.Log(Level.Info, "TaskRuntime::TaskStopHandlerException");
+                    _currentStatus.SetException(e.InnerException);
                 }
                 catch (Exception e)
                 {
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.CaughtAndThrow(e, Level.Error, "Exception thrown during task running.", LOGGER);
+                    Logger.Log(Level.Info, "TaskRuntime::Exception {0}", e.GetType());
+                    _currentStatus.SetException(e);
                 }
-                result = runTask.Result;
+                finally
+                {
+                    try
+                    {
+                        if (_userTask != null)
+                        {
+                            _userTask.Dispose();
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        var msg = "Exception during Task Dispose in task Call()";
+                        Logger.Log(Level.Error, msg);
+                        throw new InvalidOperationException(msg, e);
+                    }
+                }
+            });
 
-                LOGGER.Log(Level.Info, "Task Call Finished");
-                if (_task != null)
-                {
-                    _task.Dispose();
-                }
-                _currentStatus.SetResult(result);
-                if (result != null && result.Length > 0)
-                {
-                    LOGGER.Log(Level.Info, "Task running result:\r\n" + System.Text.Encoding.Default.GetString(result));
-                }
-            }
-            catch (Exception e)
-            {
-                if (_task != null)
-                {
-                    _task.Dispose();
-                }
-                LOGGER.Log(Level.Warning, string.Format(CultureInfo.InvariantCulture, "Task failed caused by exception [{0}]", e));
-                _currentStatus.SetException(e);
-            }
+            taskThread.Start();
+            return taskThread;
         }
 
         public TaskState GetTaskState()
@@ -172,155 +166,125 @@ namespace Org.Apache.REEF.Common.Runtime.Evaluator.Task
             return _currentStatus.HasEnded();
         }
 
-        /// <summary>
-        /// get ID of the task.
-        /// </summary>
-        /// <returns>ID of the task.</returns>
-        public string GetActicityId()
-        {
-            return _currentStatus.TaskId;
-        }
-
         public void Close(byte[] message)
         {
-            LOGGER.Log(Level.Info, string.Format(CultureInfo.InvariantCulture, "Trying to close Task {0}", TaskId));
+            Logger.Log(Level.Info, "Trying to close Task {0}", TaskId);
+            if (Interlocked.Exchange(ref _taskClosed, 1) != 0)
+            {
+                // Return if we have already called close. This can happen when TaskCloseHandler
+                // is invoked and throws an Exception before the Task is completed. The control flows
+                // to failing the Evaluator, which eventually tries to close the Task again on Dispose.
+                return;
+            }
+
             if (_currentStatus.IsNotRunning())
             {
-                LOGGER.Log(Level.Warning, string.Format(CultureInfo.InvariantCulture, "Trying to close an task that is in {0} state. Ignored.", _currentStatus.State));
+                Logger.Log(Level.Warning, "Trying to close an task that is in {0} state. Ignored.", _currentStatus.State);
+                return;
             }
-            else
+            try
+            {
+                OnNext(new CloseEventImpl(message));
+                _currentStatus.SetCloseRequested();
+            }
+            catch (Exception e)
+            {
+                Utilities.Diagnostics.Exceptions.CaughtAndThrow(e, Level.Error, "Error during Close.", Logger);
+            }
+            finally
             {
                 try
                 {
-                    OnNext(new CloseEventImpl(message));
-                    _currentStatus.SetCloseRequested();
+                    if (_userTask != null)
+                    {
+                        _userTask.Dispose();
+                    }
                 }
                 catch (Exception e)
                 {
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Caught(e, Level.Error, "Error during Close.", LOGGER);
-
-                    _currentStatus.SetException(
-                        new TaskClientCodeException(TaskId, ContextId, "Error during Close().", e));
+                    var msg = "Exception during Task Dispose in task Close()";
+                    Logger.Log(Level.Error, msg);
+                    throw new InvalidOperationException(msg, e);
                 }
             }
         }
 
         public void Suspend(byte[] message)
         {
-            LOGGER.Log(Level.Info, string.Format(CultureInfo.InvariantCulture, "Trying to suspend Task {0}", TaskId));
-            
+            Logger.Log(Level.Info, string.Format(CultureInfo.InvariantCulture, "Trying to suspend Task {0}", TaskId));
+
             if (_currentStatus.IsNotRunning())
             {
-                LOGGER.Log(Level.Warning, string.Format(CultureInfo.InvariantCulture, "Trying to supend an task that is in {0} state. Ignored.", _currentStatus.State));
+                Logger.Log(Level.Warning, string.Format(CultureInfo.InvariantCulture, "Trying to suspend an task that is in {0} state. Ignored.", _currentStatus.State));
+                return;
             }
-            else
-            {
-                try
-                {
-                    OnNext(new SuspendEventImpl(message));
-                    _currentStatus.SetSuspendRequested();
-                }
-                catch (Exception e)
-                {
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Caught(e, Level.Error, "Error during Suspend.", LOGGER);
-                    _currentStatus.SetException(
-                        new TaskClientCodeException(TaskId, ContextId, "Error during Suspend().", e));
-                }
-            }
+            
+            // An Exception in suspend should crash the Evaluator.
+            OnNext(new SuspendEventImpl(message));
+            _currentStatus.SetSuspendRequested();
         }
 
         public void Deliver(byte[] message)
         {
             if (_currentStatus.IsNotRunning())
             {
-                LOGGER.Log(Level.Warning, string.Format(CultureInfo.InvariantCulture, "Trying to send a message to an task that is in {0} state. Ignored.", _currentStatus.State));
+                Logger.Log(Level.Warning, string.Format(CultureInfo.InvariantCulture, "Trying to send a message to an task that is in {0} state. Ignored.", _currentStatus.State));
+                return;
             }
-            else
-            {
-                try
-                {
-                    OnNext(new DriverMessageImpl(message));
-                }
-                catch (Exception e)
-                {
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Caught(e, Level.Error, "Error during message delivery.", LOGGER);
-                    _currentStatus.SetException(
-                        new TaskClientCodeException(TaskId, ContextId, "Error during message delivery.", e));
-                }
-            }
+
+            OnNext(new DriverMessageImpl(message));
         }
 
         public void OnNext(ICloseEvent value)
         {
-            LOGGER.Log(Level.Info, "TaskRuntime::OnNext(ICloseEvent value)");
-            // TODO: send a heartbeat
-        }
-
-        void IObserver<ICloseEvent>.OnError(Exception error)
-        {
-            throw new NotImplementedException();
-        }
-
-        void IObserver<IDriverMessage>.OnCompleted()
-        {
-            throw new NotImplementedException();
-        }
-
-        void IObserver<IDriverMessage>.OnError(Exception error)
-        {
-            throw new NotImplementedException();
-        }
-
-        void IObserver<ISuspendEvent>.OnCompleted()
-        {
-            throw new NotImplementedException();
-        }
-
-        void IObserver<ISuspendEvent>.OnError(Exception error)
-        {
-            throw new NotImplementedException();
-        }
-
-        void IObserver<ICloseEvent>.OnCompleted()
-        {
-            throw new NotImplementedException();
+            Logger.Log(Level.Info, "TaskRuntime::OnNext(ICloseEvent value)");
+            _closeHandlerFuture.Get().OnNext(value);
         }
 
         public void OnNext(ISuspendEvent value)
         {
-            LOGGER.Log(Level.Info, "TaskRuntime::OnNext(ISuspendEvent value)");
-            // TODO: send a heartbeat
+            Logger.Log(Level.Info, "TaskRuntime::OnNext(ISuspendEvent value)");
+            _suspendHandlerFuture.Get().OnNext(value);
         }
 
+        /// <summary>
+        /// Call Handle on the user's DriverMessageHandler.
+        /// If the user's handler throws an Exception, the Exception will bubble up as
+        /// an Evaluator Exception and fail the Evaluator.
+        /// </summary>
         public void OnNext(IDriverMessage value)
         {
-            IDriverMessageHandler messageHandler = null;
-            LOGGER.Log(Level.Info, "TaskRuntime::OnNext(IDriverMessage value)");
-            try
+            Logger.Log(Level.Verbose, "TaskRuntime::OnNext(IDriverMessage value)");
+
+            if (!_driverMessageHandler.IsPresent())
             {
-                messageHandler = _injector.GetInstance<IDriverMessageHandler>();
+                return;
             }
-            catch (Exception e)
-            {
-                Org.Apache.REEF.Utilities.Diagnostics.Exceptions.CaughtAndThrow(e, Level.Error, "Received Driver message, but unable to inject handler for driver message ", LOGGER);
-            }
-            if (messageHandler != null)
-            {
-                try
-                {
-                    messageHandler.Handle(value);
-                }
-                catch (Exception e)
-                {
-                    Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Caught(e, Level.Warning, "Exception throw when handling driver message: " + e, LOGGER);
-                    _currentStatus.RecordExecptionWithoutHeartbeat(e);
-                }
-            }
+            
+            _driverMessageHandler.Value.Handle(value);
         }
 
-        private byte[] RunTask(byte[] memento)
+        /// <summary>
+        /// Propagates the IDriverConnection message to the Handler as specified by the Task.
+        /// </summary>
+        internal void HandleDriverConnectionMessage(IDriverConnectionMessage message)
         {
-            return _task.Call(memento);
+            if (!_driverConnectionMessageHandler.IsPresent())
+            {
+                return;
+            }
+
+            _driverConnectionMessageHandler.Value.OnNext(message);
+        }
+
+        public void OnError(Exception error)
+        {
+            throw new NotImplementedException();
+        }
+
+        public void OnCompleted()
+        {
+            throw new NotImplementedException();
         }
     }
 }

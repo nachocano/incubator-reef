@@ -1,31 +1,29 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
+using Org.Apache.REEF.Utilities.AsyncUtils;
 using Org.Apache.REEF.Utilities.Diagnostics;
 using Org.Apache.REEF.Utilities.Logging;
 using Org.Apache.REEF.Wake.StreamingCodec;
-using Org.Apache.REEF.Wake.Util;
 
 namespace Org.Apache.REEF.Wake.Remote.Impl
 {
@@ -35,7 +33,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
     /// <typeparam name="T">Generic Type of message. It is constrained to have implemented IWritable and IType interface</typeparam>
     internal sealed class StreamingTransportServer<T> : IDisposable
     {
-        private static readonly Logger LOGGER = Logger.GetLogger(typeof (TransportServer<>));
+        private static readonly Logger LOGGER = Logger.GetLogger(typeof(StreamingTransportServer<>));
 
         private TcpListener _listener;
         private readonly CancellationTokenSource _cancellationSource;
@@ -47,10 +45,10 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
 
         /// <summary>
         /// Constructs a TransportServer to listen for remote events.  
-        /// Listens on the specified remote endpoint.  When it recieves a remote
-        /// event, it will envoke the specified remote handler.
+        /// Listens on the specified remote endpoint.  When it receives a remote
+        /// event, it will invoke the specified remote handler.
         /// </summary>
-        /// <param name="address">Endpoint addres to listen on</param>
+        /// <param name="address">Endpoint address to listen on</param>
         /// <param name="remoteHandler">The handler to invoke when receiving incoming
         /// remote messages</param>
         /// <param name="tcpPortProvider">Find port numbers if listenport is 0</param>
@@ -84,7 +82,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
         public void Run()
         {
             FindAPortAndStartListener();
-            _serverTask = Task.Run(() => StartServer());
+            _serverTask = Task.Factory.StartNew(() => StartServer(), TaskCreationOptions.LongRunning);
         }
 
         private void FindAPortAndStartListener()
@@ -92,8 +90,7 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
             var foundAPort = false;
             var exception = new SocketException((int)SocketError.AddressAlreadyInUse);
             for (var enumerator = _tcpPortProvider.GetEnumerator();
-                !foundAPort && enumerator.MoveNext();
-                )
+                !foundAPort && enumerator.MoveNext();)
             {
                 _listener = new TcpListener(LocalEndpoint.Address, enumerator.Current);
                 try
@@ -111,9 +108,8 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
                 Exceptions.Throw(exception, "Could not find a port to listen on", LOGGER);
             }
             LOGGER.Log(Level.Info,
-                String.Format("Listening on {0}", _listener.LocalEndpoint.ToString()));
+                string.Format("Listening on {0}", _listener.LocalEndpoint.ToString()));
         }
-
 
         /// <summary>
         /// Close the TransportServer and all open connections
@@ -135,21 +131,16 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
 
                 if (_serverTask != null)
                 {
-                    _serverTask.Wait();
-
                     // Give the TransportServer Task 500ms to shut down, ignore any timeout errors
                     try
                     {
                         CancellationTokenSource serverDisposeTimeout = new CancellationTokenSource(500);
                         _serverTask.Wait(serverDisposeTimeout.Token);
+                        _serverTask.Dispose();
                     }
                     catch (Exception e)
                     {
-                        Console.Error.WriteLine(e);
-                    }
-                    finally
-                    {
-                        _serverTask.Dispose();
+                        Exceptions.Caught(e, Level.Warning, LOGGER);
                     }
                 }
             }
@@ -169,43 +160,59 @@ namespace Org.Apache.REEF.Wake.Remote.Impl
                 while (!_cancellationSource.Token.IsCancellationRequested)
                 {
                     TcpClient client = await _listener.AcceptTcpClientAsync().ConfigureAwait(false);
-                    ProcessClient(client).Forget();
+                    ProcessClient(client).LogAndIgnoreExceptionIfAny(
+                        LOGGER,
+                        "StreamingTransportServer observed Task Exception during client processing.",
+                        Level.Warning);
                 }
             }
             catch (InvalidOperationException)
             {
-                LOGGER.Log(Level.Info, "TransportServer has been closed.");
+                LOGGER.Log(Level.Info, "StreamingTransportServer has been closed.");
             }
             catch (OperationCanceledException)
             {
-                LOGGER.Log(Level.Info, "TransportServer has been closed.");
+                LOGGER.Log(Level.Info, "StreamingTransportServer has been closed.");
+            }
+            catch (Exception e)
+            {
+                LOGGER.Log(Level.Warning, "StreamingTransportServer got exception: {0}.", e.GetType());
+                throw e;
             }
         }
 
         /// <summary>
-        /// Recieves event from connected TcpClient and invokes handler on the event.
+        /// Receives event from connected TcpClient and invokes handler on the event.
         /// </summary>
         /// <param name="client">The connected client</param>
         private async Task ProcessClient(TcpClient client)
         {
-            // Keep reading messages from client until they disconnect or timeout
             CancellationToken token = _cancellationSource.Token;
-            using (ILink<T> link = new StreamingLink<T>(client, _streamingCodec))
+            try
             {
-                while (!token.IsCancellationRequested)
+                // Keep reading messages from client until they disconnect or timeout
+                using (ILink<T> link = new StreamingLink<T>(client, _streamingCodec))
                 {
-                    T message = await link.ReadAsync(token);
-
-                    if (message == null)
+                    while (!token.IsCancellationRequested)
                     {
-                        break;
-                    }
+                        T message = await link.ReadAsync(token);
 
-                    TransportEvent<T> transportEvent = new TransportEvent<T>(message, link);
-                    _remoteObserver.OnNext(transportEvent);
+                        if (message == null)
+                        {
+                            break;
+                        }
+
+                        TransportEvent<T> transportEvent = new TransportEvent<T>(message, link);
+                        _remoteObserver.OnNext(transportEvent);
+                    }
+                    LOGGER.Log(Level.Error,
+                        "ProcessClient close the Link. IsCancellationRequested: " + token.IsCancellationRequested);
                 }
-                LOGGER.Log(Level.Error,
-                    "ProcessClient close the Link. IsCancellationRequested: " + token.IsCancellationRequested);
+            }
+            catch (Exception e)
+            {
+                LOGGER.Log(Level.Warning, "StreamingTransportServer get exception in ProcessClient: {0}, IsCancellationRequested {1}.", e.GetType(), token.IsCancellationRequested);
+                throw e;
             }
         }
     }

@@ -27,6 +27,9 @@ import org.apache.reef.tang.exceptions.ClassHierarchyException;
 import org.apache.reef.tang.exceptions.InjectionException;
 import org.apache.reef.tang.exceptions.NameResolutionException;
 import org.apache.reef.tang.formats.AvroConfigurationSerializer;
+import org.apache.reef.tang.formats.ConfigurationModule;
+import org.apache.reef.tang.formats.ConfigurationModuleBuilder;
+import org.apache.reef.tang.formats.OptionalParameter;
 import org.apache.reef.tang.util.ReflectionUtilities;
 import org.junit.Assert;
 import org.junit.Before;
@@ -713,18 +716,40 @@ public class TestTang {
     final CheckChildIface o1 = i.getInstance(CheckChildIface.class);
     Assert.assertTrue(o1 instanceof CheckChildImpl);
   }
+
+  /**
+   * Tang supports empty string, '', as a default value.
+   */
+  @Test
+  public void testEmptyStringAsDefaultValue() throws InjectionException {
+    final Configuration conf = EmptyStringAsDefaultParamConf.CONF.build();
+    String value = Tang.Factory.getTang().newInjector(conf).getNamedInstance(EmptyStringAsDefaultParam.class);
+    Assert.assertEquals("", value);
+  }
+
+  @NamedParameter(default_value = "")
+  class EmptyStringAsDefaultParam implements Name<String> {
+  }
+
+  public static class EmptyStringAsDefaultParamConf extends ConfigurationModuleBuilder {
+    public static final OptionalParameter<String> OPTIONAL_STRING = new OptionalParameter<>();
+
+    public static final ConfigurationModule CONF = new EmptyStringAsDefaultParamConf()
+        .bindNamedParameter(EmptyStringAsDefaultParam.class, EmptyStringAsDefaultParamConf.OPTIONAL_STRING)
+        .build();
+  }
 }
 
 class Fail {
   @Inject
-  public Fail() {
+  Fail() {
     throw new UnsupportedOperationException();
   }
 }
 
 class Pass {
   @Inject
-  public Pass() {
+  Pass() {
   }
 }
 
@@ -755,11 +780,11 @@ class InjectInjector {
 
 class SingletonMultiConst implements SMC {
   @Inject
-  public SingletonMultiConst(@Parameter(A.class) final String a) {
+  SingletonMultiConst(@Parameter(A.class) final String a) {
   }
 
   @Inject
-  public SingletonMultiConst(@Parameter(A.class) final String a, @Parameter(B.class) final String b) {
+  SingletonMultiConst(@Parameter(A.class) final String a, @Parameter(B.class) final String b) {
   }
 
   @NamedParameter
@@ -779,7 +804,7 @@ class HaveDefaultImplImpl implements HaveDefaultImpl {
 
 class OverrideDefaultImpl implements HaveDefaultImpl {
   @Inject
-  public OverrideDefaultImpl() {
+  OverrideDefaultImpl() {
   }
 }
 
@@ -791,7 +816,7 @@ class HaveDefaultStringImplImpl implements HaveDefaultStringImpl {
 
 class OverrideDefaultStringImpl implements HaveDefaultStringImpl {
   @Inject
-  public OverrideDefaultStringImpl() {
+  OverrideDefaultStringImpl() {
   }
 }
 
@@ -810,7 +835,7 @@ class MustBeSingleton {
   protected static boolean alreadyInstantiated;
 
   @Inject
-  public MustBeSingleton() {
+  MustBeSingleton() {
     if (alreadyInstantiated) {
       throw new IllegalStateException("Can't instantiate me twice!");
     }
@@ -945,7 +970,7 @@ class ExternalConstructorExample {
     protected final Integer x;
     protected final String y;
 
-    public Legacy(final Integer x, final String y) {
+    Legacy(final Integer x, final String y) {
       this.x = x;
       this.y = y;
     }
@@ -956,7 +981,7 @@ class LegacyConstructor {
   protected final Integer x;
   protected final String y;
 
-  public LegacyConstructor(final Integer x, final String y) {
+  LegacyConstructor(final Integer x, final String y) {
     this.x = x;
     this.y = y;
   }
@@ -1326,7 +1351,7 @@ class WantSomeFutureHandlersName {
 class OuterUnitWithStatic {
 
   @Inject
-  public OuterUnitWithStatic() {
+  OuterUnitWithStatic() {
   }
 
   public void bar() {
@@ -1334,7 +1359,7 @@ class OuterUnitWithStatic {
   }
 
   static class InnerStaticClass {
-    public InnerStaticClass() {
+    InnerStaticClass() {
     }
 
     public void baz() {
@@ -1343,7 +1368,7 @@ class OuterUnitWithStatic {
 
   static class InnerStaticClass2 {
     @Inject
-    public InnerStaticClass2() {
+    InnerStaticClass2() {
     }
 
     public void baz() {

@@ -49,6 +49,7 @@ final class EvaluatorRuntime implements EventHandler<EvaluatorControlProto> {
   private final HeartBeatManager heartBeatManager;
   private final ContextManager contextManager;
   private final Clock clock;
+  private final PIDStoreStartHandler pidStoreStartHandler;
 
   private final String evaluatorIdentifier;
   private final ExceptionCodec exceptionCodec;
@@ -66,6 +67,7 @@ final class EvaluatorRuntime implements EventHandler<EvaluatorControlProto> {
       final Clock clock,
       final ContextManager contextManagerFuture,
       final RemoteManager remoteManager,
+      final PIDStoreStartHandler pidStoreStartHandler,
       final ExceptionCodec exceptionCodec) {
 
     this.heartBeatManager = heartBeatManager;
@@ -73,6 +75,7 @@ final class EvaluatorRuntime implements EventHandler<EvaluatorControlProto> {
     this.clock = clock;
 
     this.evaluatorIdentifier = evaluatorIdentifier;
+    this.pidStoreStartHandler = pidStoreStartHandler;
     this.exceptionCodec = exceptionCodec;
     this.evaluatorControlChannel =
         remoteManager.registerHandler(driverRID, EvaluatorControlProto.class, this);
@@ -81,6 +84,7 @@ final class EvaluatorRuntime implements EventHandler<EvaluatorControlProto> {
     clock.scheduleAlarm(heartbeatPeriod, heartbeatAlarmHandler);
   }
 
+  @SuppressWarnings("checkstyle:illegalcatch")
   private void onEvaluatorControlMessage(final EvaluatorControlProto message) {
 
     synchronized (this.heartBeatManager) {
@@ -92,6 +96,14 @@ final class EvaluatorRuntime implements EventHandler<EvaluatorControlProto> {
             "Identifier mismatch: message for evaluator id[" + message.getIdentifier()
                 + "] sent to evaluator id[" + this.evaluatorIdentifier + "]"
         ));
+      } else if (ReefServiceProtos.State.DONE == this.state) {
+        if (message.getDoneEvaluator() != null) {
+          LOG.log(Level.INFO, "Received ACK from Driver, shutting down Evaluator.");
+          this.clock.close();
+          return;
+        } else {
+          this.onException(new RuntimeException("Received a control message from Driver after Evaluator is done."));
+        }
       } else if (ReefServiceProtos.State.RUNNING != this.state) {
         this.onException(new RuntimeException(
             "Evaluator sent a control message but its state is not "
@@ -108,7 +120,6 @@ final class EvaluatorRuntime implements EventHandler<EvaluatorControlProto> {
             if (this.contextManager.contextStackIsEmpty() && this.state == ReefServiceProtos.State.RUNNING) {
               this.state = ReefServiceProtos.State.DONE;
               this.heartBeatManager.sendEvaluatorStatus(this.getEvaluatorStatus());
-              this.clock.close();
             }
           } catch (final Throwable e) {
             this.onException(e);
@@ -119,6 +130,7 @@ final class EvaluatorRuntime implements EventHandler<EvaluatorControlProto> {
         if (message.hasKillEvaluator()) {
           LOG.log(Level.SEVERE, "Evaluator {0} has been killed by the driver.", this.evaluatorIdentifier);
           this.state = ReefServiceProtos.State.KILLED;
+          this.heartBeatManager.sendEvaluatorStatus(this.getEvaluatorStatus());
           this.clock.close();
         }
       }
@@ -166,11 +178,14 @@ final class EvaluatorRuntime implements EventHandler<EvaluatorControlProto> {
   final class RuntimeStartHandler implements EventHandler<RuntimeStart> {
 
     @Override
+    @SuppressWarnings("checkstyle:illegalcatch")
     public void onNext(final RuntimeStart runtimeStart) {
+      // [REEF-1229] Make sure that the PID is always written before we potentially exit the Evaluator process.
+      EvaluatorRuntime.this.pidStoreStartHandler.onNext(runtimeStart);
       synchronized (EvaluatorRuntime.this.heartBeatManager) {
         try {
           LOG.log(Level.FINEST, "runtime start");
-          assert (ReefServiceProtos.State.INIT == EvaluatorRuntime.this.state);
+          assert ReefServiceProtos.State.INIT == EvaluatorRuntime.this.state;
           EvaluatorRuntime.this.state = ReefServiceProtos.State.RUNNING;
           EvaluatorRuntime.this.contextManager.start();
           EvaluatorRuntime.this.heartBeatManager.sendHeartbeat();

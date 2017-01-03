@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Concurrent;
@@ -38,7 +36,7 @@ namespace Org.Apache.REEF.Network.NetworkService.Codec
     /// <typeparam name="T">The message type</typeparam>
     internal class StreamingCodecFunctionCache<T>
     {
-        private static readonly Logger Logger = Logger.GetLogger(typeof (StreamingCodecFunctionCache<T>));
+        private static readonly Logger Logger = Logger.GetLogger(typeof(StreamingCodecFunctionCache<T>));
         private readonly ConcurrentDictionary<Type, Func<IDataReader, T>> _readFuncCache;
         private readonly ConcurrentDictionary<Type, Func<IDataReader, CancellationToken, T>> _readAsyncFuncCache;
         private readonly ConcurrentDictionary<Type, Action<T, IDataWriter>> _writeFuncCache;
@@ -148,8 +146,8 @@ namespace Org.Apache.REEF.Network.NetworkService.Codec
                 var codec = _injector.GetInstance(codecType);
 
                 MethodInfo readMethod = codec.GetType().GetMethod("Read");
-                _readFuncCache[messageType] = (Func<IDataReader, T>) Delegate.CreateDelegate
-                    (typeof (Func<IDataReader, T>), codec, readMethod);
+                _readFuncCache[messageType] = 
+                    (Func<IDataReader, T>)Delegate.CreateDelegate(typeof(Func<IDataReader, T>), codec, readMethod);
 
                 MethodInfo readAsyncMethod = codec.GetType().GetMethod("ReadAsync");
                 MethodInfo genericHelper = GetType()
@@ -157,13 +155,13 @@ namespace Org.Apache.REEF.Network.NetworkService.Codec
                 MethodInfo constructedHelper = genericHelper.MakeGenericMethod(messageType);
                 _readAsyncFuncCache[messageType] =
                     (Func<IDataReader, CancellationToken, T>)
-                        constructedHelper.Invoke(this, new[] {readAsyncMethod, codec});
+                        constructedHelper.Invoke(this, new[] { readAsyncMethod, codec });
 
                 MethodInfo writeMethod = codec.GetType().GetMethod("Write");
                 genericHelper = GetType().GetMethod("WriteHelperFunc", BindingFlags.NonPublic | BindingFlags.Instance);
                 constructedHelper = genericHelper.MakeGenericMethod(messageType);
                 _writeFuncCache[messageType] =
-                    (Action<T, IDataWriter>) constructedHelper.Invoke(this, new[] {writeMethod, codec});
+                    (Action<T, IDataWriter>)constructedHelper.Invoke(this, new[] { writeMethod, codec });
 
                 MethodInfo writeAsyncMethod = codec.GetType().GetMethod("WriteAsync");
                 genericHelper = GetType()
@@ -171,14 +169,14 @@ namespace Org.Apache.REEF.Network.NetworkService.Codec
                 constructedHelper = genericHelper.MakeGenericMethod(messageType);
                 _writeAsyncFuncCache[messageType] =
                     (Func<T, IDataWriter, CancellationToken, Task>)
-                        constructedHelper.Invoke(this, new[] {writeAsyncMethod, codec});
+                        constructedHelper.Invoke(this, new[] { writeAsyncMethod, codec });
             }
         }
 
         private Action<T, IDataWriter> WriteHelperFunc<T1>(MethodInfo method, object codec) where T1 : class
         {
-            Action<T1, IDataWriter> func = (Action<T1, IDataWriter>) Delegate.CreateDelegate
-                (typeof (Action<T1, IDataWriter>), codec, method);
+            Action<T1, IDataWriter> func = 
+                (Action<T1, IDataWriter>)Delegate.CreateDelegate(typeof(Action<T1, IDataWriter>), codec, method);
 
             Action<T, IDataWriter> ret = (obj, writer) => func(obj as T1, writer);
             return ret;
@@ -188,8 +186,8 @@ namespace Org.Apache.REEF.Network.NetworkService.Codec
             where T1 : class
         {
             Func<T1, IDataWriter, CancellationToken, Task> func =
-                (Func<T1, IDataWriter, CancellationToken, Task>) Delegate.CreateDelegate
-                    (typeof (Func<T1, IDataWriter, CancellationToken, Task>), codec, method);
+                (Func<T1, IDataWriter, CancellationToken, Task>)
+                Delegate.CreateDelegate(typeof(Func<T1, IDataWriter, CancellationToken, Task>), codec, method);
 
             Func<T, IDataWriter, CancellationToken, Task> ret = (obj, writer, token) => func(obj as T1, writer, token);
             return ret;
@@ -199,8 +197,8 @@ namespace Org.Apache.REEF.Network.NetworkService.Codec
             where T1 : class
         {
             Func<IDataReader, CancellationToken, Task<T1>> func =
-                (Func<IDataReader, CancellationToken, Task<T1>>) Delegate.CreateDelegate
-                    (typeof (Func<IDataReader, CancellationToken, Task<T1>>), codec, method);
+                (Func<IDataReader, CancellationToken, Task<T1>>)
+                Delegate.CreateDelegate(typeof(Func<IDataReader, CancellationToken, Task<T1>>), codec, method);
 
             Func<IDataReader, CancellationToken, T1> func1 = (writer, token) => func(writer, token).Result;
             Func<IDataReader, CancellationToken, T> func2 = (writer, token) => ((T)(object)func1(writer, token));

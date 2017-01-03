@@ -1,28 +1,25 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Net;
 using System.Reactive;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Wake.Remote;
@@ -30,6 +27,7 @@ using Org.Apache.REEF.Wake.Remote.Impl;
 using Org.Apache.REEF.Wake.Remote.Parameters;
 using Org.Apache.REEF.Wake.StreamingCodec;
 using Org.Apache.REEF.Wake.StreamingCodec.CommonStreamingCodecs;
+using Xunit;
 
 namespace Org.Apache.REEF.Wake.Tests
 {
@@ -37,17 +35,17 @@ namespace Org.Apache.REEF.Wake.Tests
     /// Tests the StreamingTransportServer, StreamingTransportClient and StreamingLink.
     /// Basically the Wake transport layer.
     /// </summary>
-    [TestClass]
     public class StreamingTransportTest
     {
-        private readonly ITcpPortProvider _tcpPortProvider = GetTcpProvider(8900, 8940);
+        private readonly ITcpPortProvider _tcpPortProvider = GetTcpProvider(9900, 9940);
         private readonly IInjector _injector = TangFactory.GetTang().NewInjector();
+        private readonly ITcpClientConnectionFactory _tcpClientFactory = GetTcpClientFactory(5, 500);
 
         /// <summary>
         /// Tests whether StreamingTransportServer receives 
         /// string messages from StreamingTransportClient
         /// </summary>
-        [TestMethod]
+        [Fact]
         public void TestStreamingTransportServer()
         {
             BlockingCollection<string> queue = new BlockingCollection<string>();
@@ -57,12 +55,16 @@ namespace Org.Apache.REEF.Wake.Tests
             IPEndPoint endpoint = new IPEndPoint(IPAddress.Any, 0);
             var remoteHandler = Observer.Create<TransportEvent<string>>(tEvent => queue.Add(tEvent.Data));
 
-            using (var server = new StreamingTransportServer<string>(endpoint.Address, remoteHandler, _tcpPortProvider, stringCodec))
+            using (
+                var server = new StreamingTransportServer<string>(endpoint.Address,
+                    remoteHandler,
+                    _tcpPortProvider,
+                    stringCodec))
             {
                 server.Run();
 
                 IPEndPoint remoteEndpoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), server.LocalEndpoint.Port);
-                using (var client = new StreamingTransportClient<string>(remoteEndpoint, stringCodec))
+                using (var client = new StreamingTransportClient<string>(remoteEndpoint, stringCodec, _tcpClientFactory))
                 {
                     client.Send("Hello");
                     client.Send(", ");
@@ -71,22 +73,21 @@ namespace Org.Apache.REEF.Wake.Tests
                     events.Add(queue.Take());
                     events.Add(queue.Take());
                     events.Add(queue.Take());
-                } 
+                }
             }
 
-            Assert.AreEqual(3, events.Count);
-            Assert.AreEqual(events[0], "Hello");
-            Assert.AreEqual(events[1], ", ");
-            Assert.AreEqual(events[2], "World!");
+            Assert.Equal(3, events.Count);
+            Assert.Equal(events[0], "Hello");
+            Assert.Equal(events[1], ", ");
+            Assert.Equal(events[2], "World!");
         }
 
         /// <summary>
         /// Checks whether StreamingTransportClient is able to receive messages from remote host
         /// </summary>
-        [TestMethod]
+        [Fact]
         public void TestStreamingTransportSenderStage()
         {
-            
             IPEndPoint endpoint = new IPEndPoint(IPAddress.Any, 0);
 
             List<string> events = new List<string>();
@@ -96,13 +97,21 @@ namespace Org.Apache.REEF.Wake.Tests
             // Server echoes the message back to the client
             var remoteHandler = Observer.Create<TransportEvent<string>>(tEvent => tEvent.Link.Write(tEvent.Data));
 
-            using (var server = new StreamingTransportServer<string>(endpoint.Address, remoteHandler, _tcpPortProvider, stringCodec))
+            using (
+                var server = new StreamingTransportServer<string>(endpoint.Address,
+                    remoteHandler,
+                    _tcpPortProvider,
+                    stringCodec))
             {
                 server.Run();
 
                 var clientHandler = Observer.Create<TransportEvent<string>>(tEvent => queue.Add(tEvent.Data));
                 IPEndPoint remoteEndpoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), server.LocalEndpoint.Port);
-                using (var client = new StreamingTransportClient<string>(remoteEndpoint, clientHandler, stringCodec))
+                using (
+                    var client = new StreamingTransportClient<string>(remoteEndpoint,
+                        clientHandler,
+                        stringCodec,
+                        _tcpClientFactory))
                 {
                     client.Send("Hello");
                     client.Send(", ");
@@ -111,13 +120,13 @@ namespace Org.Apache.REEF.Wake.Tests
                     events.Add(queue.Take());
                     events.Add(queue.Take());
                     events.Add(queue.Take());
-                } 
+                }
             }
 
-            Assert.AreEqual(3, events.Count);
-            Assert.AreEqual(events[0], "Hello");
-            Assert.AreEqual(events[1], ", ");
-            Assert.AreEqual(events[2], " World");
+            Assert.Equal(3, events.Count);
+            Assert.Equal(events[0], "Hello");
+            Assert.Equal(events[1], ", ");
+            Assert.Equal(events[2], " World");
         }
 
         /// <summary>
@@ -125,7 +134,7 @@ namespace Org.Apache.REEF.Wake.Tests
         /// in asynchronous condition while sending messages asynchronously from different 
         /// threads
         /// </summary>
-        [TestMethod]
+        [Fact]
         public void TestStreamingRaceCondition()
         {
             BlockingCollection<string> queue = new BlockingCollection<string>();
@@ -136,7 +145,11 @@ namespace Org.Apache.REEF.Wake.Tests
             IPEndPoint endpoint = new IPEndPoint(IPAddress.Any, 0);
             var remoteHandler = Observer.Create<TransportEvent<string>>(tEvent => queue.Add(tEvent.Data));
 
-            using (var server = new StreamingTransportServer<string>(endpoint.Address, remoteHandler, _tcpPortProvider, stringCodec))
+            using (
+                var server = new StreamingTransportServer<string>(endpoint.Address,
+                    remoteHandler,
+                    _tcpPortProvider,
+                    stringCodec))
             {
                 server.Run();
 
@@ -144,8 +157,12 @@ namespace Org.Apache.REEF.Wake.Tests
                 {
                     Task.Run(() =>
                     {
-                        IPEndPoint remoteEndpoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"), server.LocalEndpoint.Port);
-                        using (var client = new StreamingTransportClient<string>(remoteEndpoint, stringCodec))
+                        IPEndPoint remoteEndpoint = new IPEndPoint(IPAddress.Parse("127.0.0.1"),
+                            server.LocalEndpoint.Port);
+                        using (
+                            var client = new StreamingTransportClient<string>(remoteEndpoint,
+                                stringCodec,
+                                _tcpClientFactory))
                         {
                             client.Send("Hello");
                             client.Send(", ");
@@ -160,8 +177,7 @@ namespace Org.Apache.REEF.Wake.Tests
                 }
             }
 
-            Assert.AreEqual(numEventsExpected, events.Count);
-
+            Assert.Equal(numEventsExpected, events.Count);
         }
 
         private static ITcpPortProvider GetTcpProvider(int portRangeStart, int portRangeEnd)
@@ -172,6 +188,17 @@ namespace Org.Apache.REEF.Wake.Tests
                 .BindIntNamedParam<TcpPortRangeCount>((portRangeEnd - portRangeStart + 1).ToString())
                 .Build();
             return TangFactory.GetTang().NewInjector(configuration).GetInstance<ITcpPortProvider>();
+        }
+
+        private static ITcpClientConnectionFactory GetTcpClientFactory(int connectionRetryCount, int sleepTimeInMs)
+        {
+            var config =
+                TangFactory.GetTang()
+                    .NewConfigurationBuilder()
+                    .BindIntNamedParam<ConnectionRetryCount>(connectionRetryCount.ToString())
+                    .BindIntNamedParam<SleepTimeInMs>(sleepTimeInMs.ToString())
+                    .Build();
+            return TangFactory.GetTang().NewInjector(config).GetInstance<ITcpClientConnectionFactory>();
         }
     }
 }

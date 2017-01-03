@@ -1,21 +1,19 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
@@ -25,22 +23,19 @@ using Org.Apache.REEF.Tang.Implementations.ClassHierarchy;
 using Org.Apache.REEF.Tang.Implementations.Configuration;
 using Org.Apache.REEF.Tang.Implementations.InjectionPlan;
 using Org.Apache.REEF.Tang.Interface;
-using Org.Apache.REEF.Tang.Util;
 using Org.Apache.REEF.Utilities.Logging;
 
 namespace Org.Apache.REEF.Tang.Implementations.Tang
 {
-    public class TangImpl : ITang
+    internal sealed class TangImpl : ITang
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(TangImpl));
-
-        private static IDictionary<SetValuedKey, ICsClassHierarchy> defaultClassHierarchy = new Dictionary<SetValuedKey, ICsClassHierarchy>();
 
         public IInjector NewInjector()
         {
             try
             {
-                return NewInjector(new ConfigurationImpl[] {});
+                return NewInjector(new ConfigurationImpl[] { });
             }
             catch (BindException e)
             {
@@ -66,16 +61,15 @@ namespace Org.Apache.REEF.Tang.Implementations.Tang
             return NewConfigurationBuilder(new IConfiguration[] { conf });
         }
 
-        //public IInjector NewInjector(string[] assemblies, IDictionary<string, string> configurations)
-        //{
-        //    ITang tang = TangFactory.GetTang();
-        //    ICsConfigurationBuilder cb1 = tang.NewConfigurationBuilder(assemblies);
-        //    ConfigurationFile.ProcessConfigData(cb1, configurations);
-        //    IConfiguration conf = cb1.Build();
-
-        //    IInjector injector = tang.NewInjector(conf);
-        //    return injector;
-        //}
+        ////public IInjector NewInjector(string[] assemblies, IDictionary<string, string> configurations)
+        ////{
+        ////   ITang tang = TangFactory.GetTang();
+        ////   ICsConfigurationBuilder cb1 = tang.NewConfigurationBuilder(assemblies);
+        ////   ConfigurationFile.ProcessConfigData(cb1, configurations);
+        ////   IConfiguration conf = cb1.Build();
+        ////   IInjector injector = tang.NewInjector(conf);
+        ////   return injector;
+        ////}
 
         public IInjector NewInjector(string[] assemblies, IDictionary<string, string> configurations)
         {
@@ -105,7 +99,7 @@ namespace Org.Apache.REEF.Tang.Implementations.Tang
 
         public IInjector NewInjector(IConfiguration conf)
         {
-            //return new InjectorImpl(conf);
+            // return new InjectorImpl(conf);
             try
             {
                 return NewInjector(new ConfigurationImpl[] { (ConfigurationImpl)conf });
@@ -130,16 +124,7 @@ namespace Org.Apache.REEF.Tang.Implementations.Tang
 
         public ICsClassHierarchy GetDefaultClassHierarchy(string[] assemblies, Type[] parameterParsers)
         {
-            SetValuedKey key = new SetValuedKey(assemblies, parameterParsers);
-
-            ICsClassHierarchy ret = null;
-            defaultClassHierarchy.TryGetValue(key, out ret);
-            if (ret == null)
-            {
-                ret = new ClassHierarchyImpl(assemblies, parameterParsers);
-                defaultClassHierarchy.Add(key, ret);
-            }
-            return ret;
+            return new ClassHierarchyImpl(assemblies, parameterParsers);
         }
 
         public ICsConfigurationBuilder NewConfigurationBuilder()
@@ -152,7 +137,7 @@ namespace Org.Apache.REEF.Tang.Implementations.Tang
             {
                 Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Caught(e, Level.Error, LOGGER);
                 Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(new IllegalStateException(
-                    "Caught unexpeceted bind exception!  Implementation bug.", e), LOGGER);
+                    "Caught unexpected bind exception!  Implementation bug.", e), LOGGER);
                 return null;
             }
         }
@@ -167,7 +152,7 @@ namespace Org.Apache.REEF.Tang.Implementations.Tang
             {
                 Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Caught(e, Level.Error, LOGGER);
                 Org.Apache.REEF.Utilities.Diagnostics.Exceptions.Throw(new IllegalStateException(
-                    "Caught unexpeceted bind exception!  Implementation bug.", e), LOGGER);
+                    "Caught unexpected bind exception!  Implementation bug.", e), LOGGER);
                 return null;
             }
         }
@@ -195,11 +180,6 @@ namespace Org.Apache.REEF.Tang.Implementations.Tang
         public ICsConfigurationBuilder NewConfigurationBuilder(params Type[] parameterParsers) 
         {
             return NewConfigurationBuilder(new string[0], new IConfiguration[0], parameterParsers);
-        }
-
-        public static void Reset() 
-        {
-            defaultClassHierarchy = new Dictionary<SetValuedKey, ICsClassHierarchy>(); 
         }
     }
 }

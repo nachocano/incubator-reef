@@ -1,27 +1,24 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.Remoting.Messaging;
 using Org.Apache.REEF.Tang.Exceptions;
 using Org.Apache.REEF.Tang.Implementations.ClassHierarchy.AvroDataContract;
 using Org.Apache.REEF.Tang.Interface;
@@ -77,11 +74,11 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
         private void ParseSubHierarchy(INode parent, AvroNode n)
         {
             INode parsed = null;
-            if (n.packageNode != null && !n.packageNode.Equals(""))
+            if (n.packageNode != null && !n.packageNode.Equals(string.Empty))
             {
                 parsed = new PackageNodeImpl(parent, n.name, n.fullName);
             }
-            else if (n.namedParameterNode != null && !n.namedParameterNode.Equals(""))
+            else if (n.namedParameterNode != null && !n.namedParameterNode.Equals(string.Empty))
             {
                 AvroNamedParameterNode np = (AvroNamedParameterNode)n.namedParameterNode;
                 parsed = new NamedParameterNodeImpl(parent, n.name,
@@ -89,7 +86,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
                     np.isSet, np.isList, np.documentation, np.shortName,
                     np.instanceDefault.ToArray());
             }
-            else if (n.classNode != null && !n.classNode.Equals(""))
+            else if (n.classNode != null && !n.classNode.Equals(string.Empty))
             {
                 AvroClassNode cn = (AvroClassNode)n.classNode;
                 IList<IConstructorDef> injectableConstructors = new List<IConstructorDef>();
@@ -125,7 +122,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
 
         private void WireUpInheritanceRelationships(AvroNode n)
         {
-            if (n.classNode != null && !n.classNode.Equals(""))
+            if (n.classNode != null && !n.classNode.Equals(string.Empty))
             {
                 AvroClassNode cn = (AvroClassNode)n.classNode;
                 IClassNode iface = null;
@@ -154,7 +151,6 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
                         var ex = new IllegalStateException("When reading protocol buffer node "
                             + n + " refers to non-existent implementation:" + impl);
                         Utilities.Diagnostics.Exceptions.Throw(ex, LOGGER);
-
                     }
                     catch (InvalidCastException e)
                     {
@@ -198,14 +194,14 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
 
         private void AddAlias(INamedParameterNode np)
         {
-            if (np.GetAlias() != null && !np.GetAlias().Equals(""))
+            if (np.GetAlias() != null && !np.GetAlias().Equals(string.Empty))
             {
                 IDictionary<string, string> mapping = null;
-                _aliasLookupTable.TryGetValue(np.GetAliasLanguage(), out mapping);
+                _aliasLookupTable.TryGetValue(np.GetAliasLanguage().ToString(), out mapping);
                 if (mapping == null)
                 {
                     mapping = new Dictionary<string, string>();
-                    _aliasLookupTable.Add(np.GetAliasLanguage(), mapping);
+                    _aliasLookupTable.Add(np.GetAliasLanguage().ToString(), mapping);
                 }
 
                 try
@@ -214,7 +210,7 @@ namespace Org.Apache.REEF.Tang.Implementations.ClassHierarchy
                 }
                 catch (Exception)
                 {
-                    var e = new ApplicationException(string.Format(CultureInfo.CurrentCulture, "Duplicated alias {0} on named parameter {1}.", np.GetAlias(), np.GetFullName()));
+                    var e = new TangApplicationException(string.Format(CultureInfo.CurrentCulture, "Duplicated alias {0} on named parameter {1}.", np.GetAlias(), np.GetFullName()));
                     Utilities.Diagnostics.Exceptions.Throw(e, LOGGER);
                 }
             }

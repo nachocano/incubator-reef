@@ -1,34 +1,31 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Org.Apache.REEF.Tang.Annotations;
 using Org.Apache.REEF.Tang.Implementations.Tang;
 using Org.Apache.REEF.Tang.Interface;
 using Org.Apache.REEF.Tang.Util;
+using Xunit;
 
 namespace Org.Apache.REEF.Tang.Tests.Injection
 {
-    [TestClass]
     public class TestNamedParameter
     {
-        [TestMethod]
+        [Fact]
         public void TestOptionalParameter()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -38,7 +35,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             o.Verify("foo");
         }
 
-        [TestMethod]
+        [Fact]
         public void TestOptionalParameterWithDefault()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -47,7 +44,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             o.Verify(" ");
         }
 
-        [TestMethod]
+        [Fact]
         public void TestBoolParameter()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -57,7 +54,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             o.Verify(true);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestBoolUpperCaseParameter()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -67,7 +64,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             o.Verify(true);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestBoolParameterWithDefault()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -76,7 +73,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             o.Verify(false);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestByteParameter()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -86,7 +83,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             o.Verify(6);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestByteArrayParameter()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -97,10 +94,10 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
             byte[] bytes = new byte[input.Length * sizeof(char)];
             System.Buffer.BlockCopy(input.ToCharArray(), 0, bytes, 0, bytes.Length);
-            Assert.IsTrue(o.Verify(bytes));
+            Assert.True(o.Verify(bytes));
         }
 
-        [TestMethod]
+        [Fact]
         public void TestCharParameter()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -110,7 +107,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             o.Verify('C');
         }
 
-        [TestMethod]
+        [Fact]
         public void TestShortParameter()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -120,7 +117,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             o.Verify(8);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestIntParameter()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -130,7 +127,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             o.Verify(8);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestLongParameter()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -140,7 +137,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
             o.Verify(8777);
         }
 
-        [TestMethod]
+        [Fact]
         public void TestFloatParameter()
         {
             ICsConfigurationBuilder cb = TangFactory.GetTang().NewConfigurationBuilder();
@@ -164,7 +161,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
         public void Verify(string s)
         {
-            Assert.AreEqual(s, str);
+            Assert.Equal(s, str);
         }
 
         [NamedParameter(DefaultValue = " ")]
@@ -185,7 +182,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
         public void Verify(char s)
         {
-            Assert.AreEqual(s, c);
+            Assert.Equal(s, c);
         }
 
         [NamedParameter(DefaultValue = " ")]
@@ -206,7 +203,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
         public void Verify(byte v)
         {
-            Assert.AreEqual(v, b);
+            Assert.Equal(v, b);
         }
 
         [NamedParameter(DefaultValue = "7")]
@@ -227,7 +224,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
         public void Verify(bool v)
         {
-            Assert.AreEqual(v, b);
+            Assert.Equal(v, b);
         }
 
         [NamedParameter(DefaultValue = "false")]
@@ -282,7 +279,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
         public void Verify(short v)
         {
-            Assert.AreEqual(v, s);
+            Assert.Equal(v, s);
         }
 
         [NamedParameter(DefaultValue = "3")]
@@ -303,7 +300,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
         public void Verify(int v)
         {
-            Assert.AreEqual(v, i);
+            Assert.Equal(v, i);
         }
 
         [NamedParameter(DefaultValue = "3")]
@@ -324,7 +321,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
         public void Verify(int v)
         {
-            Assert.AreEqual(v, l);
+            Assert.Equal(v, l);
         }
 
         [NamedParameter(DefaultValue = "34567")]
@@ -345,7 +342,7 @@ namespace Org.Apache.REEF.Tang.Tests.Injection
 
         public void Verify(float v)
         {
-            Assert.AreEqual(v, f);
+            Assert.Equal(v, f);
         }
 
         [NamedParameter(DefaultValue = "12.5")]

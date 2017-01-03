@@ -114,16 +114,14 @@ public final class DispatchingEStage implements AutoCloseable {
    * Return true if there are no messages queued or in processing, false otherwise.
    */
   public boolean isEmpty() {
-    return this.stage.getQueueLength() == 0;
+    return this.stage.getQueueLength() + this.stage.getActiveCount() == 0;
   }
 
   /**
    * Close the internal thread pool.
-   *
-   * @throws Exception forwarded from EStage.close() call.
    */
   @Override
-  public void close() throws Exception {
+  public void close() {
     this.stage.close();
   }
 
@@ -137,7 +135,7 @@ public final class DispatchingEStage implements AutoCloseable {
     private final Object message;
 
     @SuppressWarnings("unchecked")
-    public <T, U extends T> DelayedOnNext(final EventHandler<T> handler, final U message) {
+    <T, U extends T> DelayedOnNext(final EventHandler<T> handler, final U message) {
       this.handler = (EventHandler<Object>) handler;
       this.message = message;
     }

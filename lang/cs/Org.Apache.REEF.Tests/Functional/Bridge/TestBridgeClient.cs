@@ -1,80 +1,67 @@
-﻿/**
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
+﻿// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
-using System;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Threading.Tasks;
 using Org.Apache.REEF.Client.Common;
 using Org.Apache.REEF.Examples.AllHandlers;
 using Org.Apache.REEF.Utilities.Logging;
+using Xunit;
 
 namespace Org.Apache.REEF.Tests.Functional.Bridge
 {
-    [TestClass]
+    [Collection("FunctionalTests")]
     public class TestBridgeClient : ReefFunctionalTest
     {
         private static readonly Logger LOGGER = Logger.GetLogger(typeof(TestBridgeClient));
 
-        [TestInitialize()]
-        public void TestSetup()
+        [Fact(Skip = "Requires Yarn")]
+        [Trait("Priority", "1")]
+        [Trait("Category", "FunctionalGated")]
+        [Trait("Description", "Run CLR Bridge on Yarn")]
+        public async Task CanRunClrBridgeExampleOnYarn()
         {
-            Init();
+            string testRuntimeFolder = DefaultRuntimeFolder + TestId;
+            await RunClrBridgeClient(true, testRuntimeFolder);
         }
 
-        [TestCleanup]
-        public void TestCleanup()
+        [Fact]
+        [Trait("Priority", "1")]
+        [Trait("Category", "FunctionalGated")]
+        [Trait("Description", "Run CLR Bridge on local runtime")]
+        //// TODO[JIRA REEF-1184]: add timeout 180 sec
+        public async Task CanRunClrBridgeExampleOnLocalRuntime()
         {
-            Console.WriteLine("Post test check and clean up");
+            string testRuntimeFolder = DefaultRuntimeFolder + TestId;
+            await RunClrBridgeClient(false, testRuntimeFolder);
         }
 
-        [TestMethod, Priority(1), TestCategory("FunctionalGated")]
-        [Description("Run CLR Bridge on local runtime")]
-        [DeploymentItem(@".")]
-        [Ignore] //This test needs to be run on Yarn environment with test framework installed.
-        public void CanRunClrBridgeExampleOnYarn()
+        private async Task RunClrBridgeClient(bool runOnYarn, string testRuntimeFolder)
         {
-            string testRuntimeFolder = DefaultRuntimeFolder + TestNumber++;
-            RunClrBridgeClient(true, testRuntimeFolder);
-        }
-
-        [TestMethod, Priority(1), TestCategory("FunctionalGated")]
-        [Description("Run CLR Bridge on local runtime")]
-        [DeploymentItem(@".")]
-        [Timeout(180 * 1000)]
-        public void CanRunClrBridgeExampleOnLocalRuntime()
-        {
-            string testRuntimeFolder = DefaultRuntimeFolder + TestNumber++;
-            CleanUp(testRuntimeFolder);
-            RunClrBridgeClient(false, testRuntimeFolder);
-        }
-
-        private async void RunClrBridgeClient(bool runOnYarn, string testRuntimeFolder)
-        {
-            string[] a = new[] { runOnYarn ? "yarn" : "local", testRuntimeFolder };
-            IDriverHttpEndpoint driverHttpEndpoint = AllHandlers.Run(a);
+            string[] a = { runOnYarn ? "yarn" : "local", testRuntimeFolder };
+            IJobSubmissionResult driverHttpEndpoint = AllHandlers.Run(a);
 
             var uri = driverHttpEndpoint.DriverUrl + "NRT/status?a=1&b=2";
             var strStatus = driverHttpEndpoint.GetUrlResult(uri);
-            Assert.IsTrue(strStatus.Equals("Byte array returned from HelloHttpHandler in CLR!!!\r\n"));
+            Assert.NotNull(strStatus);
+            Assert.True(strStatus.Equals("Byte array returned from HelloHttpHandler in CLR!!!\r\n"));
 
-            await ((HttpClientHelper)driverHttpEndpoint).TryUntilNoConnection(uri);
+            await((JobSubmissionResult)driverHttpEndpoint).TryUntilNoConnection(uri);
 
-            ValidateSuccessForLocalRuntime(2, testRuntimeFolder);
+            ValidateSuccessForLocalRuntime(2, testFolder: testRuntimeFolder);
 
             CleanUp(testRuntimeFolder);
         }

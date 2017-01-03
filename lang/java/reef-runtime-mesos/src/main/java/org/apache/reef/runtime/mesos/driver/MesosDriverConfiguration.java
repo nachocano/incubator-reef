@@ -23,6 +23,7 @@ import org.apache.reef.io.TempFileCreator;
 import org.apache.reef.io.WorkingDirectoryTempFileCreator;
 import org.apache.reef.runtime.common.driver.api.*;
 import org.apache.reef.runtime.common.driver.parameters.ClientRemoteIdentifier;
+import org.apache.reef.runtime.common.driver.parameters.DefinedRuntimes;
 import org.apache.reef.runtime.common.driver.parameters.EvaluatorTimeout;
 import org.apache.reef.runtime.common.driver.parameters.JobIdentifier;
 import org.apache.reef.runtime.common.files.RuntimeClasspathProvider;
@@ -31,6 +32,8 @@ import org.apache.reef.runtime.common.launch.parameters.LaunchID;
 import org.apache.reef.runtime.common.parameters.JVMHeapSlack;
 import org.apache.reef.runtime.mesos.MesosClasspathProvider;
 import org.apache.reef.runtime.mesos.driver.parameters.MesosMasterIp;
+import org.apache.reef.runtime.mesos.driver.parameters.MesosSlavePort;
+import org.apache.reef.runtime.mesos.driver.parameters.JobSubmissionDirectoryPrefix;
 import org.apache.reef.runtime.mesos.util.HDFSConfigurationConstructor;
 import org.apache.reef.tang.formats.ConfigurationModule;
 import org.apache.reef.tang.formats.ConfigurationModuleBuilder;
@@ -45,7 +48,7 @@ import org.apache.reef.wake.impl.SingleThreadStage;
  */
 public final class MesosDriverConfiguration extends ConfigurationModuleBuilder {
   /**
-   * @see JobIdentifier.class
+   * @see JobIdentifier
    */
   public static final RequiredParameter<String> JOB_IDENTIFIER = new RequiredParameter<>();
 
@@ -58,6 +61,15 @@ public final class MesosDriverConfiguration extends ConfigurationModuleBuilder {
    * The ip address of Mesos Master.
    */
   public static final RequiredParameter<String> MESOS_MASTER_IP = new RequiredParameter<>();
+
+  /**
+   * The name of the configured runtimes.
+   */
+  public static final RequiredParameter<String> RUNTIME_NAMES = new RequiredParameter<>();
+  /**
+   * The port number of Mesos Slave.
+   */
+  public static final OptionalParameter<Integer> MESOS_SLAVE_PORT = new OptionalParameter<>();
 
   /**
    * The client remote identifier.
@@ -74,6 +86,11 @@ public final class MesosDriverConfiguration extends ConfigurationModuleBuilder {
    */
   public static final RequiredParameter<Integer> SCHEDULER_DRIVER_CAPACITY = new RequiredParameter<>();
 
+  /**
+   * The client remote identifier.
+   */
+  public static final OptionalParameter<String> JOB_SUBMISSION_DIRECTORY_PREFIX = new OptionalParameter<>();
+
   public static final ConfigurationModule CONF = new MesosDriverConfiguration()
       .bindImplementation(ResourceLaunchHandler.class, MesosResourceLaunchHandler.class)
       .bindImplementation(ResourceReleaseHandler.class, MesosResourceReleaseHandler.class)
@@ -83,19 +100,22 @@ public final class MesosDriverConfiguration extends ConfigurationModuleBuilder {
       .bindImplementation(TempFileCreator.class, WorkingDirectoryTempFileCreator.class)
 
       .bindNamedParameter(MesosMasterIp.class, MESOS_MASTER_IP)
+      .bindNamedParameter(MesosSlavePort.class, MESOS_SLAVE_PORT)
       .bindConstructor(Configuration.class, HDFSConfigurationConstructor.class)
       .bindImplementation(RuntimeClasspathProvider.class, MesosClasspathProvider.class)
 
       .bindNamedParameter(StageConfiguration.Capacity.class, SCHEDULER_DRIVER_CAPACITY)
+      .bindNamedParameter(JobSubmissionDirectoryPrefix.class, JOB_SUBMISSION_DIRECTORY_PREFIX)
       .bindNamedParameter(StageConfiguration.StageHandler.class, MesosSchedulerDriverExecutor.class)
       .bindImplementation(EStage.class, SingleThreadStage.class)
 
-          // Bind the fields bound in AbstractDriverRuntimeConfiguration
+      // Bind the fields bound in AbstractDriverRuntimeConfiguration
       .bindNamedParameter(JobIdentifier.class, JOB_IDENTIFIER)
       .bindNamedParameter(LaunchID.class, JOB_IDENTIFIER)
       .bindNamedParameter(EvaluatorTimeout.class, EVALUATOR_TIMEOUT)
       .bindNamedParameter(ClientRemoteIdentifier.class, CLIENT_REMOTE_IDENTIFIER)
       .bindNamedParameter(ErrorHandlerRID.class, CLIENT_REMOTE_IDENTIFIER)
       .bindNamedParameter(JVMHeapSlack.class, JVM_HEAP_SLACK)
+      .bindSetEntry(DefinedRuntimes.class, RUNTIME_NAMES)
       .build();
 }

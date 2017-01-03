@@ -23,6 +23,9 @@ import org.junit.Assert;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Tests for ConcurrentSkipListMap.
+ */
 public class SkipListTest {
 
   public static void main(final String[] arg) {
@@ -327,8 +330,8 @@ public class SkipListTest {
               mm.put(i, i);
             }
           }
-        }
-            , 10, TimeUnit.SECONDS);
+        },
+            10, TimeUnit.SECONDS);
       }
       final long inend = System.currentTimeMillis();
 

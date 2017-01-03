@@ -25,6 +25,12 @@ import org.apache.reef.wake.rx.Observer;
 import java.util.Map;
 import java.util.concurrent.ConcurrentSkipListMap;
 
+/**
+ * key-value pair Combiner stage.
+ *
+ * @param <K> key
+ * @param <V> value
+ */
 public class CombinerStage<K extends Comparable<K>, V> implements Stage {
 
   private final Combiner<K, V> c;
@@ -52,7 +58,7 @@ public class CombinerStage<K extends Comparable<K>, V> implements Stage {
           old = register.get(pair.getKey());
           newVal = c.combine(pair.getKey(), old, pair.getValue());
           if (old == null) {
-            succ = (null == register.putIfAbsent(pair.getKey(), newVal));
+            succ = null == register.putIfAbsent(pair.getKey(), newVal);
           } else {
             succ = register.replace(pair.getKey(), old, newVal);
           }
@@ -87,10 +93,22 @@ public class CombinerStage<K extends Comparable<K>, V> implements Stage {
     worker.join();
   }
 
+  /**
+   * key-value pair Combiner Interface.
+   *
+   * @param <K> key
+   * @param <V> value
+   */
   public interface Combiner<K extends Comparable<K>, V> {
     V combine(K key, V old, V cur);
   }
 
+  /**
+   * A comparable key-value pair.
+   *
+   * @param <K> key
+   * @param <V> value
+   */
   public static class Pair<K extends Comparable<K>, V> implements Map.Entry<K, V>, Comparable<Map.Entry<K, V>> {
     private final K k;
     private final V v;
@@ -98,6 +116,24 @@ public class CombinerStage<K extends Comparable<K>, V> implements Stage {
     public Pair(final K k, final V v) {
       this.k = k;
       this.v = v;
+    }
+
+    @Override
+    public boolean equals(final Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+
+      Pair<K, V> pair = (Pair<K, V>) o;
+      return k.compareTo(pair.getKey()) == 0;
+    }
+
+    @Override
+    public int hashCode() {
+      return k.hashCode();
     }
 
     @Override
@@ -122,7 +158,7 @@ public class CombinerStage<K extends Comparable<K>, V> implements Stage {
   }
 
   private class OutputThread extends Thread {
-    public OutputThread() {
+    OutputThread() {
       super("grouper-output-thread");
     }
 

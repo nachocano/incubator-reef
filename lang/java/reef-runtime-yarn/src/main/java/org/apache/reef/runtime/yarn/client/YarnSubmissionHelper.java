@@ -6,9 +6,9 @@
  * to you under the Apache License, Version 2.0 (the
  * "License"); you may not use this file except in compliance
  * with the License.  You may obtain a copy of the License at
- * <p/>
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- * <p/>
+ * <p>
  * Unless required by applicable law or agreed to in writing,
  * software distributed under the License is distributed on an
  * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
@@ -26,6 +26,7 @@ import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 import org.apache.hadoop.yarn.conf.YarnConfiguration;
 import org.apache.hadoop.yarn.exceptions.YarnException;
+import org.apache.reef.runtime.common.REEFLauncher;
 import org.apache.reef.runtime.common.files.ClasspathProvider;
 import org.apache.reef.runtime.common.files.REEFFileNames;
 import org.apache.reef.runtime.common.launch.JavaLaunchCommandBuilder;
@@ -33,38 +34,45 @@ import org.apache.reef.runtime.yarn.util.YarnTypes;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  * Helper code that wraps the YARN Client API for our purposes.
  */
-public final class YarnSubmissionHelper implements Closeable{
+public final class YarnSubmissionHelper implements Closeable {
+
   private static final Logger LOG = Logger.getLogger(YarnSubmissionHelper.class.getName());
 
   private final YarnClient yarnClient;
-  private final YarnClientApplication yarnClientApplication;
   private final GetNewApplicationResponse applicationResponse;
   private final ApplicationSubmissionContext applicationSubmissionContext;
   private final ApplicationId applicationId;
   private final Map<String, LocalResource> resources = new HashMap<>();
-  private final REEFFileNames fileNames;
   private final ClasspathProvider classpath;
   private final SecurityTokenProvider tokenProvider;
-  private boolean preserveEvaluators;
-  private int maxAppSubmissions;
   private final List<String> commandPrefixList;
+
+  private String driverStdoutFilePath;
+  private String driverStderrFilePath;
+  private Class launcherClazz = REEFLauncher.class;
+  private List<String> configurationFilePaths;
 
   public YarnSubmissionHelper(final YarnConfiguration yarnConfiguration,
                               final REEFFileNames fileNames,
                               final ClasspathProvider classpath,
                               final SecurityTokenProvider tokenProvider,
+                              final boolean isUnmanaged,
                               final List<String> commandPrefixList) throws IOException, YarnException {
-    this.fileNames = fileNames;
+
     this.classpath = classpath;
+
+    this.driverStdoutFilePath =
+        ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/" + fileNames.getDriverStdoutFileName();
+
+    this.driverStderrFilePath =
+        ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/" + fileNames.getDriverStderrFileName();
 
     LOG.log(Level.FINE, "Initializing YARN Client");
     this.yarnClient = YarnClient.createYarnClient();
@@ -73,30 +81,29 @@ public final class YarnSubmissionHelper implements Closeable{
     LOG.log(Level.FINE, "Initialized YARN Client");
 
     LOG.log(Level.FINE, "Requesting Application ID from YARN.");
-    this.yarnClientApplication = this.yarnClient.createApplication();
+    final YarnClientApplication yarnClientApplication = this.yarnClient.createApplication();
     this.applicationResponse = yarnClientApplication.getNewApplicationResponse();
     this.applicationSubmissionContext = yarnClientApplication.getApplicationSubmissionContext();
-    this.applicationId = applicationSubmissionContext.getApplicationId();
-    this.maxAppSubmissions = 1;
-    this.preserveEvaluators = false;
+    this.applicationSubmissionContext.setUnmanagedAM(isUnmanaged);
+    this.applicationId = this.applicationSubmissionContext.getApplicationId();
     this.tokenProvider = tokenProvider;
     this.commandPrefixList = commandPrefixList;
-    LOG.log(Level.FINEST, "YARN Application ID: {0}", applicationId);
+    this.configurationFilePaths = Collections.singletonList(fileNames.getDriverConfigurationPath());
+    LOG.log(Level.INFO, "YARN Application ID: {0}", this.applicationId);
   }
 
   public YarnSubmissionHelper(final YarnConfiguration yarnConfiguration,
                               final REEFFileNames fileNames,
                               final ClasspathProvider classpath,
-                              final SecurityTokenProvider tokenProvider) throws IOException, YarnException {
-    this(yarnConfiguration, fileNames, classpath, tokenProvider, null);
+                              final SecurityTokenProvider tokenProvider,
+                              final boolean isUnmanaged) throws IOException, YarnException {
+    this(yarnConfiguration, fileNames, classpath, tokenProvider, isUnmanaged, null);
   }
 
-
-
-    /**
-     *
-     * @return the application ID assigned by YARN.
-     */
+  /**
+   *
+   * @return the application ID assigned by YARN.
+   */
   public int getApplicationId() {
     return this.applicationId.getId();
   }
@@ -201,14 +208,58 @@ public final class YarnSubmissionHelper implements Closeable{
     return this;
   }
 
+  /**
+   * Sets the launcher class for the job.
+   * @param launcherClass
+   * @return
+   */
+  public YarnSubmissionHelper setLauncherClass(final Class launcherClass) {
+    this.launcherClazz = launcherClass;
+    return this;
+  }
+
+  /**
+   * Sets the configuration file for the job.
+   * Note that this does not have to be Driver TANG configuration. In the bootstrap
+   * launch case, this can be the set of  the Avro files that supports the generation of a driver
+   * configuration file natively at the Launcher.
+   * @param configurationFilePaths
+   * @return
+   */
+  public YarnSubmissionHelper setConfigurationFilePaths(final List<String> configurationFilePaths) {
+    this.configurationFilePaths = configurationFilePaths;
+    return this;
+  }
+
+  /**
+   * Sets the Driver stdout file path.
+   * @param driverStdoutPath
+   * @return
+   */
+  public YarnSubmissionHelper setDriverStdoutPath(final String driverStdoutPath) {
+    this.driverStdoutFilePath = driverStdoutPath;
+    return this;
+  }
+
+  /**
+   * Sets the Driver stderr file path.
+   * @param driverStderrPath
+   * @return
+   */
+  public YarnSubmissionHelper setDriverStderrPath(final String driverStderrPath) {
+    this.driverStderrFilePath = driverStderrPath;
+    return this;
+  }
+
   public void submit() throws IOException, YarnException {
+
     // SET EXEC COMMAND
-    final List<String> launchCommand = new JavaLaunchCommandBuilder(commandPrefixList)
-        .setConfigurationFileName(this.fileNames.getDriverConfigurationPath())
+    final List<String> launchCommand = new JavaLaunchCommandBuilder(launcherClazz, commandPrefixList)
+        .setConfigurationFilePaths(configurationFilePaths)
         .setClassPath(this.classpath.getDriverClasspath())
         .setMemory(this.applicationSubmissionContext.getResource().getMemory())
-        .setStandardOut(ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/" + this.fileNames.getDriverStdoutFileName())
-        .setStandardErr(ApplicationConstants.LOG_DIR_EXPANSION_VAR + "/" + this.fileNames.getDriverStderrFileName())
+        .setStandardOut(driverStdoutFilePath)
+        .setStandardErr(driverStderrFilePath)
         .build();
 
     if (this.applicationSubmissionContext.getKeepContainersAcrossApplicationAttempts() &&
@@ -232,7 +283,7 @@ public final class YarnSubmissionHelper implements Closeable{
 
   /**
    * Extract the desired driver memory from jobSubmissionProto.
-   * <p/>
+   * <p>
    * returns maxMemory if that desired amount is more than maxMemory
    */
   private int getMemory(final int requestedMemory) {
