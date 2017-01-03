@@ -61,6 +61,7 @@ public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorT
   protected final BlockingQueue<NumberedSplit<InputSplit>> unallocatedSplits;
 
   private int totalNumberOfSplits;
+  private Map<String, Integer> totalNumberOfSplitsPerLocation;
 
   @SuppressWarnings("rawtypes")
   AbstractEvaluatorToPartitionStrategy(
@@ -72,6 +73,7 @@ public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorT
     locationToSplits = new ConcurrentHashMap<>();
     evaluatorToSplits = new ConcurrentHashMap<>();
     unallocatedSplits = new LinkedBlockingQueue<>();
+    totalNumberOfSplitsPerLocation = new HashMap<>();
     setUp();
 
     final Map<DistributedDataSetPartition, InputSplit[]> splitsPerPartition = new HashMap<>();
@@ -87,6 +89,7 @@ public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorT
           LOG.log(Level.FINEST, "Splits for partition: {0} {1}", new Object[] {dp, Arrays.toString(inputSplits)});
         }
         this.totalNumberOfSplits += inputSplits.length;
+        this.totalNumberOfSplitsPerLocation.put(dp.getLocation(), inputSplits.length);
         splitsPerPartition.put(dp, inputSplits);
       } catch (final IOException e) {
         throw new RuntimeException("Unable to get InputSplits using the specified InputFormat", e);
@@ -251,4 +254,13 @@ public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorT
       }
     }
   }
+
+  /**
+   * returns the total number of splits based on the location
+   */
+  @Override
+  public Integer getNumberOfSplits(String location) {
+    return this.totalNumberOfSplitsPerLocation.get(location);
+  }
+
 }

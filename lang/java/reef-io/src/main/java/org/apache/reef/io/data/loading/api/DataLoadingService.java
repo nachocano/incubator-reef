@@ -35,6 +35,13 @@ public interface DataLoadingService {
    * @return the number of partitions suggested by this DataSource.
    */
   int getNumberOfPartitions();
+  
+  /**
+   * Access to the number of partitions suggested by this DataSource for a particular location.
+   *
+   * @return the number of partitions suggested by this DataSource for a particular location.
+   */
+  int getNumberOfPartitions(String location);
 
   /**
    * @return the context configuration for the given Evaluator.

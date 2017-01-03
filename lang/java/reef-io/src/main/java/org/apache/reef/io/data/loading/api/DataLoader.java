@@ -139,26 +139,29 @@ public class DataLoader {
         this.resourceRequestStage.onNext(computeRequest);
       }
     }
-    // Deserialize each data requests.
-    // We distribute the partitions evenly across the DCs.
+    // Deserialize each data request.
     // The number of partitions extracted from the dataLoadingService override
     // the number of evaluators requested (this preserves previous functionality)
-    final int dcs = serializedDataRequests.size();
-    final int partitionsPerDataCenter = this.dataLoadingService.getNumberOfPartitions() / dcs;
-    int missing = this.dataLoadingService.getNumberOfPartitions() % dcs;
     for (final String serializedDataRequest : serializedDataRequests) {
       EvaluatorRequest dataRequest = AvroEvaluatorRequestSerializer.fromString(serializedDataRequest);
       this.dataEvalMemoryMB = Math.max(this.dataEvalMemoryMB, dataRequest.getMegaBytes());
       this.dataEvalCore = Math.max(this.dataEvalCore, dataRequest.getNumberOfCores());
-      // clone the request but update the number of evaluators based on the number of partitions
-      int number = partitionsPerDataCenter;
-      if (missing > 0) {
-        number++;
-        missing--;
+      int numberOfPartitions = 0;
+      for (String rackName : dataRequest.getRackNames()) {
+        numberOfPartitions += this.dataLoadingService.getNumberOfPartitions(rackName);
       }
-      dataRequest = EvaluatorRequest.newBuilder(dataRequest).setNumber(number).build();
-      this.numDataRequestsToSubmit.addAndGet(number);
-      this.resourceRequestStage.onNext(dataRequest);
+      for (String nodeName : dataRequest.getNodeNames()) {
+        numberOfPartitions += this.dataLoadingService.getNumberOfPartitions(nodeName);
+      }
+      if (numberOfPartitions == 0) {
+        LOG.log(Level.INFO, "Did not find number of partitions for racks nor nodes, getting all partitions");
+        numberOfPartitions = this.dataLoadingService.getNumberOfPartitions();
+      }
+      LOG.log(Level.INFO, "Number of partitions for data request {0}", numberOfPartitions);
+      // clone the request but update the number of evaluators based on the number of partitions for the dc
+      dataRequest = EvaluatorRequest.newBuilder(dataRequest).setNumber(numberOfPartitions).build();
+      this.numDataRequestsToSubmit.addAndGet(numberOfPartitions);
+      this.resourceRequestStage.onNext(dataRequest);          
     }
   }
 
