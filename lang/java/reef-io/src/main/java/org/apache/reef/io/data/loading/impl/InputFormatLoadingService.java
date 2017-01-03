@@ -87,10 +87,10 @@ public class InputFormatLoadingService<K, V> implements DataLoadingService {
   
   /**
    * This method returns the number of splits in a particular location.
-   * If the location cannot be found, then it returns 0
+   * If the location cannot be found, then it returns 0. 
    */
   @Override
-  public int getNumberOfPartitions(String location) {
+  public int getNumberOfPartitions(final String location) {
     Integer value = evaluatorToPartitionStrategy.getNumberOfSplits(location);
     return value == null ? 0 : value;
   }

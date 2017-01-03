@@ -256,10 +256,10 @@ public abstract class AbstractEvaluatorToPartitionStrategy implements EvaluatorT
   }
 
   /**
-   * returns the total number of splits based on the location
+   * Returns the total number of splits based on the location.
    */
   @Override
-  public Integer getNumberOfSplits(String location) {
+  public Integer getNumberOfSplits(final String location) {
     return this.totalNumberOfSplitsPerLocation.get(location);
   }
 

@@ -57,7 +57,7 @@ public interface EvaluatorToPartitionStrategy<V extends InputSplit> {
   int getNumberOfSplits();
   
   /**
-   * Returns the total number of splits for a particular location
+   * Returns the total number of splits for a particular location.
    * @return
    *  the number of splits for the particular location  
    */

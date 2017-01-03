@@ -40,16 +40,16 @@ public final class ExactSplitTextInputFormat extends TextInputFormat {
   private static final Logger LOG = Logger.getLogger(ExactSplitTextInputFormat.class.getName());
 
   @Override
-  public InputSplit[] getSplits(JobConf job, int numSplits) throws IOException {
+  public InputSplit[] getSplits(final JobConf job, final int numSplits) throws IOException {
     long totalSize = getTotalSize(job);
-    LOG.log(Level.INFO, "Total Size {0}, NumSplits {1}", new Object[] { totalSize, numSplits });
+    LOG.log(Level.INFO, "Total Size {0}, NumSplits {1}", new Object[]{totalSize, numSplits});
     String splitMinSize = Long.toString((long) (Math.ceil((double) totalSize / numSplits)));
     LOG.log(Level.INFO, "Setting split minimum size to {0}", splitMinSize);
     job.set(org.apache.hadoop.mapreduce.lib.input.FileInputFormat.SPLIT_MINSIZE, splitMinSize);
     return super.getSplits(job, numSplits);
   }
 
-  private long getTotalSize(JobConf job) throws IOException {
+  private long getTotalSize(final JobConf job) throws IOException { 
     FileStatus[] files = listStatus(job);
     long totalSize = 0; // compute total size
     for (FileStatus file : files) { // check we have valid files
