@@ -27,17 +27,17 @@ import org.apache.commons.lang3.Validate;
  */
 public class ZeroCopyByteArrayOutputStream extends ByteArrayOutputStream {
 
-	private final int size;
+  private final int size;
 
-	public ZeroCopyByteArrayOutputStream(final int size) {
-		super(size);
-		this.size = size;
-	}
+  public ZeroCopyByteArrayOutputStream(final int size) {
+    super(size);
+    this.size = size;
+  }
 
-	@Override
-	public synchronized byte[] toByteArray() {
-		Validate.isTrue(count == size, "count is %d but size is %d, they should be equal!", count, size);
-		return buf;
-	}
+  @Override
+  public synchronized byte[] toByteArray() {
+    Validate.isTrue(count == size, "count is %d but size is %d, they should be equal!", count, size);
+    return buf;
+  }
 
 }
