@@ -54,4 +54,9 @@ public class StreamingIntegerCodec implements StreamingCodec<Integer> {
   public byte[] encode(final Integer obj) {
     return new byte[0];
   }
+
+  @Override
+  public int nonUTFSizeToEncodeToStream(final Integer obj, final DataOutputStream stream) {
+    return 4; // stream.writeInt(obj);
+  }
 }

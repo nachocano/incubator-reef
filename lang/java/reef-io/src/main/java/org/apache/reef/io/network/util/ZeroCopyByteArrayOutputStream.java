@@ -16,22 +16,28 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-package org.apache.reef.io.network.impl;
+package org.apache.reef.io.network.util;
 
-import org.apache.reef.wake.remote.Codec;
+import java.io.ByteArrayOutputStream;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
+import org.apache.commons.lang3.Validate;
 
 /**
- * A codec that can make serialization more efficient when an object has to be.
- * codec'ed through a chain of codecs
+ * Avoids re-sizing of the backing array.
  */
-public interface StreamingCodec<T> extends Codec<T> {
+public class ZeroCopyByteArrayOutputStream extends ByteArrayOutputStream {
 
-  int nonUTFSizeToEncodeToStream(T obj, DataOutputStream stream);
+	private final int size;
 
-  void encodeToStream(T obj, DataOutputStream stream);
+	public ZeroCopyByteArrayOutputStream(final int size) {
+		super(size);
+		this.size = size;
+	}
 
-  T decodeFromStream(DataInputStream stream);
+	@Override
+	public synchronized byte[] toByteArray() {
+		Validate.isTrue(count == size, "count is %d but size is %d, they should be equal!", count, size);
+		return buf;
+	}
+
 }

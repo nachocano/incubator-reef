@@ -23,6 +23,7 @@ import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.reef.io.network.exception.NetworkRuntimeException;
 import org.apache.reef.io.network.proto.ReefNetworkServiceProtos.NSMessagePBuf;
 import org.apache.reef.io.network.proto.ReefNetworkServiceProtos.NSRecordPBuf;
+import org.apache.reef.io.network.util.ZeroCopyByteArrayOutputStream;
 import org.apache.reef.wake.Identifier;
 import org.apache.reef.wake.IdentifierFactory;
 import org.apache.reef.wake.remote.Codec;
@@ -64,7 +65,10 @@ public class NSMessageCodec<T> implements Codec<NSMessage<T>> {
   public byte[] encode(final NSMessage<T> obj) {
     if (isStreamingCodec) {
       final StreamingCodec<T> streamingCodec = (StreamingCodec<T>) codec;
-      try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+      // compute the size before, slightly inefficient, but avoids reallocating the
+      // backing array of the ByteArrayOutputStream
+      final int size = computeSize(obj, streamingCodec);
+      try (ByteArrayOutputStream baos = new ZeroCopyByteArrayOutputStream(size)) {
         try (DataOutputStream daos = new DataOutputStream(baos)) {
           daos.writeUTF(obj.getSrcId().toString());
           daos.writeUTF(obj.getDestId().toString());
@@ -88,6 +92,32 @@ public class NSMessageCodec<T> implements Codec<NSMessage<T>> {
       }
       return pbuf.build().toByteArray();
     }
+  }
+
+  /**
+   * Computes the size of the object to encode.
+   *
+   * @param obj the message to encode
+   * @param streamingCodec the codec to use
+   * @return the size
+   */
+  private int computeSize(final NSMessage<T> obj, final StreamingCodec<T> streamingCodec) {
+    int size = 0; // in bytes
+    try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+      try (DataOutputStream daos = new DataOutputStream(baos)) {
+        daos.writeUTF(obj.getSrcId().toString());
+        daos.writeUTF(obj.getDestId().toString());
+        size += 4; //daos.writeInt(obj.getData().size());
+        for (final T rec : obj.getData()) {
+          size += streamingCodec.nonUTFSizeToEncodeToStream(rec, daos);
+        }
+        // and now the UTF size
+        size += daos.size();
+      }
+    } catch (final IOException e) {
+      throw new RuntimeException("IOException", e);
+    }
+    return size;
   }
 
   /**

@@ -107,4 +107,30 @@ public class GroupCommunicationMessageCodec implements StreamingCodec<GroupCommu
     }
   }
 
+  /**
+   * Computes the nonUTF sizes based on the encodeToStream method, if that method
+   * changes, this should also change.
+   */
+  @Override
+  public int nonUTFSizeToEncodeToStream(final GroupCommunicationMessage msg, final DataOutputStream stream) {
+    int size = 0;
+    try {
+      stream.writeUTF(msg.getGroupname());
+      stream.writeUTF(msg.getOperatorname());
+      size += 4; // stream.writeInt(msg.getType().getNumber());
+      stream.writeUTF(msg.getSrcid());
+      size += 4; // stream.writeInt(msg.getSrcVersion());
+      stream.writeUTF(msg.getDestid());
+      size += 4; //stream.writeInt(msg.getVersion());
+      size += 4; // stream.writeInt(msg.getMsgsCount());
+      for (final byte[] b : msg.getData()) {
+        size += 4; // stream.writeInt(b.length);
+        size += b.length; // stream.write(b);
+      }
+    } catch (final IOException e) {
+      throw new RuntimeException("IOException", e);
+    }
+    return size;
+  }
+
 }

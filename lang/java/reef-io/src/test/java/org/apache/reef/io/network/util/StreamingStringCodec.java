@@ -53,4 +53,10 @@ public class StreamingStringCodec implements StreamingCodec<String> {
       throw new RuntimeException(e);
     }
   }
+
+  @Override
+  public int nonUTFSizeToEncodeToStream(final String obj, final DataOutputStream stream) {
+    encodeToStream(obj, stream);
+    return 0;
+  }
 }
